@@ -42,7 +42,7 @@ alignof(::Type{SMatrix{N, M, T, L}}) where {N, M, T, L} = alignof(Vec{M, T})
 function makeStruct(name::String, fields::Array{String}; mutableType=false, abstractType="")
 	line = [(mutableType ? "mutable " : "")*"struct $name"*abstractType]
 	for field in fields
-		push!(line, "\t"*field)
+		push!(line, (" "^4)*field)
 	end
 	push!(line, "end\n")
 	lineJoined = join(line, "\n")
@@ -52,7 +52,7 @@ end
 function makeStruct(name::String, fields::Dict{String, String}; mutableType=false, abstractType="")
 	a = [(mutableType ? "mutable " : "")*"struct $name"*abstractType]
 	for (name, type) in fields
-		push!(a, "\t"*name*"::"*type)
+		push!(a, (" "^4)*name*"::"*type)
 	end
 	push!(a, "end\n")
 	aJoined = join(a, "\n")
@@ -151,10 +151,9 @@ function makePaddedWGSLStruct(name::Symbol, fields)
 	len = length(fieldVector)
 	# @assert issorted(fieldVector) "Fields should remain sorted"
 	line = ["struct $name {"]
-	@info fieldVector
 	for (idx, (name, type)) in enumerate(fieldVector)
 		name = replace(name, "##" => "_pad")
-		push!(line, "\t$(name):$(type)"*(idx==len ? "" : ","))
+		push!(line, " "^4*"$(name): $(type)"*(idx==len ? "" : ","))
 	end
 	push!(line, "};")
 	lineJoined = join(line, "\n")
