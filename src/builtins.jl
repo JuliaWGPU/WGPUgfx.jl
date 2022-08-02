@@ -1,5 +1,8 @@
 module BuiltInsMod
 
+using GeometryBasics
+using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4
+
 export BuiltinValue, getEnumBuiltinValue, BuiltIn, @builtin
 
 @enum BuiltinValue begin
