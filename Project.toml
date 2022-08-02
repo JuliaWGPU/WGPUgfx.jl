@@ -1,0 +1,17 @@
+name = "WGPUgfx"
+uuid = "0ac00e0e-07f9-4db3-a787-e8970c1d2a82"
+authors = ["littu "]
+version = "0.1.0"
+
+[deps]
+Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
+GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+Mustache = "ffc61752-8dc7-55ee-8c37-f3e9cdd09e70"
+OhMyREPL = "5fb14364-9ced-5910-84b2-373655c76a03"
+Quaternions = "94ee1d12-ae83-5a48-8b1c-48b8ff168ae0"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+Rotations = "6038ab10-8711-5258-84ad-4b1120ba62dc"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+WGPU = "53d714bf-0d76-4802-84b4-6cb75cca55f5"
+WGPU_jll = "a34101cb-cf34-4534-a843-44c27476dfe4"
