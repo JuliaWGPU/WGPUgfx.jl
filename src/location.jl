@@ -1,6 +1,8 @@
 module LocationMod
 
 export Location, @location
+using GeometryBasics
+using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4
 
 struct Location{B, S, D} end
 
