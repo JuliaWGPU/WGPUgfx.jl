@@ -51,27 +51,6 @@ function wgslType(::Type{Mat3{T}}) where T
  	return "mat3x3<$(wgslType(T))>"
 end
 
-
-function wgslType(::Type{Vec{N, T}}) where {N, T}
-	return "vec$(N)<$(wgslType(T))>"
-end
-
-function wgslType(::Type{T}) where T
-	wgsltype = get(juliaToWGSLTypes, T, nothing)
-	if wgsltype == nothing
-		@error "Invalid Julia type or missing wgsl type"
-	end
-	return wgsltype
-end
-
-function wgslType(::Type{Mat4{T}}) where T
- 	return "mat4x4<$(wgslType(T))>"
-end
-
-function wgslType(::Type{Mat3{T}}) where T
- 	return "mat3x3<$(wgslType(T))>"
-end
-
 function wgslType(::Type{Mat2{T}}) where T
  	return "mat2x2<$(wgslType(T))>"
 end
@@ -100,7 +79,6 @@ function wgslType(l::Location)
 	return "@location($(l.index)) $(wgslType(l.decl))"
 end
 
-wgslType(bt::BuiltinValue) = string(bt)
 wgslType(val::Val{T}) where T = wgslType(T)
 wgslType(a::Symbol) = string(a)
 

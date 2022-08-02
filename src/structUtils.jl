@@ -1,4 +1,4 @@
-module StructUtils
+module StructUtilsMod
 
 using WGPU
 using WGPU: getEnum
@@ -30,10 +30,6 @@ function alignof(::Type{T}) where T
 		c+=1
 	end
 	return 2^(count_ones(sizeof(T)) == 1 ? c-1 : c)
-end
-
-function alignof(::Type{Mat4{T}}) where T
-	
 end
 
 alignof(::Type{Mat2{T}}) where T = alignof(Vec2{T})

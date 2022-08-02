@@ -46,7 +46,7 @@ macro builtin(exp)
 	@assert exp.head == :call "Expecting (builtinValue) => sym::DataType"
 	@assert typeof(exp.args) == Vector{Any} "E $(typeof(exp.args))"
 	@assert exp.args[1] == :(=>) "Should check"
-	@assert exp.args[2] in Symbol.(instances(BuiltinValue)) "asdfasdf"
+	@assert exp.args[2] in Symbol.(instances(BuiltinValue)) "$(exp.args[2]) is not in BuiltinValue Enum"
 	b = exp.args[2]
 	@assert typeof(exp.args[3]) == Expr """
 		This expression should be of format sym::Float32
