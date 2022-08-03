@@ -1,5 +1,7 @@
 module VariableDeclMod
 
+export StorageVar, UniformVar, PrivateVar
+
 using Lazy:@forward
 
 struct ImplicitPadding
@@ -89,7 +91,7 @@ wgslType(var::VarDataType{T}) where T = begin
 	attrStr = let t = var.attribute; t == nothing ? "" : wgslType(t) end
 	varStr = "var$(wgslType(Val(var.varType))) $(wgslType(var.valTypePair))"
 	valStr = let t = var.value; t == nothing ? "" : "= $(wgslType(t))" end
-	return "$(attrStr) $(varStr) $(valStr);"	
+	return "$(attrStr)$(varStr) $(valStr);"	
 end
 
 struct GenericVar{T} <: Variable{T}
@@ -105,7 +107,7 @@ function GenericVar(
 	attrType = Union{map(typeof, [group, binding])...}
 	@assert attrType in [Nothing, Int] "Both group and binding should be defined or left to nothing"
 	VarDataType{T}(
-		attrType == nothing ? nothing : VarAttribute(group, binding),
+		(attrType == Nothing) ? nothing : VarAttribute(group, binding),
 		pair,
 		value,
 		getEnumVariableType(:Generic)
@@ -127,7 +129,7 @@ function UniformVar(
 	attrType = Union{map(typeof, [group, binding])...}
 	@assert attrType in [Nothing, Int] "Both group and binding should be defined or left to nothing"
 	VarDataType{T}(
-		attrType == nothing ? nothing : VarAttribute(group, binding),
+		attrType == Nothing ? nothing : VarAttribute(group, binding),
 		pair,
 		value,
 		getEnumVariableType(:Uniform)
@@ -149,7 +151,7 @@ function StorageVar(
 	attrType = Union{map(typeof, [group, binding])...}
 	@assert attrType in [Nothing, Int] "Both group and binding should be defined or left to nothing"
 	VarDataType{T}(
-		attrType == nothing ? nothing : VarAttribute(group, binding),
+		attrType == Nothing ? nothing : VarAttribute(group, binding),
 		pair,
 		value,
 		getEnumVariableType(:Storage)
@@ -172,7 +174,7 @@ function PrivateVar(
 	attrType = Union{map(typeof, [group, binding])...}
 	@assert attrType in [Nothing, Int] "Both group and binding should be defined or left to nothing"
 	VarDataType{T}(
-		attrType == nothing ? nothing : VarAttribute(group, binding),
+		attrType == Nothing ? nothing : VarAttribute(group, binding),
 		pair,
 		value,
 		getEnumVariableType(:Private)

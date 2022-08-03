@@ -8,7 +8,7 @@ using Lazy: @forward
 export wgslType, 
 	BuiltIn, @builtin, getEnumBuiltinValue,
 	makePaddedStruct, makePaddedWGSLStruct, 
-	Location, @location
+	Location, @location, BuiltInDataType, BuiltinValue, LocationDataType
 
 using StaticArrays
 using GeometryBasics
@@ -69,6 +69,16 @@ padType = Dict(
 	64 => "mat4<f32>"
 )
 
+juliaPadType = Dict(
+	1 => Bool,
+	2 => Vec2{Bool},
+	4 => Vec4{Bool},
+	8 => Vec2{UInt32},
+	16 => Vec2{UInt32},
+	32 => Mat4{Float16},
+	64 => Mat4{Float32}
+)
+
 
 function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, fields...)
 	offsets = [0,]
@@ -118,20 +128,40 @@ function makeStruct(name::Symbol, abstractType::Union{Nothing, DataType}, fields
 	end |> eval
 end
 
+adaptType(p::Pair{S, D}) where {S<:Symbol, D<:DataType} = adaptType(p.first, p.second)
+adaptType(::Val{T}) where T = typeof(T) == BuiltinValue ? adaptType(T) : T
+adaptType(::Type{Val{T}}) where T = T
+adaptType(::Type{T}) where T = T
+adaptType(a::BuiltinValue) = string(a) |> Symbol
+adaptType(::Type{BuiltInDataType{B, D}}) where {B, D} = BuiltIn(adaptType(B), gensym()=>adaptType(D))
+adaptType(::Type{LocationDataType{B, D}}) where {B, D} = Location(adaptType(B), gensym()=>adaptType(D))
+adaptType(a::Symbol, ::Type{BuiltInDataType{B, D}}) where {B, D} = BuiltIn(adaptType(B), a=>adaptType(D))
+adaptType(a::Symbol, ::Type{LocationDataType{B, D}}) where {B, D} = Location(adaptType(B), a=>adaptType(D))
+adaptType(a::Symbol, ::Type{DataType}) = a=>adaptType(D)
+adaptType(a::Symbol, ::Type{T}) where T = a=>T
+adaptType(::Type{S}) where S<:Symbol = Symbol
+adaptType(a::Symbol) = a
 
-function makePaddedWGSLStruct(name::Symbol, fields)
+byteSize(::Type{T}) where T = sizeof(T)
+byteSize(::Type{Val{T}}) where T = sizeof(T)
+byteSize(::Val{T}) where T = sizeof(T)
+byteSize(::Type{BuiltInDataType{B, D}}) where {B, D} = byteSize(D)
+byteSize(::Type{BuiltIn{B, S, D}}) where {B, S, D} = byteSize(D)
+byteSize(::Type{LocationDataType{B, D}}) where {B, D} = byteSize(D)
+byteSize(::Type{Location{B, S, D}}) where {B, S, D} = byteSize(D)
+
+function makePaddedWGSLStruct(name::Symbol, fields...)
 	@assert issorted(fields |> keys) "Fields are expected to be sorted for consistency"
 	offsets = [0,]
 	prevfieldSize = 0
-	fieldVector = [String(key)=>wgslType(val) for (key, val) in fields]
+	fieldVector = [adaptType(field) for field in fields...]
 	padCount = 0
-	for (idx, (var, field)) in enumerate(fields)
+	for (idx, (var, field)) in enumerate(fields...)
 		if idx == 1
-			prevfieldSize = sizeof(field)
+			prevfieldSize = byteSize(field)
 			continue
 		end
-
-		fieldSize = sizeof(field)
+		fieldSize = byteSize(field)
 		potentialOffset = prevfieldSize + offsets[end]
 		padSize = (div(potentialOffset, fieldSize, RoundUp)*fieldSize - potentialOffset) |> UInt8
 		@assert padSize >= 0 "pad size should be ≥ 0"
@@ -141,7 +171,11 @@ function makePaddedWGSLStruct(name::Symbol, fields)
 				sz = bitrotate(sz, 1)
 				if (sz & padSize) == sz
 					padCount += 1
-					insert!(fieldVector, idx + padCount - 1, String(gensym())=>padType[sz])
+					insert!(
+						fieldVector, 
+						idx + padCount - 1, 
+						Symbol(replace(String(gensym()), "##" => "_pad"))=>juliaPadType[sz]
+					)
 				end
 			end
 		end
@@ -150,12 +184,11 @@ function makePaddedWGSLStruct(name::Symbol, fields)
 	end
 	len = length(fieldVector)
 	# @assert issorted(fieldVector) "Fields should remain sorted"
-	line = ["struct $name {"]
-	for (idx, (name, type)) in enumerate(fieldVector)
-		name = replace(name, "##" => "_pad")
-		push!(line, " "^4*"$(name): $(type)"*(idx==len ? "" : ","))
+	line = ["\nstruct $name {"]
+	for (idx, field) in enumerate(fieldVector)
+		push!(line, " "^4*"$(wgslType(field))"*(idx==len ? "" : ","))
 	end
-	push!(line, "};")
+	push!(line, "};\n\n")
 	lineJoined = join(line, "\n")
 	return lineJoined
 end
@@ -174,11 +207,5 @@ function getStructDefs(a::Array{Pair{Symbol, Any}})
 end
 
 getVal(a::Val{T}) where T = T
-
-# struct Declaration
-	# type::
-	# decl::Pair
-# end
-
 
 end

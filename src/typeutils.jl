@@ -3,11 +3,12 @@ using GeometryBasics
 
 include("builtIns.jl")
 using .BuiltInsMod
-export BuiltIn, builtin, getEnumBuiltinValue, @builtin
+export BuiltIn, builtin, getEnumBuiltinValue, @builtin, BuiltInDataType, BuiltinValue, 
+	Location, LocationDataType, wgslType
 
 include("location.jl")
 using .LocationMod
-export Location, @location
+export Location, @location, LocationDataType
 
 varyingTypes = [
 	"f32", "vec2<f32>", "vec3<f32>", "vec4<f32>",
@@ -70,7 +71,6 @@ function wgslType(a::Pair{Symbol, Any})
 	return "$(a.first):$(wgslType(a.second))"
 end
 
-
 function wgslType(b::BuiltIn)
 	return "@builtin($(wgslType(b.type))) $(wgslType(b.decl))"
 end
@@ -86,7 +86,16 @@ function wgslType(::Type{BuiltIn{B, S, D}}) where {B, S, D}
 	return "@builtin($(wgslType(B) |> string)) $(wgslType(S)):$(wgslType(D))"
 end
 
+function wgslType(::Type{BuiltInDataType{B, D}}) where {B, D}
+	return "@builtin($(wgslType(B) |> string)) $(wgslType(D))"
+end
+
 function wgslType(::Type{Location{B, S, D}}) where {B, S, D}
 	return "@location($(wgslType(B))) $(wgslType(S)):$(wgslType(D))"
 end
+
+function wgslType(::Type{LocationDataType{B, D}}) where {B, D}
+	return "@location($(wgslType(B))) $(wgslType(D))"
+end
+
 

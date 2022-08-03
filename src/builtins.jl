@@ -3,7 +3,7 @@ module BuiltInsMod
 using GeometryBasics
 using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4
 
-export BuiltinValue, getEnumBuiltinValue, BuiltIn, @builtin
+export BuiltinValue, getEnumBuiltinValue, BuiltIn, @builtin, BuiltInDataType
 
 @enum BuiltinValue begin
 	vertex_index
@@ -42,24 +42,50 @@ end
 
 macro builtin(exp)
 	@assert typeof(exp) == Expr """\n
-	Expecting expression, found typeof(exp) instead
-		builtin can be defined as
-		@builtin (builtinValue) => sym::DataType
-	"""
+		Expecting expression, found typeof(exp) instead
+			builtin can be defined as
+			@builtin (builtinValue) => sym::DataType
+		"""
 	@assert exp.head == :call "Expecting (builtinValue) => sym::DataType"
 	@assert typeof(exp.args) == Vector{Any} "E $(typeof(exp.args))"
 	@assert exp.args[1] == :(=>) "Should check"
-	@assert exp.args[2] in Symbol.(instances(BuiltinValue)) "$(exp.args[2]) is not in BuiltinValue Enum"
+	@assert exp.args[2] in Symbol.(instances(BuiltinValue)) "$(exp.args[2]) is not	 in BuiltinValue Enum"
 	b = exp.args[2]
 	@assert typeof(exp.args[3]) == Expr """
-		This expression should be of format sym::Float32
-	"""
+			This expression should be of format sym::Float32
+		"""
 	exp2 = exp.args[3]
 	@assert exp2.head == :(::) "Expecting a seperator :: "
 	s = exp2.args[1] 
 	d = exp2.args[2] 
 	return BuiltIn(b, s=>eval(d))
 end
+
+struct BuiltInDataType{B, D} end
+
+function BuiltInDataType(btype::Symbol, dType::DataType)
+	bVal = getEnumBuiltinValue(btype) |> Val
+	dVal = dType |> Val
+	return BuiltInDataType{bVal, dVal}
+end
+
+
+macro builtin(btype, dtype)
+	@assert typeof(btype) == Symbol """\n
+		Expecting expression, found typeof(exp) instead
+			builtin can be defined as
+			@builtin builtinValue DataType
+		"""
+	@assert btype in Symbol.(instances(BuiltinValue)) "$(btype) is not in BuiltinValue Enum"
+	@assert typeof(eval(dtype)) == DataType "Expecting Valid Data Type"
+	return BuiltInDataType(btype, eval(dtype))
+end
+
+
+function BuiltIn(sVal::Symbol, ::Type{BuiltInDataType{B, D}}) where {B, D}
+	return BuiltIn{B, sVal, D}
+end
+
 
 
 end
