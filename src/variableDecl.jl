@@ -1,6 +1,7 @@
 module VariableDeclMod
 
-export StorageVar, UniformVar, PrivateVar, @var
+export StorageVar, UniformVar, PrivateVar, @var, @letvar
+
 using MacroTools
 using Lazy:@forward
 
@@ -55,7 +56,7 @@ function getEnumVariableType(s::Symbol)
 			return i
 		end
 	end
-	@error "Var type $s is not not known. You might have to define it"
+	@error "Var type $s is not known. You might have to define it"
 end
 
 wgslType(a::Val{getEnumVariableType(:Generic)}) = string()
@@ -72,6 +73,13 @@ struct VarDataType{T} <: Variable{T}
 	value::Union{Nothing, eltype(T)}
 	varType::VariableType
 end
+
+struct LetDataType{T} <: Variable{T}
+	valTypePair::Pair{Symbol, eltype(T)}
+	value::Union{Nothing, eltype(T)}
+end
+
+# TODO compose VarDataType and LetDataType sometime later
 
 attribute(var::VarDataType{T}) where T = begin
 	return var.attribute
@@ -94,6 +102,12 @@ wgslType(var::VarDataType{T}) where T = begin
 	varStr = "var$(wgslType(Val(var.varType))) $(wgslType(var.valTypePair))"
 	valStr = let t = var.value; t == nothing ? "" : "= $(wgslType(t))" end
 	return "$(attrStr)$(varStr) $(valStr);\n"	
+end
+
+wgslType(letvar::LetDataType{T}) where T = begin
+	letStr = "let $(wgslType(letvar.valTypePair))"
+	valStr = let t = letvar.value; t == nothing ? "" : "= $(wgslType(t))" end
+	return "$(letStr) $(valStr);\n"	
 end
 
 struct GenericVar{T} <: Variable{T}
@@ -201,6 +215,18 @@ function defineVar(
 end
 
 
+function defineLet(
+	pair::Pair{Symbol, T}, 
+	value::eltype(T)
+) where T
+	LetDataType{T}(
+		pair,
+		value,
+	)
+end
+
+
+
 @forward PrivateVar.var attribute, valueType, value, Base.getproperty, Base.setproperty!
 
 macro var(dtype::Expr)
@@ -232,5 +258,30 @@ macro var(vtype::Symbol, dtype::Expr, value)
 	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
 	defineVar(vtype, a=>eval(dt), nothing, nothing, value)
 end
+
+macro letvar(dtype::Expr)
+	@capture(dtype, a_::dt_) && return defineLet(a=>eval(dt), nothing)
+	@capture(dtype, a_::dt_ = v_) && return defineLet(a=>eval(dt), v)
+	@error "Expecting @let sym::dtype or sym::dtype=value!"
+end
+
+macro letvar(dtype::Expr) # TODO type must be checked most likely
+	@capture(dtype, a_::dt_ = v_) &&  return defineLet(a=>eval(dt), v)
+	@capture(dtype, a_::dt_) && return defineLet(a=>eval(dt), nothing)
+	@capture(dtype, a_=v_) && return defineLet(a=>typeof(v), v) # TODO notsure if this is legit
+	@error "Expecting @let sym::dtype value!"
+end
+
+macro letvar(dtype::Expr, value::Any) # TODO type must be checked most likely
+	@capture(dtype, a_::dt_) && return defineLet(a=>eval(dt), value)
+	@error "Expecting @let sym::dtype value!"
+end
+
+
+macro letvar(dtype::Symbol, value::Any) # TODO type must be checked most likely
+	# @capture(dtype, a_) &&  return defineLet(a=>eval(dt), value)
+	@error "Not sure if this is allowed!!! Expecting @let sym value!"
+end
+
 
 end

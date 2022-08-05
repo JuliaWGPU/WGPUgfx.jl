@@ -65,16 +65,22 @@ function getVertexCode(::Type{Triangle}, color=true)
 		@vertex function vs_main(in::VertexInput)::VertexOutput
 			@var id::Int32
 			@var out::Main.VertexOutput
+			# @let a = 4
+			@let a::Int32 = 3
 		end
 		
 		@fragment function fs_main(in::VertexOutput)::@location 0 Vec4{Float32}
 			@var Private 0 1 id::Mat4{Float32}
 			@var WorkGroup 3 1 id::Int32 3
+			@let a::Int32 = 3
+			@let a = 0.0f0 # TODO these statements do not with types like Int64
+			# @let a = Int32(0) # TODO primitives vs variable expansion
 			return in.color
 		end
 
 		function test(in::Int32)::Int32
 			@var id::Int32
+			@let a::Float32
 			return 10
 		end
 		

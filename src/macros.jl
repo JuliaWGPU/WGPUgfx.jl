@@ -128,6 +128,10 @@ function wgslFunctionBody(fnbody, io, endstring)
 		for stmnt in stmnts
 			if @capture(stmnt, @var t__)
 				write(io, " "^4*wgslVariable(stmnt))
+			elseif @capture(stmnt, @let t_ | @let t__)
+				stmnt.args[1] = Symbol("@letvar")
+				@info stmnt
+				write(io, " "^4*wgslLet(stmnt))
 			elseif @capture(stmnt, return t_)
 				write(io, "    return $t;\n")
 			else
@@ -180,6 +184,17 @@ function wgslVariable(expr)
 	close(io)
 	return code
 end
+
+# TODO for now both wgslVariable and wgslLet are same
+function wgslLet(expr)
+	io = IOBuffer()
+	write(io, wgslType(eval(expr)))
+	seek(io, 0)
+	code = read(io, String)
+	close(io)
+	return code
+end
+
 
 # IOContext TODO
 function wgslCode(expr)
