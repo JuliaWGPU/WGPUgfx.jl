@@ -50,6 +50,8 @@ function getVertexCode(::Type{Triangle}, color=true)
 		struct VertexInput
 			@builtin vertex_index vi::UInt32
 		end
+		
+		@var id::Int32
 
 		struct VertexOutput
 			if $color==true
@@ -58,12 +60,24 @@ function getVertexCode(::Type{Triangle}, color=true)
 			@builtin position pos::Vec4{Float32}
 		end
 
+		# TODO had to Main for user defined function
+		# Will have to solve this later
 		@vertex function vs_main(in::VertexInput)::VertexOutput
+			@var id::Int32
+			@var out::Main.VertexOutput
 		end
 		
 		@fragment function fs_main(in::VertexOutput)::@location 0 Vec4{Float32}
+			@var Private 0 1 id::Mat4{Float32}
+			@var WorkGroup 3 1 id::Int32 3
 			return in.color
 		end
+
+		function test(in::Int32)::Int32
+			@var id::Int32
+			return 10
+		end
+		
 	end)
 end
 

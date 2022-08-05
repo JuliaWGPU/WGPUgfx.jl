@@ -64,48 +64,6 @@ end
 	}
 """
 
-statements = false
-
-expr = quote
-	struct VertexInput
-		@builtin vertex_index vi::UInt32
-	end
-	
-	struct VertexOutput
-		@location 0 color::Vec4{Float32}
-		@location 1 pos::Vec4{Float32}
-	end
-
-	if $statements == true
-		a = Int(0)
-	end
-	
-	@vertex function vs_main(a::Int32)::Int32
-	    index::UInt8 = 1
-	    a::Int32 = 2
-	    b::UInt32 = 3
-	end
-
-	@fragment function fs_main(b::Int32)::Vec4{Float32}
-		b::Int32 = 200
-	end
-
-	function test(a::Int32, b::Float32)::Vec2{Float32}
-		a::Int32 = 0
-		b::Float32 = 3.0f0
-		# c = 0
-		test2()
-	end
-
-	function test2()
-	end
-end
-
-
-expr = MacroTools.striplines(expr)
-
-dump(expr)
-
 function evalStructField(field)
 	if @capture(field, if cond_ ifblock_ end)
 		if eval(cond) == true
@@ -151,10 +109,8 @@ function wgslAssignment(expr)
 	return stmt
 end
 
-function wgslVertex(expr)
-	io = IOBuffer()
-	endstring = ""
-	@capture(expr, @vertex function fnbody__ end) || error("Expecting regular function!")
+
+function wgslFunctionBody(fnbody, io, endstring)
 	if @capture(fnbody[1], fnname_(fnargs__)::fnout_)
 		write(io, "fn $fnname(")
 		len = length(fnargs)
@@ -170,10 +126,24 @@ function wgslVertex(expr)
 		write(io, ") -> $outtype { \n")
 		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
 		for stmnt in stmnts
-			write(io, " "^4*"$stmnt\n")
+			if @capture(stmnt, @var t__)
+				write(io, " "^4*wgslVariable(stmnt))
+			elseif @capture(stmnt, return t_)
+				write(io, "    return $t;\n")
+			else
+				@error "Failed to capture statment : $stmnt !!"
+			end
 		end
 	end
 	write(io, endstring)
+end
+
+
+function wgslVertex(expr)
+	io = IOBuffer()
+	endstring = ""
+	@capture(expr, @vertex function fnbody__ end) || error("Expecting regular function!")
+	wgslFunctionBody(fnbody, io, endstring)
 	seek(io, 0)
 	code = read(io, String)
 	close(io)
@@ -184,25 +154,7 @@ function wgslFragment(expr)
 	io = IOBuffer()
 	endstring = ""
 	@capture(expr, @fragment function fnbody__ end) || error("Expecting regular function!")
-	if @capture(fnbody[1], fnname_(fnargs__)::fnout_)
-		write(io, "fn $fnname(")
-		len = length(fnargs)
-		endstring = len > 0 ? "}\n" : ""
-		for (idx, arg) in enumerate(fnargs)
-			if @capture(arg, aarg_::aatype_)
-				intype = wgslType(eval(aatype))
-				write(io, "$aarg:$(intype)"*(len==idx ? "" : ", "))
-			end
-			@capture(fnargs, aarg_) || error("Expecting type for function argument in WGSL!")
-		end
-		outtype = wgslType(eval(fnout))
-		write(io, ") -> $outtype { \n")
-		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
-		for stmnt in stmnts
-			write(io, " "^4*"$stmnt\n")
-		end
-	end
-	write(io, endstring)
+	wgslFunctionBody(fnbody, io, endstring)
 	seek(io, 0)
 	code = read(io, String)
 	close(io)
@@ -213,25 +165,16 @@ function wgslFunction(expr)
 	io = IOBuffer()
 	endstring = ""
 	@capture(expr, function fnbody__ end) || error("Expecting regular function!")
-	if @capture(fnbody[1], fnname_(fnargs__)::fnout_)
-		write(io, "fn $fnname(")
-		len = length(fnargs)
-		endstring = len > 0 ? "}\n" : ""
-		for (idx, arg) in enumerate(fnargs)
-			if @capture(arg, aarg_::aatype_)
-				intype = wgslType(eval(aatype))
-				write(io, "$aarg:$(intype)"*(len==idx ? "" : ", "))
-			end
-			@capture(fnargs, aarg_) || error("Expecting type for function argument in WGSL!")
-		end
-		outtype = wgslType(eval(fnout))
-		write(io, ") -> $outtype { \n")
-		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
-		for stmnt in stmnts
-			write(io, " "^4*"$stmnt\n")
-		end
-	end
-	write(io, endstring)
+	wgslFunctionBody(fnbody, io, endstring)
+	seek(io, 0)
+	code = read(io, String)
+	close(io)
+	return code
+end
+
+function wgslVariable(expr)
+	io = IOBuffer()
+	write(io, wgslType(eval(expr)))
 	seek(io, 0)
 	code = read(io, String)
 	close(io)
@@ -249,6 +192,8 @@ function wgslCode(expr)
 			write(io, wgslStruct(block))
 		elseif @capture(block, a_ = b_)
 			write(io, wgslAssignment(block))
+		elseif @capture(block, @var t__)
+			write(io, wgslVariable(block))
 		elseif @capture(block, @vertex function a__ end)
 			write(io, wgslVertex(block))
 			write(io, "\n")
@@ -272,7 +217,6 @@ function wgslCode(expr)
 end
 
 macro code_wgsl(expr)
-	@eval expr
 	a = wgslCode(eval(expr)) |> println
 	return a
 end

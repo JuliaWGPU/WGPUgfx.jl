@@ -1,7 +1,7 @@
 module VariableDeclMod
 
-export StorageVar, UniformVar, PrivateVar
-
+export StorageVar, UniformVar, PrivateVar, @var
+using MacroTools
 using Lazy:@forward
 
 struct ImplicitPadding
@@ -93,7 +93,7 @@ wgslType(var::VarDataType{T}) where T = begin
 	attrStr = let t = var.attribute; t == nothing ? "" : wgslType(t) end
 	varStr = "var$(wgslType(Val(var.varType))) $(wgslType(var.valTypePair))"
 	valStr = let t = var.value; t == nothing ? "" : "= $(wgslType(t))" end
-	return "$(attrStr)$(varStr) $(valStr);"	
+	return "$(attrStr)$(varStr) $(valStr);\n"	
 end
 
 struct GenericVar{T} <: Variable{T}
@@ -183,8 +183,54 @@ function PrivateVar(
 	)
 end
 
+function defineVar(
+	varType::Symbol,
+	pair::Pair{Symbol, T}, 
+	group::Union{Nothing, Int}, 
+	binding::Union{Nothing, Int},
+	value::eltype(T)
+) where T
+	attrType = Union{map(typeof, [group, binding])...}
+	@assert attrType in [Nothing, Int] "Both group and binding should be defined or left to nothing"
+	VarDataType{T}(
+		attrType == Nothing ? nothing : VarAttribute(group, binding),
+		pair,
+		value,
+		getEnumVariableType(varType)
+	)
+end
+
 
 @forward PrivateVar.var attribute, valueType, value, Base.getproperty, Base.setproperty!
 
+macro var(dtype::Expr)
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!" 
+	defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
+end
+
+macro var(dtype::Expr, value::Any) # TODO type must be checked most likely
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
+	defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
+end
+
+macro var(vtype, dtype::Expr)
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
+	defineVar(vtype, a=>eval(dt), nothing, nothing, nothing)
+end
+
+macro var(vtype::Symbol, group::Int, binding::Int, dtype::Expr)
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
+	defineVar(vtype, a=>eval(dt), group, binding, nothing)
+end
+
+macro var(vtype::Symbol, group::Int, binding::Int, dtype::Expr, value)
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
+	defineVar(vtype, a=>eval(dt), group, binding, value)
+end
+
+macro var(vtype::Symbol, dtype::Expr, value)
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
+	defineVar(vtype, a=>eval(dt), nothing, nothing, value)
+end
 
 end
