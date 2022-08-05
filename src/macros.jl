@@ -1,3 +1,4 @@
+
 module MacroMod
 
 using WGPUgfx
@@ -152,7 +153,6 @@ function wgslVertex(expr)
 		end
 		outtype = wgslType(eval(fnout))
 		write(io, ") -> $outtype { \n")
-		# write(io, wgslCode(fnbody[2]))
 		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
 		for stmnt in stmnts
 			write(io, " "^4*"$stmnt\n")
@@ -182,7 +182,6 @@ function wgslFragment(expr)
 		end
 		outtype = wgslType(eval(fnout))
 		write(io, ") -> $outtype { \n")
-		# write(io, wgslCode(fnbody[2]))
 		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
 		for stmnt in stmnts
 			write(io, " "^4*"$stmnt\n")
@@ -212,7 +211,6 @@ function wgslFunction(expr)
 		end
 		outtype = wgslType(eval(fnout))
 		write(io, ") -> $outtype { \n")
-		# write(io, wgslCode(fnbody[2]))
 		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
 		for stmnt in stmnts
 			write(io, " "^4*"$stmnt\n")
