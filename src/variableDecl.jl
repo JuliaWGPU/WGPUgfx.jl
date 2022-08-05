@@ -259,12 +259,6 @@ macro var(vtype::Symbol, dtype::Expr, value)
 	defineVar(vtype, a=>eval(dt), nothing, nothing, value)
 end
 
-macro letvar(dtype::Expr)
-	@capture(dtype, a_::dt_) && return defineLet(a=>eval(dt), nothing)
-	@capture(dtype, a_::dt_ = v_) && return defineLet(a=>eval(dt), v)
-	@error "Expecting @let sym::dtype or sym::dtype=value!"
-end
-
 macro letvar(dtype::Expr) # TODO type must be checked most likely
 	@capture(dtype, a_::dt_ = v_) &&  return defineLet(a=>eval(dt), v)
 	@capture(dtype, a_::dt_) && return defineLet(a=>eval(dt), nothing)
