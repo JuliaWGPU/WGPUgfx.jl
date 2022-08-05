@@ -10,6 +10,13 @@ include("location.jl")
 using .LocationMod
 export Location, @location, LocationDataType
 
+
+include("userstruct.jl")
+using .UserStructMod: UserStruct
+export UserStruct
+
+include("macros.jl")
+
 varyingTypes = [
 	"f32", "vec2<f32>", "vec3<f32>", "vec4<f32>",
 	"i32", "vec2<i32>", "vec3<i32>", "vec4<i32>",
@@ -36,10 +43,17 @@ function wgslType(::Type{Vec{N, T}}) where {N, T}
 	return "vec$(N)<$(wgslType(T))>"
 end
 
-function wgslType(::Type{T}) where T
+wgslType(::Type{T}) where T<:UserStruct = begin
+	string(T) |> (x) -> split(x, ".") |> last
+end
+
+function wgslType(t::Type{T}) where T
+	if T <: UserStruct
+		return string(T)
+	end
 	wgsltype = get(juliaToWGSLTypes, T, nothing)
 	if wgsltype == nothing
-		@error "Invalid Julia type or missing wgsl type"
+		@error "Invalid Julia type $T or missing wgsl type"
 	end
 	return wgsltype
 end
@@ -97,5 +111,3 @@ end
 function wgslType(::Type{LocationDataType{B, D}}) where {B, D}
 	return "@location($(wgslType(B))) $(wgslType(D))"
 end
-
-

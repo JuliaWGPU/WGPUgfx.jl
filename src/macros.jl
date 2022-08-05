@@ -1,5 +1,9 @@
+module MacroMod
+
 using WGPUgfx
 using MacroTools
+
+export @code_wgsl
 
 """
 Can take following format declarations
@@ -58,7 +62,6 @@ end
 	    return in.color;
 	}
 """
-	
 
 statements = false
 
@@ -116,6 +119,7 @@ function wgslStruct(expr)
 			fieldDict[name] = eval(:(@location $btype $dtype))
 		end
 	end
+	makePaddedStruct(T, :UserStruct, fieldDict)
 	makePaddedWGSLStruct(T, fieldDict)
 end
 
@@ -260,4 +264,4 @@ macro code_wgsl(expr)
 	return a
 end
 
-@code_wgsl expr
+end

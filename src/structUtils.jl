@@ -1,13 +1,13 @@
 module StructUtilsMod
-
+using WGPUgfx
 using WGPU
 using WGPU: getEnum
 using WGPU_jll
 using Lazy: @forward
 
 export wgslType, 
-	BuiltIn, @builtin, getEnumBuiltinValue,
-	makePaddedStruct, makePaddedWGSLStruct, 
+	BuiltIn, @builtin, getEnumBuiltinValue, 
+	makePaddedStruct, makePaddedWGSLStruct, makeStruct,
 	Location, @location, BuiltInDataType, BuiltinValue, LocationDataType
 
 using StaticArrays
@@ -16,6 +16,7 @@ using GeometryBasics
 include("variableDecl.jl")
 using .VariableDeclMod
 
+@info UserStruct
 
 visibiltyRender = getEnum(WGPUShaderStage, ["Vertex", "Fragment"])
 
@@ -37,7 +38,6 @@ alignof(::Type{Mat3{T}}) where T = alignof(Vec3{T})
 alignof(::Type{Mat4{T}}) where T = alignof(Vec4{T})
 
 alignof(::Type{SMatrix{N, M, T, L}}) where {N, M, T, L} = alignof(Vec{M, T})
-
 
 function makeStruct(name::String, fields::Array{String}; mutableType=false, abstractType="")
 	line = [(mutableType ? "mutable " : "")*"struct $name"*abstractType]
@@ -111,22 +111,37 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 	end
 	unfields = [:($key::$val) for (key, val) in fieldVector]
 	absType = abstractType != nothing ? :($abstractType) : :(Any)
-	quote 
-		struct $name <: $absType 
-			$(unfields...)
-		end
-	end |> eval
+	Expr(:struct, false, :($name <: $absType), quote $(unfields...) end) |> eval
+	setproperty!(Main, name, eval(name))
+	setproperty!(getproperty(Main, :MacroMod), name, eval(name))
 end
 
+makePaddedStruct(name::Symbol, abstractType::Symbol, fields...) = makePaddedStruct(
+	name,
+	eval(abstractType),
+	fields...
+)
+
 function makeStruct(name::Symbol, abstractType::Union{Nothing, DataType}, fields...)
+	name = name
 	unfields = [:($key::$val) for (key, val) in fields...]
+	@info quote
+		$(unfields...)
+	end
+	@info unfields
 	absType = abstractType != nothing ? :($abstractType) : :(Any)
-	quote 
-		struct $name <: $absType 
-			$(unfields...)
-		end
-	end |> eval
+	@info name=>typeof(name) 
+	@info absType=>typeof(absType)
+	Expr(:struct, false, :($name <: $absType), quote $(unfields...) end) |> eval
+	setproperty!(Main, name, eval(name))
+	setproperty!(getproperty(Main, :MacroMod), name, eval(name))
 end
+
+makeStruct(name::Symbol, abstractType::Symbol, fields...) = makeStruct(
+	name,
+	eval(abstractType),
+	fields...
+)
 
 adaptType(p::Pair{S, D}) where {S<:Symbol, D<:DataType} = adaptType(p.first, p.second)
 adaptType(::Val{T}) where T = typeof(T) == BuiltinValue ? adaptType(T) : T
@@ -192,7 +207,6 @@ function makePaddedWGSLStruct(name::Symbol, fields...)
 	lineJoined = join(line, "\n")
 	return lineJoined
 end
-
 
 function getStructDefs(::Type{T}) where T
 	fields = fieldnames(T)

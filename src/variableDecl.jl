@@ -14,6 +14,8 @@ end
 
 include("typeutils.jl")
 
+export UserStruct
+
 export wgslType
 
 abstract type Atomic end
