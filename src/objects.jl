@@ -64,8 +64,8 @@ function getVertexCode(::Type{Triangle}, color=true)
 		# Will have to solve this later
 		@vertex function vs_main(in::VertexInput)::VertexOutput
 			@var id::Int32
-			@var out::Main.VertexOutput
-			# @let a = 4
+			@var out::Main.VertexOutput # Main here
+			# @let a = 4 # TODO will fail because typeinference
 			@let a::Int32 = 3
 		end
 		

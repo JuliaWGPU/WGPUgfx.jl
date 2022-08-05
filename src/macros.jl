@@ -129,8 +129,7 @@ function wgslFunctionBody(fnbody, io, endstring)
 			if @capture(stmnt, @var t__)
 				write(io, " "^4*wgslVariable(stmnt))
 			elseif @capture(stmnt, @let t_ | @let t__)
-				stmnt.args[1] = Symbol("@letvar")
-				@info stmnt
+				stmnt.args[1] = Symbol("@letvar") # replace let with letvar
 				write(io, " "^4*wgslLet(stmnt))
 			elseif @capture(stmnt, return t_)
 				write(io, "    return $t;\n")
