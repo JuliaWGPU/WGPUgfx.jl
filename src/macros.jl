@@ -106,18 +106,33 @@ expr = MacroTools.striplines(expr)
 
 dump(expr)
 
+function evalStructField(field)
+	if @capture(field, if cond_ ifblock_ end)
+		if eval(cond) == true
+			return evalStructField(ifblock)
+		else
+			return nothing
+		end
+	elseif @capture(field, name_::dtype_)
+		return name=>eval(dtype)
+	elseif @capture(field, @builtin btype_ name_::dtype_)
+		return name=>eval(:(@builtin $btype $dtype))
+	elseif @capture(field, @location btype_ name_::dtype_)
+		return name=>eval(:(@location $btype $dtype))
+	else
+		@error "Unknown struct field! $expr"
+	end
+end
+
 function wgslStruct(expr)
 	expr = MacroTools.striplines(expr)
 	expr = MacroTools.flatten(expr)
 	@capture(expr, struct T_ fields__ end) || error("verify struct format of $T with fields $fields")
 	fieldDict = Dict{Symbol, DataType}()
 	for field in fields
-		if @capture(field, name_::dtype_)
-			fieldDict[name] = eval(dtype)
-		elseif @capture(field, @builtin btype_ name_::dtype_)
-			fieldDict[name] = eval(:(@builtin $btype $dtype))
-		elseif @capture(field, @location btype_ name_::dtype_)
-			fieldDict[name] = eval(:(@location $btype $dtype))
+		evalfield = evalStructField(field)
+		if evalfield != nothing 
+			fieldDict[evalfield.first] = evalfield.second
 		end
 	end
 	makePaddedStruct(T, :UserStruct, fieldDict)

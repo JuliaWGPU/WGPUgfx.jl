@@ -45,16 +45,17 @@ function InitGeometry(::Type{Triangle}, color)
 	)
 end
 
-function getVertexCode(::Type{Triangle}, color)
+function getVertexCode(::Type{Triangle}, color=true)
 	wgslCode(quote
 		struct VertexInput
 			@builtin vertex_index vi::UInt32
-			# @builtin position pos::UInt32
 		end
 
 		struct VertexOutput
-			@builtin vertex_index color::Vec4{Float32}
-			@builtin position pos::UInt32
+			if $color==true
+				@builtin vertex_index color::Vec4{Float32}
+			end
+			@builtin position pos::Vec4{Float32}
 		end
 
 		@vertex function vs_main(in::VertexInput)::VertexOutput
@@ -66,6 +67,6 @@ function getVertexCode(::Type{Triangle}, color)
 	end)
 end
 
-using Debugger
+# getVertexCode(Triangle, nothing) |> println
 
-@enter getVertexCode(Triangle, nothing)
+getVertexCode(Triangle, true) |> println
