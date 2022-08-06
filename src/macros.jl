@@ -97,18 +97,16 @@ function wgslStruct(expr)
 	makePaddedWGSLStruct(T, fieldDict)
 end
 
-function wgslAssignment(expr)
+# TODO rename simple asssignment and bring back original assignment if needed
+function wgslAssigment(expr)
 	io = IOBuffer()
-	@capture(expr, a_ = b_) || error("Unexpected assignment!")
-	@capture(a, arg_::type_) || error("Missing type information!")
-	atype = wgslType(eval(type))
-	write(io, "let $arg:$atype = $b\n")
+	@capture(expr, a_ = b_) || error("Expecting simple assignment a = b")
+	write(io, "$(wgslType(a)) = $(wgslType(b))")
 	seek(io, 0)
-	stmt = read(io, String)
+	stmnt = read(io, String)
 	close(io)
-	return stmt
+	return stmnt
 end
-
 
 function wgslFunctionBody(fnbody, io, endstring)
 	if @capture(fnbody[1], fnname_(fnargs__)::fnout_)
@@ -128,6 +126,8 @@ function wgslFunctionBody(fnbody, io, endstring)
 		for stmnt in stmnts
 			if @capture(stmnt, @var t__)
 				write(io, " "^4*wgslVariable(stmnt))
+			elseif @capture(stmnt, a_ = b_)
+				write(io, " "^4*wgslAssignment(stmnt))
 			elseif @capture(stmnt, @let t_ | @let t__)
 				stmnt.args[1] = Symbol("@letvar") # replace let with letvar
 				write(io, " "^4*wgslLet(stmnt))
@@ -193,7 +193,6 @@ function wgslLet(expr)
 	close(io)
 	return code
 end
-
 
 # IOContext TODO
 function wgslCode(expr)

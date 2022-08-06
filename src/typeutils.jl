@@ -111,3 +111,19 @@ end
 function wgslType(::Type{LocationDataType{B, D}}) where {B, D}
 	return "@location($(wgslType(B))) $(wgslType(D))"
 end
+
+function wgslType(expr::Expr)
+	if @capture(expr, a_ = b_)
+		return "$(wgslType(a)) = $(wgslType(b))"
+	elseif @capture(expr, f_(x_))
+		return "$(wgslType(eval(f)))($x)"
+	elseif @capture(expr, f_(x__))
+		return "$(wgslType(eval(f)))($(x...))"
+	elseif @capture(expr, a_::b_)
+		return "$a::$(wgslType(eval(b)))"
+	elseif @capture(expr, a_.b_)
+		return "$a.$b"
+	else
+		@error "Could not capture $expr !!!"
+	end
+end

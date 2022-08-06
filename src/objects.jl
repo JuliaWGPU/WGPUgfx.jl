@@ -74,7 +74,7 @@ function getVertexCode(::Type{Triangle}, color=true)
 			@var WorkGroup 3 1 id::Int32 3
 			@let a::Int32 = 3
 			@let a = 0.0f0 # TODO these statements do not with types like Int64
-			# @let a = Int32(0) # TODO primitives vs variable expansion
+			@let a = Int32(0) # TODO primitives vs variable expansion
 			return in.color
 		end
 
@@ -89,4 +89,23 @@ end
 
 # getVertexCode(Triangle, nothing) |> println
 
-getVertexCode(Triangle, true) |> println
+# getVertexCode(Triangle, true) |> println
+
+using WGPUgfx
+using MacroTools
+
+exprs = [
+	:(a = 4),
+	:(a::Int32 = 49),
+	:(a = Vec4{Float32}(0, 0, 0)),
+	:(a.b.c = in.vertex),
+	:(a = Int32(0)),
+	:(a = Int32(0, 1)),
+	:(a.b.c = Vec4{Float32}(in.position)),
+]
+
+for expr in exprs
+	@capture(expr, b_ = c_)
+	isdefined(WGPUgfx.StructUtilsMod.VariableDeclMod, :wgslType) &&  @info expr (b, c) wgslType(expr)
+end
+
