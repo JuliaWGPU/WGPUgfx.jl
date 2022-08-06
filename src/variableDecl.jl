@@ -107,7 +107,7 @@ end
 wgslType(letvar::LetDataType{T}) where T = begin
 	letStr = "let $(wgslType(letvar.valTypePair))"
 	valStr = let t = letvar.value; t == nothing ? "" : "= $(wgslType(t))" end
-	return "$(letStr) $(valStr);\n"	
+	return "$(letStr) $(valStr);\n"
 end
 
 struct GenericVar{T} <: Variable{T}
@@ -197,6 +197,9 @@ function PrivateVar(
 	)
 end
 
+@forward PrivateVar.var attribute, valueType, value, Base.getproperty, Base.setproperty!
+
+
 function defineVar(
 	varType::Symbol,
 	pair::Pair{Symbol, T}, 
@@ -226,17 +229,11 @@ function defineLet(
 end
 
 
-
-@forward PrivateVar.var attribute, valueType, value, Base.getproperty, Base.setproperty!
-
 macro var(dtype::Expr)
-	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!" 
-	defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
-end
-
-macro var(dtype::Expr, value::Any) # TODO type must be checked most likely
-	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
-	defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
+	@capture(dtype, a_::dt_) && return defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
+	@capture(dtype, a_::dt_ = v_) && return defineVar(:Generic, a=>eval(dt), nothing, nothing, v)
+	@capture(dtype, a_ = v_) && return defineVar(:Generic, a=>:Any, nothing, nothing, v)
+	@error "Unexpected Var expression !!!"
 end
 
 macro var(vtype, dtype::Expr)
@@ -262,7 +259,7 @@ end
 macro letvar(dtype::Expr) # TODO type must be checked most likely
 	@capture(dtype, a_::dt_ = v_) &&  return defineLet(a=>eval(dt), v)
 	@capture(dtype, a_::dt_) && return defineLet(a=>eval(dt), nothing)
-	@capture(dtype, a_=v_) && return defineLet(a=>typeof(v), v) # TODO notsure if this is legit
+	@capture(dtype, a_=v_) && return defineLet(a=>:Any, v)
 	@error "Expecting @let sym::dtype value!"
 end
 

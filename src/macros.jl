@@ -98,10 +98,10 @@ function wgslStruct(expr)
 end
 
 # TODO rename simple asssignment and bring back original assignment if needed
-function wgslAssigment(expr)
+function wgslAssignment(expr)
 	io = IOBuffer()
 	@capture(expr, a_ = b_) || error("Expecting simple assignment a = b")
-	write(io, "$(wgslType(a)) = $(wgslType(b))")
+	write(io, "$(wgslType(a)) = $(wgslType(b));\n")
 	seek(io, 0)
 	stmnt = read(io, String)
 	close(io)
@@ -146,6 +146,7 @@ function wgslVertex(expr)
 	io = IOBuffer()
 	endstring = ""
 	@capture(expr, @vertex function fnbody__ end) || error("Expecting regular function!")
+	write(io, "@vertex ") # TODO should depend on version
 	wgslFunctionBody(fnbody, io, endstring)
 	seek(io, 0)
 	code = read(io, String)
@@ -157,6 +158,7 @@ function wgslFragment(expr)
 	io = IOBuffer()
 	endstring = ""
 	@capture(expr, @fragment function fnbody__ end) || error("Expecting regular function!")
+	write(io, "@fragment ") # TODO should depend on version
 	wgslFunctionBody(fnbody, io, endstring)
 	seek(io, 0)
 	code = read(io, String)

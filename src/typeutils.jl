@@ -53,7 +53,7 @@ function wgslType(t::Type{T}) where T
 	end
 	wgsltype = get(juliaToWGSLTypes, T, nothing)
 	if wgsltype == nothing
-		@error "Invalid Julia type $T or missing wgsl type"
+		@error "Invalid Julia type $T with value $t or missing wgsl type"
 	end
 	return wgsltype
 end
@@ -77,12 +77,23 @@ end
 
 wgslType(b::BuiltinValue) = string(b)
 
-function wgslType(a::Pair{Symbol, DataType})
-	return "$(a.first):$(wgslType(a.second))"
-end
+# This is never called 
+# function wgslType(a::Pair{Symbol, DataType})
+	# @info a
+	# if typeof(a.second) == Any
+		# return "$(a.first) "
+	# else
+		# return "$(a.first):$(wgslType(a.second))"
+	# end
+# end
 
 function wgslType(a::Pair{Symbol, Any})
-	return "$(a.first):$(wgslType(a.second))"
+	@info a
+	if a.second == :Any
+		return "$(a.first)"
+	else
+		return "$(a.first):$(wgslType(a.second))"
+	end
 end
 
 function wgslType(b::BuiltIn)
@@ -112,18 +123,35 @@ function wgslType(::Type{LocationDataType{B, D}}) where {B, D}
 	return "@location($(wgslType(B))) $(wgslType(D))"
 end
 
-function wgslType(expr::Expr)
+wgslType(s::String) = s
+
+indent = 0
+function wgslType(expr::Union{Expr, Type{Expr}})
 	if @capture(expr, a_ = b_)
 		return "$(wgslType(a)) = $(wgslType(b))"
 	elseif @capture(expr, f_(x_))
 		return "$(wgslType(eval(f)))($x)"
 	elseif @capture(expr, f_(x__))
-		return "$(wgslType(eval(f)))($(x...))"
+		xargs = join(x, ", ")
+		return "$(wgslType(eval(f)))($(xargs))"
 	elseif @capture(expr, a_::b_)
+		@error a, b
 		return "$a::$(wgslType(eval(b)))"
+	elseif @capture(expr, a_::b_ = c_)
+		@info a, b, c
+		return "$a::$(wgslType(eval(b))) = $c"
 	elseif @capture(expr, a_.b_)
 		return "$a.$b"
+	elseif @capture(expr, ref_[b_])
+		return "$ref[$b]"
 	else
 		@error "Could not capture $expr !!!"
 	end
 end
+
+# wgslType(t::Type{T}) where T = eltype(T)
+# wgslType(t::Type{T}) where T = begin
+	# @info t, T
+	# eltype(T)
+# end
+

@@ -46,66 +46,33 @@ function InitGeometry(::Type{Triangle}, color)
 end
 
 function getVertexCode(::Type{Triangle}, color=true)
-	wgslCode(quote
+	quote
 		struct VertexInput
-			@builtin vertex_index vi::UInt32
+			@builtin vertex_index vertex_index::UInt32
 		end
 		
-		@var id::Int32
-
 		struct VertexOutput
-			if $color==true
-				@builtin vertex_index color::Vec4{Float32}
-			end
+			@location 0 color::Vec4{Float32}
 			@builtin position pos::Vec4{Float32}
 		end
-
-		# TODO had to Main for user defined function
-		# Will have to solve this later
+		
 		@vertex function vs_main(in::VertexInput)::VertexOutput
-			@var id::Int32
-			@var out::Main.VertexOutput # Main here
-			# @let a = 4 # TODO will fail because typeinference
-			@let a::Int32 = 3
+			@var positions = "array<vec2<f32>, 3>(vec2<f32>(0.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0))"
+			@let index = Int32(in.vertex_index)
+			@let p::Vec2{Float32} = position[index]
+			@var out::Main.VertexOutput # Main here temporaryfix
+			out.pos = Vec4{Float32}(sin(p), 0.5, 1.0)
+			out.color = Vec4{Float32}(p, 0.5, 1.0)
+			return out
 		end
 		
 		@fragment function fs_main(in::VertexOutput)::@location 0 Vec4{Float32}
-			@var Private 0 1 id::Mat4{Float32}
-			@var WorkGroup 3 1 id::Int32 3
-			@let a::Int32 = 3
-			@let a = 0.0f0 # TODO these statements do not with types like Int64
-			@let a = Int32(0) # TODO primitives vs variable expansion
 			return in.color
 		end
-
-		function test(in::Int32)::Int32
-			@var id::Int32
-			@let a::Float32
-			return 10
-		end
-		
-	end)
+				
+	end |> wgslCode
 end
 
 # getVertexCode(Triangle, nothing) |> println
 
-# getVertexCode(Triangle, true) |> println
-
-using WGPUgfx
-using MacroTools
-
-exprs = [
-	:(a = 4),
-	:(a::Int32 = 49),
-	:(a = Vec4{Float32}(0, 0, 0)),
-	:(a.b.c = in.vertex),
-	:(a = Int32(0)),
-	:(a = Int32(0, 1)),
-	:(a.b.c = Vec4{Float32}(in.position)),
-]
-
-for expr in exprs
-	@capture(expr, b_ = c_)
-	isdefined(WGPUgfx.StructUtilsMod.VariableDeclMod, :wgslType) &&  @info expr (b, c) wgslType(expr)
-end
-
+getVertexCode(Triangle, true) |> println
