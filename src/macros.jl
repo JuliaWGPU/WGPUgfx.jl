@@ -6,6 +6,11 @@ using MacroTools
 
 export @code_wgsl
 
+macro user(expr)
+	getproperty(WGPUgfx.StructUtilsMod, expr)	
+end
+
+
 """
 Can take following format declarations
 
@@ -72,13 +77,13 @@ function evalStructField(field)
 			return nothing
 		end
 	elseif @capture(field, name_::dtype_)
-		return name=>eval(dtype)
+		return name=>wgslType(eval(dtype))
 	elseif @capture(field, @builtin btype_ name_::dtype_)
 		return name=>eval(:(@builtin $btype $dtype))
 	elseif @capture(field, @location btype_ name_::dtype_)
 		return name=>eval(:(@location $btype $dtype))
 	else
-		@error "Unknown struct field! $expr"
+		@error "Unknown struct field! $field"
 	end
 end
 
@@ -142,11 +147,12 @@ function wgslFunctionBody(fnbody, io, endstring)
 end
 
 
+
 function wgslVertex(expr)
 	io = IOBuffer()
 	endstring = ""
 	@capture(expr, @vertex function fnbody__ end) || error("Expecting regular function!")
-	write(io, "@vertex ") # TODO should depend on version
+	write(io, "@stage(vertex) ") # TODO should depend on version
 	wgslFunctionBody(fnbody, io, endstring)
 	seek(io, 0)
 	code = read(io, String)
@@ -158,7 +164,7 @@ function wgslFragment(expr)
 	io = IOBuffer()
 	endstring = ""
 	@capture(expr, @fragment function fnbody__ end) || error("Expecting regular function!")
-	write(io, "@fragment ") # TODO should depend on version
+	write(io, "@stage(fragment) ") # TODO should depend on version
 	wgslFunctionBody(fnbody, io, endstring)
 	seek(io, 0)
 	code = read(io, String)
@@ -179,7 +185,7 @@ end
 
 function wgslVariable(expr)
 	io = IOBuffer()
-	write(io, wgslType(eval(expr)))
+	write(io, wgslType(eval(expr))) # TODO eval 
 	seek(io, 0)
 	code = read(io, String)
 	close(io)

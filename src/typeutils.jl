@@ -112,6 +112,11 @@ function wgslType(::Type{LocationDataType{B, D}}) where {B, D}
 	return "@location($(wgslType(B))) $(wgslType(D))"
 end
 
+wgslType(::typeof(*)) = "*"
+wgslType(::typeof(+)) = "+"
+wgslType(::typeof(/)) = "/"
+wgslType(::typeof(-)) = "="
+
 wgslType(s::String) = s
 
 function wgslType(expr::Union{Expr, Type{Expr}})

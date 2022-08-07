@@ -1,4 +1,3 @@
-## Load WGPU
 using WGPUgfx
 using WGPU
 using GLFW
@@ -20,17 +19,17 @@ shaderSource = quote
 		@builtin position pos::Vec4{Float32}
 	end
 
-	@vertex function vs_main(in::VertexInput)::VertexOutput
+	@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
 		@var positions = "array<vec2<f32>, 3>(vec2<f32>(0.0, -1.0), vec2<f32>(1.0, 1.0), vec2<f32>(-1.0, 1.0));"
 		@let index = Int32(in.vertex_index)
 		@let p::Vec2{Float32} = positions[index]
-		@var out::VertexOutput
+		@var out::@user VertexOutput
 		out.pos = Vec4{Float32}(p, 0.0, 1.0)
 		out.color = Vec4{Float32}(p, 0.5, 1.0)
 		return out
 	end
 
-	@fragment function fs_main(in::VertexOutput)::@location 0 Vec4{Float32}
+	@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
 		return in.color
 	end
 end |> wgslCode |> Vector{UInt8}
