@@ -134,8 +134,10 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 	unfields = [:($key::$val) for (key, val) in fieldVector]
 	absType = abstractType != nothing ? :($abstractType) : :(Any)
 	Expr(:struct, false, :($name <: $absType), quote $(unfields...) end) |> eval
+	setproperty!(@__MODULE__, name, eval(name))
+	setproperty!((@__MODULE__).VariableDeclMod, name, eval(name))
 	setproperty!(Main, name, eval(name))
-	setproperty!(getproperty(Main, :MacroMod), name, eval(name))
+	setproperty!(parentmodule(@__MODULE__).MacroMod, name, eval(name))
 end
 
 makePaddedStruct(name::Symbol, abstractType::Symbol, fields...) = makePaddedStruct(
@@ -156,7 +158,9 @@ function makeStruct(name::Symbol, abstractType::Union{Nothing, DataType}, fields
 	@info absType=>typeof(absType)
 	Expr(:struct, false, :($name <: $absType), quote $(unfields...) end) |> eval
 	setproperty!(Main, name, eval(name))
-	setproperty!(getproperty(Main, :MacroMod), name, eval(name))
+	setproperty!(@__MODULE__, name, eval(name))
+	setproperty!((@__MODULE__).VariableDeclMod, name, eval(name))
+	setproperty!(parentmodule(@__MODULE__).MacroMod, name, eval(name))
 end
 
 makeStruct(name::Symbol, abstractType::Symbol, fields...) = makeStruct(
