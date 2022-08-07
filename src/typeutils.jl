@@ -77,6 +77,10 @@ end
 
 wgslType(b::BuiltinValue) = string(b)
 
+function wgslType(a::Pair{Symbol, DataType})
+	return "$(a.first):$(wgslType(a.second))"
+end
+
 function wgslType(a::Pair{Symbol, Any})
 	if a.second == :Any
 		return "$(a.first)"
@@ -119,6 +123,8 @@ wgslType(::typeof(-)) = "="
 
 wgslType(s::String) = s
 
+include("functions.jl")
+
 function wgslType(expr::Union{Expr, Type{Expr}})
 	if @capture(expr, a_ = b_)
 		return "$(wgslType(a)) = $(wgslType(b))"
@@ -135,6 +141,14 @@ function wgslType(expr::Union{Expr, Type{Expr}})
 		return "$a.$b"
 	elseif @capture(expr, ref_[b_])
 		return "$ref[$b]"
+	elseif expr.head == :call
+		if @capture(expr, a_op_b_)
+			if op in [:*, :+, :-, :/]
+				return "$a$op$b"
+			else
+				return "$op($a, $b)"
+			end
+		end
 	else
 		@error "Could not capture $expr !!!"
 	end

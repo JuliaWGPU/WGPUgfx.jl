@@ -4,6 +4,8 @@ module MacroMod
 using WGPUgfx
 using MacroTools
 
+using GeometryBasics: Vec2, Vec3, Vec4, Mat4, Mat3, Mat2
+
 export @code_wgsl
 
 macro user(expr)
@@ -35,7 +37,6 @@ end
 
 
 """
-
 
 """
 	struct VertexInput {
@@ -77,7 +78,7 @@ function evalStructField(field)
 			return nothing
 		end
 	elseif @capture(field, name_::dtype_)
-		return name=>wgslType(eval(dtype))
+		return name=>eval(dtype)
 	elseif @capture(field, @builtin btype_ name_::dtype_)
 		return name=>eval(:(@builtin $btype $dtype))
 	elseif @capture(field, @location btype_ name_::dtype_)
@@ -96,6 +97,8 @@ function wgslStruct(expr)
 		evalfield = evalStructField(field)
 		if evalfield != nothing 
 			fieldDict[evalfield.first] = evalfield.second
+		else
+			@error "Failed to understand one or more struct fields!!!"
 		end
 	end
 	makePaddedStruct(T, :UserStruct, fieldDict)
@@ -185,7 +188,7 @@ end
 
 function wgslVariable(expr)
 	io = IOBuffer()
-	write(io, wgslType(eval(expr))) # TODO eval 
+	write(io, wgslType(eval(expr)))
 	seek(io, 0)
 	code = read(io, String)
 	close(io)

@@ -29,6 +29,13 @@ abstract type Constructible end
 
 abstract type Variable{T} end
 
+struct Texture2D{T} end
+struct Sampler end
+
+wgslType(t::Type{Texture2D{T}}) where T = "Texture2D{$T}"
+wgslType(t::Type{Texture2D{Any}}) = "Texture2D"
+wgslType(s::Type{Sampler}) = "Sampler"
+
 struct VarAttribute
 	group::Int
 	binding::Int
@@ -47,7 +54,6 @@ end
 	StorageRead
 	StorageReadWrite
 end
-
 
 function getEnumVariableType(s::Symbol)
 	ins = instances(VariableType)
