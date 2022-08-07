@@ -16,8 +16,6 @@ using GeometryBasics
 include("variableDecl.jl")
 using .VariableDeclMod
 
-@info UserStruct
-
 visibiltyRender = getEnum(WGPUShaderStage, ["Vertex", "Fragment"])
 
 visibilityAll = getEnum(WGPUShaderStage, ["Vertex", "Fragment", "Compute"])
@@ -117,7 +115,6 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 		padSize = (div(potentialOffset, fieldSize, RoundUp)*fieldSize - potentialOffset) |> UInt8
 		@assert padSize >= 0 "pad size should be ≥ 0"
 		if padSize != 0
-			# @info padSize, (potentialOffset, potentialOffset+padSize)
 			sz = 0x80 # MSB
 			for i in 1:(sizeof(padSize)*8)
 				sz = bitrotate(sz, 1)
@@ -145,13 +142,7 @@ makePaddedStruct(name::Symbol, abstractType::Symbol, fields...) = makePaddedStru
 function makeStruct(name::Symbol, abstractType::Union{Nothing, DataType}, fields...)
 	name = name
 	unfields = [:($key::$val) for (key, val) in fields...]
-	@info quote
-		$(unfields...)
-	end
-	@info unfields
 	absType = abstractType != nothing ? :($abstractType) : :(Any)
-	@info name=>typeof(name) 
-	@info absType=>typeof(absType)
 	Expr(:struct, false, :($name <: $absType), quote $(unfields...) end) |> eval
 end
 

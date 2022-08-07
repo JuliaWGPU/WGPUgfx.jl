@@ -15,7 +15,6 @@ using WGPUgfx.MacroMod: wgslCode
 # using Rotations
 # using StaticArrays
 
-
 WGPU.SetLogLevel(WGPULogLevel_Debug)
 
 struct Texture2D end
@@ -24,21 +23,21 @@ struct Sampler end
 
 shaderSource = quote
 	struct Locals
-		@builtin transform::Vec4{Float32}
+		transform::Int32
 	end
 
 	@var Uniform 0 0 rLocals::@user Locals
-
+	
 	struct VertexInput
 		@location 0 pos::Vec4{Float32}
 		@location 1 texcoord::Vec2{Float32}
 	end
-
+	
 	struct VertexOutput
 		@location 0 texcoord::Vec2{Float32}
 		@location 1 pos::Vec4{Float32}
 	end
-
+	
 	@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
 		@let ndc::Vec4{Float32} = rLocals.transform*in.pos
 		@var out::@user VertexOutput
@@ -46,17 +45,15 @@ shaderSource = quote
 		out.texcoord = in.texcoord
 		return out
 	end
-
-	@var 0 1 rTex::Texture2D{Float32}
-	@var 0 2 rSampler::Sampler
+	
+	@var Generic 0 1 rTex::Texture2D{Float32}
+	@var Generic 0 2 rSampler::Sampler
 	
 	@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
 		@let value = textureSample(r_tex, r_sampler, in.texcoord);
 		return Vec4{Float32}(value, value, value, 1.0)
 	end
-end
-
-shaderCode = shaderSource |> wgslCode
+end |> wgslCode |> println
 
 shaderSource = Vector{UInt8}(
 	"""

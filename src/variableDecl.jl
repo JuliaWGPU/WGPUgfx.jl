@@ -239,11 +239,7 @@ macro user(expr)
 end
 
 macro var(dtype::Expr)
-	@capture(dtype, a_::dt_) && return begin
-		@info dt
-		eval(dt)
-		defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
-	end
+	@capture(dtype, a_::dt_) && return defineVar(:Generic, a=>eval(dt), nothing, nothing, nothing)
 	@capture(dtype, a_::dt_ = v_) && return defineVar(:Generic, a=>eval(dt), nothing, nothing, v)
 	@capture(dtype, a_ = v_) && return defineVar(:Generic, a=>:Any, nothing, nothing, v)
 	@error "Unexpected Var expression !!!"

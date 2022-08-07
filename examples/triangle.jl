@@ -48,7 +48,6 @@ bindings = []
 pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
 # swapChainFormat = wgpuSurfaceGetPreferredFormat(canvas.surface[], gpuDevice.adapter.internal[])
 swapChainFormat = WGPU.getPreferredFormat(canvas)
-@info swapChainFormat
 presentContext = WGPU.getContext(canvas)
 ctxtSize = WGPU.determineSize(presentContext[]) .|> Int
 
