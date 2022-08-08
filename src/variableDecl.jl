@@ -32,9 +32,9 @@ abstract type Variable{T} end
 struct Texture2D{T} end
 struct Sampler end
 
-wgslType(t::Type{Texture2D{T}}) where T = "Texture2D{$T}"
-wgslType(t::Type{Texture2D{Any}}) = "Texture2D"
-wgslType(s::Type{Sampler}) = "Sampler"
+wgslType(t::Type{Texture2D{T}}) where T = "texture_2d<$(wgslType(T))>"
+wgslType(t::Type{Texture2D{Any}}) = "texture_2d"
+wgslType(s::Type{Sampler}) = "sampler"
 
 struct VarAttribute
 	group::Int

@@ -128,11 +128,14 @@ include("functions.jl")
 function wgslType(expr::Union{Expr, Type{Expr}})
 	if @capture(expr, a_ = b_)
 		return "$(wgslType(a)) = $(wgslType(b))"
-	elseif @capture(expr, f_(x_))
-		return "$(wgslType(eval(f)))($x)"
-	elseif @capture(expr, f_(x__))
-		xargs = join(x, ", ")
-		return "$(wgslType(eval(f)))($(xargs))"
+	elseif expr.head == :call
+		@capture(expr, f_(x_)) && return "$(wgslType(eval(f)))($x)"
+		@capture(expr, f_(x_, y_)) && f in (:*, :-, :+, :/) && return "$(x)$(f)$(y)"
+		@capture(expr, f_(x_, y_)) && !(f in (:*, :-, :+, :/)) && return "$(f)($(f), $(y))"
+		@capture(expr, f_(x__)) && begin
+			xargs = join(x, ", ")
+			return "$(wgslType(eval(f)))($(xargs))"
+		end
 	elseif @capture(expr, a_::b_)
 		return "$a::$(wgslType(eval(b)))"
 	elseif @capture(expr, a_::b_ = c_)
@@ -141,14 +144,6 @@ function wgslType(expr::Union{Expr, Type{Expr}})
 		return "$a.$b"
 	elseif @capture(expr, ref_[b_])
 		return "$ref[$b]"
-	elseif expr.head == :call
-		if @capture(expr, a_op_b_)
-			if op in [:*, :+, :-, :/]
-				return "$a$op$b"
-			else
-				return "$op($a, $b)"
-			end
-		end
 	else
 		@error "Could not capture $expr !!!"
 	end

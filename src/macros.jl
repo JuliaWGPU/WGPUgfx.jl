@@ -140,7 +140,7 @@ function wgslFunctionBody(fnbody, io, endstring)
 				stmnt.args[1] = Symbol("@letvar") # replace let with letvar
 				write(io, " "^4*wgslLet(stmnt))
 			elseif @capture(stmnt, return t_)
-				write(io, "    return $t;\n")
+				write(io, "    return $(wgslType(t));\n")
 			else
 				@error "Failed to capture statment : $stmnt !!"
 			end
