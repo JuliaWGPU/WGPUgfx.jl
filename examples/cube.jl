@@ -6,8 +6,6 @@ using GLFW
 using WGPU_jll
 using Images
 
-using WGPUgfx.MacroMod: wgslCode
-
 using OhMyREPL
 using Eyeball
 using GeometryBasics
@@ -17,60 +15,22 @@ using StaticArrays
 
 WGPU.SetLogLevel(WGPULogLevel_Debug)
 
-shaderSource = quote
-	struct Locals
-		transform::Mat4{Float32}
-	end
-
-	@var Uniform 0 0 rLocals::@user Locals
-	
-	struct VertexInput
-		@location 0 pos::Vec4{Float32}
-		@location 1 texcoord::Vec2{Float32}
-	end
-	
-	struct VertexOutput
-		@location 0 texcoord::Vec2{Float32}
-		@builtin position pos::Vec4{Float32}
-	end
-	
-	@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
-		@let ndc::Vec4{Float32} = rLocals.transform*in.pos
-		@var out::@user VertexOutput
-		out.pos = Vec4{Float32}(ndc.x, ndc.y, 0.0, 1.0)
-		out.texcoord = in.texcoord
-		return out
-	end
-	
-	@var Generic 0 1 rTex::Texture2D{Float32}
-	@var Generic 0 2 rSampler::Sampler
-	
-	@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
-		@let value = textureSample(rTex, rSampler, in.texcoord).r;
-		return Vec4{Float32}(value, value, value, 1.0)
-	end
-end |> wgslCode |> Vector{UInt8}
-
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas)
 gpuDevice = WGPU.getDefaultDevice()
-shadercode = WGPU.loadWGSL(shaderSource) |> first;
-cshader = Ref(WGPU.createShaderModule(gpuDevice, "shadercode", shadercode, nothing, nothing));
+
+cube = defaultCube()
+
+cshader = defaultShader(gpuDevice, typeof(cube))
+
 renderTextureFormat = WGPU.getPreferredFormat(canvas)
 
 scene = []
 
-cube = defaultCube()
-
 vertexBuffer = getVertexBuffer(gpuDevice, cube)
 uniformData = defaultUniformData(typeof(cube))
 uniformBuffer = getUniformBuffer(gpuDevice, cube)
-(textureView, textureData) = getTextureView(gpuDevice, cube)
-
 
 indexBuffer = getIndexBuffer(gpuDevice, cube)
-writeTexture(gpuDevice, cube)
-
-sampler = WGPU.createSampler(gpuDevice)
 
 push!(scene, cube)
 
@@ -80,18 +40,6 @@ bindingLayouts = [
 		:visibility => ["Vertex", "Fragment"],
 		:type => "Uniform"
 	],
-	WGPU.WGPUTextureEntry => [
-		:binding => 1,
-		:visibility => "Fragment",
-		:sampleType => "Float",
-		:viewDimension => "2D",
-		:multisampled => false
-	],
-	WGPU.WGPUSamplerEntry => [
-		:binding => 2,
-		:visibility => "Fragment",
-		:type => "Filtering"
-	]
 ]
 
 bindings = [
@@ -101,14 +49,6 @@ bindings = [
 		:offset => 0,
 		:size => uniformBuffer.size
 	],
-	WGPU.GPUTextureView =>	[
-		:binding => 1,
-		:textureView => textureView
-	],
-	WGPU.GPUSampler => [
-		:binding => 2,
-		:sampler => sampler
-	]
 ]
 
 (bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
@@ -125,7 +65,7 @@ getVertexBufferLayouts(scene) = map(getVertexBufferLayout, scene)
 
 renderpipelineOptions = [
 	WGPU.GPUVertexState => [
-		:_module => cshader[],
+		:_module => cshader.internal[],
 		:entryPoint => "vs_main",
 		:buffers => getVertexBufferLayouts(scene)
 	],
@@ -142,7 +82,7 @@ renderpipelineOptions = [
 		:alphaToCoverageEnabled=>false
 	],
 	WGPU.GPUFragmentState => [
-		:_module => cshader[],
+		:_module => cshader.internal[],
 		:entryPoint => "fs_main",
 		:targets => [
 			WGPU.GPUColorTargetState =>	[
@@ -168,13 +108,13 @@ renderPipeline = WGPU.createRenderPipeline(
 	label=" "
 )
 
-
 prevTime = time()
 try
 	while !GLFW.WindowShouldClose(canvas.windowRef[])
 		a1 = 0.3f0
 		a2 = time()
 		s = 0.6f0
+		
 		ortho = s.*Matrix{Float32}(I, (3, 3))
 		rotxy = RotXY(a1, a2)
 		uniformData[1:3, 1:3] .= rotxy*ortho
@@ -182,9 +122,16 @@ try
 		(tmpBuffer, _) = WGPU.createBufferWithData(
 			gpuDevice, "ROTATION BUFFER", uniformData, "CopySrc"
 		)
+		
 		currentTextureView = WGPU.getCurrentTexture(presentContext[]) |> Ref;
 		cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
-		WGPU.copyBufferToBuffer(cmdEncoder, tmpBuffer, 0, uniformBuffer, 0, sizeof(uniformData))
+		WGPU.copyBufferToBuffer(cmdEncoder, 
+			tmpBuffer, 
+			0, 
+			uniformBuffer, 
+			0, 
+			sizeof(uniformData)
+		)
 		
 		renderPassOptions = [
 			WGPU.GPUColorAttachments => [
@@ -192,7 +139,8 @@ try
 					WGPU.GPUColorAttachment => [
 						:view => currentTextureView[],
 						:resolveTarget => C_NULL,
-						:clearValue => (abs(0.8f0*sin(a2)), abs(0.8f0*cos(a2)), 0.3f0, 1.0f0),
+						# :clearValue => (abs(0.8f0*sin(a2)), abs(0.8f0*cos(a2)), 0.3f0, 1.0f0),
+						:clearValue => (0.8, 0.8, 0.7, 1.0),
 						:loadOp => WGPULoadOp_Clear,
 						:storeOp => WGPUStoreOp_Store,
 					],
@@ -211,10 +159,7 @@ try
 		WGPU.submit(gpuDevice.queue, [WGPU.finish(cmdEncoder),])
 		WGPU.present(presentContext[])
 		GLFW.PollEvents()
-		# dataDown = reinterpret(Float32, WGPU.readBuffer(gpuDevice, vertexBuffer, 0, sizeof(vertexData)))
-		# @info sum(dataDown .== vertexData |> flatten)
-		# @info dataDown
-		# println("FPS : $(1/(a2 - prevTime))")
+		println("FPS : $(1/(a2 - prevTime))")
 		# WGPU.destroy(tmpBuffer)
 		# WGPU.destroy(currentTextureView[])
 		prevTime = a2
