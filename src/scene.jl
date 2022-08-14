@@ -22,7 +22,6 @@ mutable struct Scene
 	uniformBuffer
 	presentContext
 	bindGroup
-	camera
 end
 
 # prefer push! over add
