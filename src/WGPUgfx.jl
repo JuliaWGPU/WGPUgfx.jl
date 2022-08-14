@@ -6,12 +6,10 @@ using WGPU
 
 include("structutils.jl")
 include("macros.jl")
-include("shader.jl")
-include("primitives.jl")
+include("scene.jl")
 
 using .MacroMod
-using .PrimitivesMod
-using .ShaderMod
+using .SceneMod
 
 using GeometryBasics
 using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, SMatrix, SVector
@@ -27,6 +25,7 @@ export @builtin, @location, wgslType, @var, @letvar,
 	Location, LocationDataType, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, SMatrix, SVector,
 	getVertexBuffer, getUniformBuffer, getTextureView, getIndexBuffer, writeTexture,
 	getUniformData, defaultUniformData, defaultCube, getVertexBufferLayout,
-	defaultShader
+	composeShader, Scene, getShaderCode, defaultCamera, defaultCube, Camera, Cube,
+	setup, runApp, getBindingLayouts, getBindings
 	
 end

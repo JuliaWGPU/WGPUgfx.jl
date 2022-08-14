@@ -4,6 +4,7 @@ authors = ["littu "]
 version = "0.1.0"
 
 [deps]
+CoordinateTransformations = "150eb455-5306-5404-9cee-2592286d6298"
 Debugger = "31a5f54b-26ea-5ae9-a837-f05ce5417438"
 GeometryBasics = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
 Lazy = "50d2b5c4-7a5e-59d5-8109-a42b560f39c0"

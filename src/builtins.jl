@@ -5,6 +5,7 @@ using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4
 
 export BuiltinValue, getEnumBuiltinValue, BuiltIn, @builtin, BuiltInDataType
 
+
 @enum BuiltinValue begin
 	vertex_index
 	instance_index
@@ -20,6 +21,7 @@ export BuiltinValue, getEnumBuiltinValue, BuiltIn, @builtin, BuiltInDataType
 	sample_mask
 end
 
+
 function getEnumBuiltinValue(s::Symbol)
 	ins = instances(BuiltinValue)
 	for i in ins
@@ -30,7 +32,9 @@ function getEnumBuiltinValue(s::Symbol)
 	@error "$s is not in builtin types"
 end
 
+
 struct BuiltIn{B, S, D} end
+
 
 function BuiltIn(btype::Symbol, pair::Pair{Symbol, DataType})
 	bVal = getEnumBuiltinValue(btype) |> Val
@@ -61,7 +65,9 @@ macro builtin(exp)
 	return BuiltIn(b, s=>eval(d))
 end
 
+
 struct BuiltInDataType{B, D} end
+
 
 function BuiltInDataType(btype::Symbol, dType::DataType)
 	bVal = getEnumBuiltinValue(btype) |> Val
@@ -85,7 +91,6 @@ end
 function BuiltIn(sVal::Symbol, ::Type{BuiltInDataType{B, D}}) where {B, D}
 	return BuiltIn{B, sVal, D}
 end
-
 
 
 end

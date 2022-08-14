@@ -3,10 +3,8 @@ using WGPU_jll
 
 using WGPU
 
-include("macros.jl")
+export defaultCube, Cube
 
-using .MacroMod
-using .MacroMod: wgslCode
 
 struct Cube
 	vertexData
@@ -14,14 +12,17 @@ struct Cube
 	indexData
 end
 
+
 function defaultUniformData(::Type{Cube}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
 
+
 function getUniformData(cube::Cube)
 	return defaultUniformData(Cube)
 end
+
 
 function getUniformBuffer(gpuDevice, cube::Cube)
 	uniformData = defaultUniformData(Cube)
@@ -33,6 +34,7 @@ function getUniformBuffer(gpuDevice, cube::Cube)
 	)
 	uniformBuffer
 end
+
 
 function defaultCube()
 	vertexData =  cat([
@@ -102,6 +104,7 @@ function defaultCube()
 	cube
 end
 
+
 function getVertexBuffer(gpuDevice, cube::Cube)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
@@ -111,6 +114,7 @@ function getVertexBuffer(gpuDevice, cube::Cube)
 	)
 	vertexBuffer
 end
+
 
 function getIndexBuffer(gpuDevice, cube::Cube)
 	(indexBuffer, _) = WGPU.createBufferWithData(
@@ -122,7 +126,8 @@ function getIndexBuffer(gpuDevice, cube::Cube)
 	indexBuffer
 end
 
-function getVertexBufferLayout(cube::Cube)
+
+function getVertexBufferLayout(::Type{Cube})
 	WGPU.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
@@ -141,59 +146,45 @@ function getVertexBufferLayout(cube::Cube)
 	]
 end
 
-struct ShaderObj
-	src
-	internal
-	desc
+
+function getBindingLayouts(::Type{Cube})
+	bindingLayouts = [
+		WGPU.WGPUBufferEntry => [
+			:binding => 0,
+			:visibility => ["Vertex", "Fragment"],
+			:type => "Uniform"
+		],
+	]
+	return bindingLayouts
 end
 
-function defaultShader(gpuDevice, ::Type{Cube})
+
+function getBindings(::Type{Cube}, uniformBuffer)
+	bindings = [
+		WGPU.GPUBuffer => [
+			:binding => 0,
+			:buffer => uniformBuffer,
+			:offset => 0,
+			:size => uniformBuffer.size
+		],
+	]
+end
+
+
+
+function getShaderCode(::Type{Cube})
 	shaderSource = quote
-		struct Locals
+		struct CubeUniform
 			transform::Mat4{Float32}
 		end
-
-		@var Uniform 0 0 rLocals::@user Locals
-		
-		struct VertexInput
-			@location 0 pos::Vec4{Float32}
-			@location 1 vColor::Vec4{Float32}
-		end
-		
-		struct VertexOutput
-			@location 0 vColor::Vec4{Float32}
-			@builtin position pos::Vec4{Float32}
-		end
-		
-		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
-			@var out::@user VertexOutput
-			out.pos = rLocals.transform*in.pos
-			out.vColor = in.vColor
-			return out
-		end
-		
-		@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
-			return in.vColor
-		end
-		
-	end |> wgslCode |> Vector{UInt8}
-
-	# TODO this needs to be changed
-	# loadWGSL is awkward name. Shoulde be called descriptor
-	descriptor = WGPU.loadWGSL(shaderSource) |> first; 
-	
-	ShaderObj(
-		shaderSource, 
-		WGPU.createShaderModule(
-			gpuDevice, 
-			"shadercode", 
-			descriptor, 
-			nothing, 
-			nothing
-		) |> Ref,
-		descriptor
-	)
+		@var Uniform 0 0 rLocals::@user CubeUniform
+ 	end
+ 	
+	return shaderSource
 end
+
+
+
 
 function toMesh(::Type{Cube})
 	

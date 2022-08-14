@@ -1,8 +1,8 @@
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.9.0-DEV"
+julia_version = "1.8.0-rc4"
 manifest_format = "2.0"
-project_hash = "c8a787525907ae0b82dc6e634662e3012302169a"
+project_hash = "ee1e414b6f42897016071a35b48b432eda0025af"
 
 [[deps.AbstractTrees]]
 git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
@@ -65,6 +65,12 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "0.5.2+0"
 
+[[deps.CoordinateTransformations]]
+deps = ["LinearAlgebra", "StaticArrays"]
+git-tree-sha1 = "681ea870b918e7cff7111da58791d7f718067a19"
+uuid = "150eb455-5306-5404-9cee-2592286d6298"
+version = "0.6.2"
+
 [[deps.Crayons]]
 git-tree-sha1 = "249fe38abf76d48563e2f4556bebd215aa317e15"
 uuid = "a8cc5b0e-0ffa-5ad4-8c14-923d3ee1735f"
@@ -117,6 +123,11 @@ git-tree-sha1 = "3f3a2501fa7236e9b911e0f7a588c657e822bb6d"
 uuid = "5ae413db-bbd1-5e63-b57d-d24a61df00f5"
 version = "2.2.3+0"
 
+[[deps.Extents]]
+git-tree-sha1 = "5e1e4c53fa39afe63a7d356e30452249365fba99"
+uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
+version = "0.1.1"
+
 [[deps.Eyeball]]
 deps = ["AbstractTrees", "FoldingTrees", "InteractiveUtils", "REPL", "Statistics", "TerminalPager"]
 git-tree-sha1 = "72c76753718a9e18adabe02676076c67f7b37e0c"
@@ -140,15 +151,21 @@ version = "3.4.1"
 
 [[deps.GLFW_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Libglvnd_jll", "Pkg", "Xorg_libXcursor_jll", "Xorg_libXi_jll", "Xorg_libXinerama_jll", "Xorg_libXrandr_jll"]
-git-tree-sha1 = "51d2dfe8e590fbd74e7a842cf6d13d8a2f45dc01"
+git-tree-sha1 = "d972031d28c8c8d9d7b41a536ad7bb0c2579caca"
 uuid = "0656b61e-2033-5cc2-a64a-77c0f6c09b89"
-version = "3.3.6+0"
+version = "3.3.8+0"
+
+[[deps.GeoInterface]]
+deps = ["Extents"]
+git-tree-sha1 = "fb28b5dc239d0174d7297310ef7b84a11804dfab"
+uuid = "cf35fbd7-0cd7-5166-be24-54bfbe79505f"
+version = "1.0.1"
 
 [[deps.GeometryBasics]]
-deps = ["EarCut_jll", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
-git-tree-sha1 = "83ea630384a13fc4f002b77690bc0afeb4255ac9"
+deps = ["EarCut_jll", "GeoInterface", "IterTools", "LinearAlgebra", "StaticArrays", "StructArrays", "Tables"]
+git-tree-sha1 = "a7a97895780dab1085a97769316aa348830dc991"
 uuid = "5c1252a2-5f33-56bf-86c9-59e7332b4326"
-version = "0.4.2"
+version = "0.4.3"
 
 [[deps.Highlights]]
 deps = ["DocStringExtensions", "InteractiveUtils", "REPL"]
@@ -252,7 +269,7 @@ uuid = "94ce4f54-9a6c-5748-9c1c-f9c7231a4531"
 version = "1.16.1+1"
 
 [[deps.LinearAlgebra]]
-deps = ["Libdl", "OpenBLAS_jll", "libblastrampoline_jll"]
+deps = ["Libdl", "libblastrampoline_jll"]
 uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
@@ -350,7 +367,7 @@ uuid = "b98c9c47-44ae-5843-9183-064241ee97a0"
 version = "1.3.0"
 
 [[deps.Pkg]]
-deps = ["Artifacts", "Dates", "Downloads", "FileWatching", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
+deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
 uuid = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 version = "1.8.0"
 
@@ -412,7 +429,7 @@ uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [[deps.SparseArrays]]
-deps = ["Libdl", "LinearAlgebra", "Random", "Serialization", "SuiteSparse_jll"]
+deps = ["LinearAlgebra", "Random"]
 uuid = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [[deps.SpecialFunctions]]
@@ -441,11 +458,6 @@ deps = ["Adapt", "DataAPI", "StaticArrays", "Tables"]
 git-tree-sha1 = "ec47fb6069c57f1cee2f67541bf8f23415146de7"
 uuid = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 version = "0.6.11"
-
-[[deps.SuiteSparse_jll]]
-deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
-uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
-version = "5.10.1+0"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -610,7 +622,7 @@ uuid = "214eeab7-80f7-51ab-84ad-2988db7cef09"
 version = "0.29.0+0"
 
 [[deps.libblastrampoline_jll]]
-deps = ["Artifacts", "Libdl"]
+deps = ["Artifacts", "Libdl", "OpenBLAS_jll"]
 uuid = "8e850b90-86db-534c-a0d3-1478176c7d93"
 version = "5.1.1+0"
 
