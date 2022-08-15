@@ -13,7 +13,8 @@ using .PrimitivesMod
 
 export createShaderObj, defaultCamera, defaultCube, Cube, Camera, getShaderCode,
 		getVertexBuffer, defaultUniformData, getUniformBuffer, getIndexBuffer,
-		getBindingLayouts, getBindings, getVertexBufferLayout
+		getBindingLayouts, getBindings, getVertexBufferLayout, defaultPlane, Plane,
+		defaultTriangle, Triangle
 
 struct ShaderObj
 	src

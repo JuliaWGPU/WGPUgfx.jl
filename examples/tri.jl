@@ -15,8 +15,8 @@ gpuDevice = WGPU.getDefaultDevice();
 scene = Scene(canvas, [], nothing, nothing, nothing, nothing, nothing, nothing, nothing)
 camera = defaultCamera()
 push!(scene.objects, camera)
-cube = defaultCube()
-push!(scene.objects, cube)
+triangle = defaultTriangle()
+push!(scene.objects, triangle)
 
 (renderPipeline, _) = setup(scene, gpuDevice);
 

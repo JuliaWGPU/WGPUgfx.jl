@@ -11,7 +11,8 @@ include("shader.jl")
 
 using .ShaderMod
 
-export Scene, composeShader, defaultCamera, Camera, defaultCube, Cube, setup, runApp
+export Scene, composeShader, defaultCamera, Camera, defaultCube,
+	defaultPlane, Plane, Cube, Triangle, defaultTriangle, setup, runApp
 
 mutable struct Scene
 	canvas
@@ -22,16 +23,16 @@ mutable struct Scene
 	uniformBuffer
 	presentContext
 	bindGroup
+	camera
 end
 
 # prefer push! over add
-function add(scene, obj)
+function attach(scene, obj)
 	push!(scene.objects, obj)
 	setup(scene)
 end
 
 function composeShader(scene, gpuDevice)
-	
 	src = quote end
 	
 	for object in scene.objects
@@ -62,14 +63,13 @@ function composeShader(scene, gpuDevice)
 	end
 	
 	push!(src.args, defaultSource)
-	
 	createShaderObj(gpuDevice, src)
 end
 
 function getVertexBufferLayouts(objs)
 	layout = []
 	for obj in objs
-		if typeof(obj) == Cube
+		if typeof(obj) != Camera
 			push!(layout, getVertexBufferLayout(typeof(obj)))
 		end
 	end
@@ -77,20 +77,25 @@ function getVertexBufferLayouts(objs)
 end
 
 function setup(scene, gpuDevice)
-
 	cshader = composeShader(scene, gpuDevice)
-	
+	@info cshader.src
 	renderTextureFormat = WGPU.getPreferredFormat(scene.canvas)
-
+	
 	bindings = []
 	bindingLayouts = []
 	uniformData = nothing
 	uniformBuffer = nothing
 	indexBuffer = nothing
 	vertexBuffer = nothing
+
+	for obj in scene.objects
+		if typeof(obj) == Camera	
+			scene.camera = obj
+		end
+	end
 	
 	for obj in scene.objects
-		if typeof(obj) == Cube
+		if typeof(obj) != Camera
 			vertexBuffer =getVertexBuffer(gpuDevice, obj)
 			uniformData = defaultUniformData(typeof(obj))
 			uniformBuffer = getUniformBuffer(gpuDevice, obj)
@@ -106,23 +111,18 @@ function setup(scene, gpuDevice)
 	scene.vertexBuffer = vertexBuffer
 	
 	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
-
 	scene.bindGroup = bindGroup
-	
 	pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
-	
 	presentContext = WGPU.getContext(scene.canvas)
-	
 	WGPU.determineSize(presentContext[])
-	
 	WGPU.config(presentContext, device=gpuDevice, format = renderTextureFormat)
 
 	scene.presentContext = presentContext
 
 	renderpipelineOptions = [
 		WGPU.GPUVertexState => [
-			:_module => cshader.internal[],					# SET THIS (AUTOMATICALLY)
-			:entryPoint => "vs_main",						# SET THIS (FIXED FOR NOW)
+			:_module => cshader.internal[],						# SET THIS (AUTOMATICALLY)
+			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => getVertexBufferLayouts(scene.objects)
 		],
 		WGPU.GPUPrimitiveState => [
@@ -138,11 +138,11 @@ function setup(scene, gpuDevice)
 			:alphaToCoverageEnabled=>false
 		],
 		WGPU.GPUFragmentState => [
-			:_module => cshader.internal[],					# SET THIS
-			:entryPoint => "fs_main",						# SET THIS (FIXED FOR NOW)
+			:_module => cshader.internal[],						# SET THIS
+			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPU.GPUColorTargetState =>	[
-					:format => renderTextureFormat,			# SET THIS
+					:format => renderTextureFormat,				# SET THIS
 					:color => [
 						:srcFactor => "One",
 						:dstFactor => "Zero",
@@ -171,7 +171,7 @@ function runApp(scene, gpuDevice, renderPipeline)
 	a1 = 0.3f0
 	a2 = time()
 	s = 0.6f0
-
+	
 	ortho = s.*Matrix{Float32}(I, (3, 3))
 	rotxy = RotXY(a1, a2)
 	scene.uniformData[1:3, 1:3] .= rotxy*ortho
@@ -182,7 +182,8 @@ function runApp(scene, gpuDevice, renderPipeline)
 	
 	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]) |> Ref;
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
-	WGPU.copyBufferToBuffer(cmdEncoder, 
+	WGPU.copyBufferToBuffer(
+		cmdEncoder, 
 		tmpBuffer, 
 		0, 
 		scene.uniformBuffer, 

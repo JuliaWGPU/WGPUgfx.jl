@@ -171,7 +171,6 @@ function getBindings(::Type{Cube}, uniformBuffer)
 end
 
 
-
 function getShaderCode(::Type{Cube})
 	shaderSource = quote
 		struct CubeUniform
@@ -182,9 +181,6 @@ function getShaderCode(::Type{Cube})
  	
 	return shaderSource
 end
-
-
-
 
 function toMesh(::Type{Cube})
 	
