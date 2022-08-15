@@ -6,7 +6,7 @@ using WGPU
 export defaultCube, Cube
 
 
-struct Cube
+mutable struct Cube
 	vertexData
 	colorData
 	indexData

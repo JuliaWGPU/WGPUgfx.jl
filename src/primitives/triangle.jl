@@ -2,37 +2,37 @@ using WGPU_jll
 
 using WGPU
 
-export Triangle, defaultTriangle
+export Triangle3D, defaultTriangle3D
 
-struct Triangle
+mutable struct Triangle3D
 	vertexData
 	indexData
 	colorData
 end
 
-function defaultUniformData(::Type{Triangle})
+function defaultUniformData(::Type{Triangle3D})
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
 
-function getUniformData(tri::Triangle)
-	return defaultUniformData(Triangle)
+function getUniformData(tri::Triangle3D)
+	return defaultUniformData(Triangle3D)
 end
 
-function getShaderSource(::Triangle)
+function getShaderSource(::Triangle3D)
 	shaderSource = quote
-		struct TriangleUniform
+		struct Triangle3DUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 0 rLocals::@user TriangleUniform
+		@var Uniform 0 0 rLocals::@user Triangle3DUniform
  	end
  	
 	return shaderSource
 
 end
 
-function getUniformBuffer(gpuDevice, tri::Triangle)
-	uniformData = defaultUniformData(Triangle)
+function getUniformBuffer(gpuDevice, tri::Triangle3D)
+	uniformData = defaultUniformData(Triangle3D)
 	(uniformBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice,
 		"uniformBuffer",
@@ -42,21 +42,20 @@ function getUniformBuffer(gpuDevice, tri::Triangle)
 	uniformBuffer
 end
 
-function defaultTriangle()
+function defaultTriangle3D()
 	vertexData =  cat([
 	    [-1.0, -1.0, 1, 1.5],
 	    [1.0, -1.0, 1, 1.5],
 	    [0.0, 1, 1, 1.5],
 	]..., dims=2) .|> Float32
 
-	indexData = cat([[0, 1, 2]]..., dims=2)
-	colorData = repeat(cat([[1, 0, 0, 1]]..., dims=2), 1, 3)
-
-	triangle = Triangle(vertexData, indexData, colorData)
+	indexData = cat([[0, 1, 2]]..., dims=2) .|> UInt32
+	colorData = repeat(cat([[1, 0, 0, 1]]..., dims=2), 1, 3) .|> Float32
+	triangle = Triangle3D(vertexData, indexData, colorData)
 	triangle
 end
 
-function getVertexBuffer(gpuDevice, tri::Triangle)
+function getVertexBuffer(gpuDevice, tri::Triangle3D)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice,
 		"vertexBuffer",
@@ -66,7 +65,7 @@ function getVertexBuffer(gpuDevice, tri::Triangle)
 	vertexBuffer
 end
 
-function getIndexBuffer(gpuDevice, tri::Triangle)
+function getIndexBuffer(gpuDevice, tri::Triangle3D)
 	(indexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
 		"indexBuffer", 
@@ -76,7 +75,7 @@ function getIndexBuffer(gpuDevice, tri::Triangle)
 	indexBuffer
 end
 
-function getVertexBufferLayout(tri::Type{Triangle})
+function getVertexBufferLayout(tri::Type{Triangle3D})
 	WGPU.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
@@ -95,7 +94,7 @@ function getVertexBufferLayout(tri::Type{Triangle})
 	]
 end
 
-function getBindingLayouts(::Type{Triangle})
+function getBindingLayouts(::Type{Triangle3D})
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
 			:binding => 0,
@@ -106,7 +105,7 @@ function getBindingLayouts(::Type{Triangle})
 	return bindingLayouts
 end
 
-function getBindings(::Type{Triangle}, uniformBuffer)
+function getBindings(::Type{Triangle3D}, uniformBuffer)
 	bindings = [
 		WGPU.GPUBuffer => [
 			:binding => 0,
@@ -117,7 +116,7 @@ function getBindings(::Type{Triangle}, uniformBuffer)
 	]
 end
 
-function getShaderCode(::Type{Triangle})
+function getShaderCode(::Type{Triangle3D})
 	shaderSource = quote
 		struct TriUniform
 			transform::Mat4{Float32}
@@ -128,6 +127,6 @@ function getShaderCode(::Type{Triangle})
 	return shaderSource
 end
 
-function toMesh(::Type{Triangle})
+function toMesh(::Type{Triangle3D})
 	
 end

@@ -7,7 +7,7 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 
-WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
+WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
 
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();

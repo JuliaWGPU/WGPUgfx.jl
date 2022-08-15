@@ -12,7 +12,7 @@ include("shader.jl")
 using .ShaderMod
 
 export Scene, composeShader, defaultCamera, Camera, defaultCube,
-	defaultPlane, Plane, Cube, Triangle, defaultTriangle, setup, runApp
+	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D, setup, runApp
 
 mutable struct Scene
 	canvas
@@ -52,7 +52,7 @@ function composeShader(scene, gpuDevice)
 		
 		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
 			@var out::@user VertexOutput
-			out.pos = rLocals.transform*in.pos
+			out.pos = camera.transform*in.pos
 			out.vColor = in.vColor
 			return out
 		end
@@ -91,11 +91,23 @@ function setup(scene, gpuDevice)
 	for obj in scene.objects
 		if typeof(obj) == Camera	
 			scene.camera = obj
+			scene.uniformData = defaultUniformData(typeof(obj))
+			scene.uniformBuffer = getUniformBuffer(gpuDevice, obj)
+			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
+			push!(bindings, getBindings(typeof(obj), scene.uniformBuffer)...)
 		end
 	end
+
+	camera = scene.camera
+
+	projectionMatrix = perspectiveMatrix(pi/2, 2.0, 0, 1.0)
+	viewMatrix = lookAtRightHanded(camera.position, camera.lookat, camera.up)
+	viewProject = projectionMatrix ∘ viewMatrix
+
 	
 	for obj in scene.objects
 		if typeof(obj) != Camera
+			# obj.vertexData = viewProject(obj.vertexData)
 			vertexBuffer =getVertexBuffer(gpuDevice, obj)
 			uniformData = defaultUniformData(typeof(obj))
 			uniformBuffer = getUniformBuffer(gpuDevice, obj)
@@ -105,8 +117,6 @@ function setup(scene, gpuDevice)
 		end
 	end
 	
-	scene.uniformData = uniformData
-	scene.uniformBuffer = uniformBuffer
 	scene.indexBuffer = indexBuffer
 	scene.vertexBuffer = vertexBuffer
 	
@@ -128,7 +138,7 @@ function setup(scene, gpuDevice)
 		WGPU.GPUPrimitiveState => [
 			:topology => "TriangleList",
 			:frontFace => "CCW",
-			:cullMode => "Back",
+			:cullMode => "None",
 			:stripIndexFormat => "Undefined"
 		],
 		WGPU.GPUDepthStencilState => [],
@@ -183,11 +193,11 @@ function runApp(scene, gpuDevice, renderPipeline)
 	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]) |> Ref;
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
 	WGPU.copyBufferToBuffer(
-		cmdEncoder, 
-		tmpBuffer, 
-		0, 
-		scene.uniformBuffer, 
-		0, 
+		cmdEncoder,
+		tmpBuffer,
+		0,
+		scene.uniformBuffer,
+		0,
 		sizeof(scene.uniformData)
 	)
 	

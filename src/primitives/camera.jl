@@ -5,7 +5,7 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 
-export defaultCamera, Camera
+export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, windowingTransform
 
 xCoords(bb) = bb[1:2:end]
 yCoords(bb) = bb[2:2:end]
@@ -47,17 +47,16 @@ function lookAtRightHanded(eye, center, up)
 	y = cross(z, x) |> normalize
 	m = Matrix{Float32}(I, (4, 4))
 	m[1:3, 1:3] .= (cat([x, y, z]..., dims=2) .|> Float32 |> collect)
-	return m
+	return LinearMap(m)
 end
 
 
-function perspectiveMatrix(fov::Float32, aspectRatio::Float32, near, far)
+function perspectiveMatrix(fov::Float64, aspectRatio::Float64, near, far)
 	yscale = 1/tan(fov/2)
 	xscale = yscale/aspectRatio
 	zn = near
 	zf = far
 	s = zf/(zn - zf)
-	t =
 	return LinearMap(
 		@SMatrix(
 			[
@@ -66,29 +65,28 @@ function perspectiveMatrix(fov::Float32, aspectRatio::Float32, near, far)
 				0	   	0		s		-1;
 				0		0		zn*s	0;
 			]
-		)
+		) .|> Float32
 	)
 end
 
-
-function perspectiveMatrix(w::Int, h::Int, near, far)
-	yscale = 1/tan(fov/2)
-	xscale = yscale/aspectRatio
-	zn = near
-	zf = far
-	s = zf/(zn - zf)
-	t =
-	return LinearMap(
-		@SMatrix(
-			[
-				2*zn/w 	0      	0 		0;
-				0		2*zn/h	0		0;
-				0	   	0		s		-1;
-				0		0		zn*s	0;
-			]
-		)
-	)
-end
+# 
+# function perspectiveMatrix(w::Int, h::Int, near, far)
+	# yscale = 1/tan(fov/2)
+	# xscale = yscale/aspectRatio
+	# zn = near
+	# zf = far
+	# s = zf/(zn - zf)
+	# return LinearMap(
+		# @SMatrix(
+			# [
+				# 2*zn/w 	0      	0 		0;
+				# 0		2*zn/h	0		0;
+				# 0	   	0		s		-1;
+				# 0		0		zn*s	0;
+			# ]
+		# )
+	# )
+# end
 
 
 function orthographicMatrix(w::Int, h::Int, near, far)
@@ -111,17 +109,20 @@ function orthographicMatrix(w::Int, h::Int, near, far)
 end
 
 
-struct Camera
+mutable struct Camera
 	position
-	orientation
+	lookat
+	up
 end
 
 function defaultCamera()
-	position = [1, 0, 0, 0] .|> Float32
-	orientation = [-1, 0, 0, 0] .|> Float32
+	position = [3.0, 1.5, -3.0] .|> Float32
+	lookat = [0, 0, 0] .|> Float32
+	up = [0, 1, 0] .|> Float32
 	return Camera(
 		position,
-		orientation
+		lookat,
+		up
 	)
 end
 
@@ -165,10 +166,24 @@ function getVertexBufferLayout(::Type{Camera})
 end
 
 function getBindingLayouts(::Type{Camera})
-	return []
+	bindingLayouts = [
+		WGPU.WGPUBufferEntry => [
+			:binding => 1,
+			:visibility => ["Vertex", "Fragment"],
+			:type => "Uniform"
+		],
+	]
+	return bindingLayouts
 end
 
-function getBindings(::Type{Camera}, buffers)
-	return []
+function getBindings(::Type{Camera}, uniformBuffer)
+	bindings = [
+		WGPU.GPUBuffer => [
+			:binding => 1,
+			:buffer  => uniformBuffer,
+			:offset  => 0,
+			:size    => uniformBuffer.size
+		],
+	]
 end
 

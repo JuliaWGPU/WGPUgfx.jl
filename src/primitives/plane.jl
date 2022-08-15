@@ -4,7 +4,7 @@ using WGPU
 
 export defaultPlane, Plane
 
-struct Plane
+mutable struct Plane
 	width
 	height
 	wSegments
@@ -47,7 +47,7 @@ function generatePlane(width, height, wSegments, hSegments)
 	yy = repeat(-y |> adjoint, size(x) |> first)[:]
 	positions = cat(xx, yy, ones(size(xx)), 1.5.*ones(size(xx)), dims=2)
 	dim = (w, h)
-	indices = (1:(nx*ny)) |> collect |> (x) -> reshape(x, (nx, ny))
+	indices = (0:(nx*ny) - 1) |> collect |> (x) -> reshape(x, (nx, ny))
 	index = zeros(wSegments, hSegments, 2, 3)
 	index[:, :, 1, 1] = indices[1:hSegments, 1:wSegments]
 	index[:, :, 1, 2] = index[:, :, 1, 1] .+ 1
