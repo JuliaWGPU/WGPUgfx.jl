@@ -15,7 +15,7 @@ gpuDevice = WGPU.getDefaultDevice();
 scene = Scene(canvas, [], repeat([nothing], 9)...)
 camera = defaultCamera()
 push!(scene.objects, camera)
-plane = defaultPlane()
+plane = defaultPlane(gpuDevice)
 push!(scene.objects, plane)
 
 (renderPipeline, _) = setup(scene, gpuDevice);
@@ -23,6 +23,10 @@ push!(scene.objects, plane)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
+			camera = scene.camera
+			rotxy = RotXY(pi/3, time())
+			camera.scale = [1, 1, 1] .|> Float32
+			camera.eye = rotxy*([0.0, 0.0, -4.0] .|> Float32)
 			runApp(scene, gpuDevice, renderPipeline)
 			PollEvents()
 		end

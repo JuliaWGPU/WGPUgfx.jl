@@ -7,6 +7,7 @@ using CoordinateTransformations
 using MacroTools
 using LinearAlgebra
 using StaticArrays
+using GeometryBasics: Mat4
 
 include("shader.jl")
 
@@ -92,22 +93,18 @@ function setup(scene, gpuDevice)
 	
 	bindings = []
 	bindingLayouts = []
-	uniformData = nothing
-	uniformBuffer = nothing
 	indexBuffer = nothing
 	vertexBuffer = nothing
 	
 	for obj in scene.objects
 		if typeof(obj) == Camera
 			scene.camera = obj
-			scene.uniformData = defaultUniformData(typeof(obj))
-			scene.uniformBuffer = getUniformBuffer(gpuDevice, obj)
 			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
-			push!(bindings, getBindings(typeof(obj), scene.uniformBuffer)...)
+			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer))...)
 		end
 	end
-	
-	camera = scene.camera
+
+	scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
 	
 	for obj in scene.objects
 		if typeof(obj) != Camera
@@ -189,7 +186,6 @@ function setup(scene, gpuDevice)
 
 	scene.depthView = WGPU.createView(scene.depthTexture)
 
-
 	renderPipeline = WGPU.createRenderPipeline(
 		gpuDevice, pipelineLayout, 
 		renderpipelineOptions; 
@@ -200,47 +196,9 @@ end
 
 
 function runApp(scene, gpuDevice, renderPipeline)
-	camera = scene.camera
-	camera.eye = [4.0, 4.0, 4.0] .|> Float32
-	rotxy = RotXY(pi/3, time()%3.14)
-	rotary = Matrix{Float32}(I, (4, 4))
-	rotary[1:3, 1:3] .= rotxy
 
-	scale = scaleTransform([1, 1, 1] .|> Float32)
-	viewMatrix = lookAtRightHanded(camera) ∘ scale
-	projectionMatrix = perspectiveMatrix(pi/2, 1.0, -1.0, -100.0)
-
-	# (nx, ny) = scene.canvas.size
-	# mvpProject = LinearMap(
-		# @SMatrix(
-			# [
-				# nx/2	0 		0 		(nx-1)/2;
-				# 0 		ny/2	0 		(ny-1)/2;
-				# 0 		0  		1 		0 		;
-				# 0 		0 		0  		1 		;
-			# ]
-		# )
-	# )
-
-	viewProject = projectionMatrix ∘ viewMatrix
-
-	scene.uniformData .= viewProject.linear * rotary
-
-	(tmpBuffer, _) = WGPU.createBufferWithData(
-		gpuDevice, "ROTATION BUFFER", scene.uniformData, "CopySrc"
-	)
-	
 	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]);
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
-	
-	WGPU.copyBufferToBuffer(
-		cmdEncoder,
-		tmpBuffer,
-		0,
-		scene.uniformBuffer,
-		0,
-		sizeof(scene.uniformData)
-	)
 	
 	renderPassOptions = [
 		WGPU.GPUColorAttachments => [

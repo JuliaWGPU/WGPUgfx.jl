@@ -1,5 +1,6 @@
 
-using GeometryBasics: Vec2, Vec4, Vec3, Mat
+using WGPU
+using GeometryBasics: Vec2, Vec4, Vec3, Mat4, Mat3, Mat2
 using LinearAlgebra
 using StaticArrays
 using Rotations
@@ -7,27 +8,92 @@ using CoordinateTransformations
 
 
 export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
-	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform
+	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform,
+	getUniformBuffer, getUniformData
 
 
 mutable struct Camera
+	gpuDevice
 	eye
 	lookat
 	up
+	uniformData
+	uniformBuffer
+	scale
+	fov
+	aspectRatio
+	nearPlane
+	farPlane
+	function Camera(gpuDevice, eye, lookat, up, scale, fov, aspectRatio, nearPlane, farPlane)
+		scale = [1, 1, 1] .|> Float32
+		camera = new(gpuDevice, eye, lookat, up, nothing, nothing, scale, fov, aspectRatio, nearPlane, farPlane)
+		uniformData = computeUniformData(camera)
+		(uniformBuffer, _) = WGPU.createBufferWithData(
+			gpuDevice, 
+			"uniformBuffer", 
+			uniformData, 
+			["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
+		)
+		setfield!(camera, :uniformData, uniformData)
+		setfield!(camera, :uniformBuffer, uniformBuffer)
+		return camera
+	end
 end
 
 
-function defaultCamera()
+# TODO not used
+function defaultUniformData(::Type{Camera}) 
+	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
+	return uniformData
+end
+
+
+function computeUniformData(camera::Camera)
+	viewMatrix = lookAtRightHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
+	projectionMatrix = perspectiveMatrix(camera)
+	viewProject = projectionMatrix ∘ viewMatrix
+	uniformData = viewProject.linear
+	return uniformData
+end
+
+
+function defaultCamera(gpuDevice)
 	eye = [1.0, 1.0, 1.0] .|> Float32
 	lookat = [0, 0, 0] .|> Float32
 	up = [0, 1, 0] .|> Float32
+	scale = [1, 1, 1] .|> Float32
+	fov = pi/2 |> Float32
+	aspectRatio = 1.0 |> Float32
+	nearPlane = -1.0 |> Float32
+	farPlane = -100.0 |> Float32
 	return Camera(
+		gpuDevice,
 		eye,
 		lookat,
-		up
+		up,
+		scale,
+		fov,
+		aspectRatio,
+		nearPlane,
+		farPlane
 	)
 end
 
+
+Base.setproperty!(camera::Camera, f::Symbol, v) = begin
+	setfield!(camera, f, v)
+	setfield!(camera, :uniformData, f==:uniformData ? v : computeUniformData(camera))
+	updateUniformBuffer(camera)
+end
+
+# TODO not working
+Base.getproperty(camera::Camera, f::Symbol) = begin
+	if f != :uniformBuffer
+		return getfield(camera, f)
+	else
+		return readUniformBuffer(camera)
+	end
+end
 
 xCoords(bb) = bb[1:2:end]
 yCoords(bb) = bb[2:2:end]
@@ -46,7 +112,7 @@ function translate(loc)
 				0 	0 	1 	z;
 				0 	0 	0 	1;
 			]
-		)
+		) .|> Float32
 	)
 end
 
@@ -61,7 +127,7 @@ function scaleTransform(loc)
 				0	0	z 	0;
 				0	0	0	1;
 			]
-		)
+		) .|> Float32
 	)
 
 end
@@ -77,7 +143,7 @@ function translateCamera(camera::Camera)
 				0 	0 	1 	z;
 				0 	0 	0 	1;
 			]
-		)
+		) .|> Float32
 	) |> inv
 end
 
@@ -124,16 +190,16 @@ function lookAtRightHanded(camera::Camera)
 end
 
 
-function perspectiveMatrix(fov, aspectRatio, near, far)
-	fov = fov |> Float32
-	ar = aspectRatio |> Float32
-	n = near |> Float32
-	f = far |> Float32
+function perspectiveMatrix(camera::Camera)
+	fov = camera.fov
+	ar = camera.aspectRatio
+	n = camera.nearPlane
+	f = camera.farPlane
 	t = n*tan(fov/2)
 	b = -t
 	r = ar*t
 	l = -r
-	return perspectiveMatrix(n, f, l, r, t, b)
+	return perspectiveMatrix(((n, f, l, r, t, b) .|> Float32)...)
 end
 
 
@@ -154,7 +220,7 @@ function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, 
 				0		0		zR		oR	;
 				0		0		1		0	;
 			]
-		)
+		) .|> Float32
 	)
 end
 
@@ -165,7 +231,6 @@ function orthographicMatrix(w::Int, h::Int, near, far)
 	zn = near
 	zf = far
 	s = 1/(zn - zf)
-	t =
 	return LinearMap(
 		@SMatrix(
 			[
@@ -179,26 +244,34 @@ function orthographicMatrix(w::Int, h::Int, near, far)
 end
 
 
-function defaultUniformData(::Type{Camera}) 
-	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
-	return uniformData
-end
-
-
 function getUniformData(camera::Camera)
-	return defaultUniformData(Camera)
+	return camera.uniformData
 end
 
 
-function getUniformBuffer(gpuDevice, camera::Camera)
-	uniformData = defaultUniformData(Camera)
-	(uniformBuffer, _) = WGPU.createBufferWithData(
-		gpuDevice, 
-		"uniformBuffer", 
-		uniformData, 
-		["Uniform", "CopyDst"]
+function updateUniformBuffer(camera::Camera)
+	data = SMatrix{4, 4}(camera.uniformData[:])
+	@info :UniformBuffer data
+	WGPU.writeBuffer(
+		camera.gpuDevice[].queue, 
+		getfield(camera, :uniformBuffer),
+		data,
 	)
-	uniformBuffer
+end
+
+function readUniformBuffer(camera)
+	data = WGPU.readBuffer(
+		camera.gpuDevice,
+		getfield(camera, :uniformBuffer),
+		0,
+		getfield(camera, :uniformBuffer).size
+	)
+	datareinterpret = reinterpret(Mat4{Float32}, data)[1]
+	@info "Received Buffer" datareinterpret
+end
+
+function getUniformBuffer(camera)
+	getfield(camera, uniformBuffer)
 end
 
 
@@ -207,9 +280,7 @@ function getShaderCode(::Type{Camera})
 		struct CameraUniform
 			transform::Mat4{Float32}
 		end
-
 		@var Uniform 0 1 camera::@user CameraUniform
-		
 	end
 	return shaderSource
 end
@@ -242,5 +313,6 @@ function getBindings(::Type{Camera}, uniformBuffer)
 		],
 	]
 end
+
 
 

@@ -4,7 +4,9 @@ export Location, @location, LocationDataType
 using GeometryBasics
 using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4
 
+
 struct Location{B, S, D} end
+
 
 function Location(btype::Int, pair::Pair{Symbol, DataType})
 	bVal = (btype) |> Val
@@ -12,6 +14,7 @@ function Location(btype::Int, pair::Pair{Symbol, DataType})
 	dVal = pair.second |> Val
 	return Location{bVal, sVal, dVal}
 end
+
 
 macro location(exp)
 	dump(exp)
@@ -35,13 +38,16 @@ macro location(exp)
 	return Location(b, s=>eval(d))
 end
 
+
 struct LocationDataType{B, D} end
+
 
 function LocationDataType(btype::Int, dType::DataType)
 	bVal = (btype) |> Val
 	dVal = dType |> Val
 	return LocationDataType{bVal, dVal}
 end
+
 
 macro location(btype, dtype)
 	@assert typeof(btype) == Int """\n
@@ -55,8 +61,10 @@ macro location(btype, dtype)
 	return LocationDataType(btype, eval(dtype))
 end
 
+
 function Location(sVal::Int, ::Type{Location{B, D}}) where {B, D}
 	return Location{B, sVal, D}
 end
+
 
 end
