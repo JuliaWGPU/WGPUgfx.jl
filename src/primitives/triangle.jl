@@ -26,9 +26,7 @@ function getShaderSource(::Triangle3D)
 		end
 		@var Uniform 0 0 rLocals::@user Triangle3DUniform
  	end
- 	
 	return shaderSource
-
 end
 
 function getUniformBuffer(gpuDevice, tri::Triangle3D)
@@ -44,13 +42,13 @@ end
 
 function defaultTriangle3D()
 	vertexData =  cat([
-	    [-1.0, -1.0, 1, 1.5],
-	    [1.0, -1.0, 1, 1.5],
-	    [0.0, 1, 1, 1.5],
+	    [-1.0, -1.0, 1.0, 1],
+	    [1.0, -1.0, 1.0, 1],
+	    [0.0, 1.0, 1.0, 1],
 	]..., dims=2) .|> Float32
 
 	indexData = cat([[0, 1, 2]]..., dims=2) .|> UInt32
-	colorData = repeat(cat([[1, 0, 0, 1]]..., dims=2), 1, 3) .|> Float32
+	colorData = repeat(cat([[0.5, 0.3, 0.3, 1]]..., dims=2), 1, 3) .|> Float32
 	triangle = Triangle3D(vertexData, indexData, colorData)
 	triangle
 end
@@ -59,7 +57,7 @@ function getVertexBuffer(gpuDevice, tri::Triangle3D)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice,
 		"vertexBuffer",
-		tri.vertexData,
+		vcat(tri.vertexData, tri.colorData),
 		["Vertex", "CopySrc"]
 	)
 	vertexBuffer
@@ -121,7 +119,7 @@ function getShaderCode(::Type{Triangle3D})
 		struct TriUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 0 rLocals::@user TriUniform
+		@var Uniform 0 0 triuniform::@user TriUniform
  	end
  	
 	return shaderSource

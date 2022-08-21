@@ -6,17 +6,20 @@ using Rotations
 using CoordinateTransformations
 using MacroTools
 using LinearAlgebra
+using StaticArrays
 
 include("shader.jl")
 
 using .ShaderMod
 
 export Scene, composeShader, defaultCamera, Camera, defaultCube,
-	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D, setup, runApp
+	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
+	defaultCircle, Circle, setup, runApp
+
 
 mutable struct Scene
 	canvas
-	objects # ::Union{WorldObject, ObjectGroup}
+	objects 					# ::Union{WorldObject, ObjectGroup}
 	indexBuffer
 	vertexBuffer
 	uniformData
@@ -24,13 +27,17 @@ mutable struct Scene
 	presentContext
 	bindGroup
 	camera
+	depthTexture
+	depthView
 end
+
 
 # prefer push! over add
 function attach(scene, obj)
 	push!(scene.objects, obj)
 	setup(scene)
 end
+
 
 function composeShader(scene, gpuDevice)
 	src = quote end
@@ -66,6 +73,7 @@ function composeShader(scene, gpuDevice)
 	createShaderObj(gpuDevice, src)
 end
 
+
 function getVertexBufferLayouts(objs)
 	layout = []
 	for obj in objs
@@ -75,6 +83,7 @@ function getVertexBufferLayouts(objs)
 	end
 	return layout
 end
+
 
 function setup(scene, gpuDevice)
 	cshader = composeShader(scene, gpuDevice)
@@ -87,9 +96,9 @@ function setup(scene, gpuDevice)
 	uniformBuffer = nothing
 	indexBuffer = nothing
 	vertexBuffer = nothing
-
+	
 	for obj in scene.objects
-		if typeof(obj) == Camera	
+		if typeof(obj) == Camera
 			scene.camera = obj
 			scene.uniformData = defaultUniformData(typeof(obj))
 			scene.uniformBuffer = getUniformBuffer(gpuDevice, obj)
@@ -97,17 +106,12 @@ function setup(scene, gpuDevice)
 			push!(bindings, getBindings(typeof(obj), scene.uniformBuffer)...)
 		end
 	end
-
+	
 	camera = scene.camera
-
-	projectionMatrix = perspectiveMatrix(pi/2, 2.0, 0, 1.0)
-	viewMatrix = lookAtRightHanded(camera.position, camera.lookat, camera.up)
-	viewProject = projectionMatrix ∘ viewMatrix
-
 	
 	for obj in scene.objects
 		if typeof(obj) != Camera
-			# obj.vertexData = viewProject(obj.vertexData)
+			# obj.vertexData .= viewMatrix(obj.vertexData)
 			vertexBuffer =getVertexBuffer(gpuDevice, obj)
 			uniformData = defaultUniformData(typeof(obj))
 			uniformBuffer = getUniformBuffer(gpuDevice, obj)
@@ -126,9 +130,9 @@ function setup(scene, gpuDevice)
 	presentContext = WGPU.getContext(scene.canvas)
 	WGPU.determineSize(presentContext[])
 	WGPU.config(presentContext, device=gpuDevice, format = renderTextureFormat)
-
+	
 	scene.presentContext = presentContext
-
+	
 	renderpipelineOptions = [
 		WGPU.GPUVertexState => [
 			:_module => cshader.internal[],						# SET THIS (AUTOMATICALLY)
@@ -138,14 +142,18 @@ function setup(scene, gpuDevice)
 		WGPU.GPUPrimitiveState => [
 			:topology => "TriangleList",
 			:frontFace => "CCW",
-			:cullMode => "None",
+			:cullMode => "Front",
 			:stripIndexFormat => "Undefined"
 		],
-		WGPU.GPUDepthStencilState => [],
+		WGPU.GPUDepthStencilState => [
+			:depthWriteEnabled => true,
+			:depthCompare => WGPUCompareFunction_LessEqual,
+			:format => WGPUTextureFormat_Depth24Plus
+		],
 		WGPU.GPUMultiSampleState => [
 			:count => 1,
 			:mask => typemax(UInt32),
-			:alphaToCoverageEnabled=>false
+			:alphaToCoverageEnabled=>false,
 		],
 		WGPU.GPUFragmentState => [
 			:_module => cshader.internal[],						# SET THIS
@@ -167,31 +175,64 @@ function setup(scene, gpuDevice)
 			]
 		]
 	]
-	
+
+	scene.depthTexture = WGPU.createTexture(
+		gpuDevice,
+		"DEPTH TEXTURE",
+		(scene.canvas.size..., 1),
+		1,
+		1,
+		WGPUTextureDimension_2D,
+		WGPUTextureFormat_Depth24Plus,
+		WGPU.getEnum(WGPU.WGPUTextureUsage, "RenderAttachment")
+	)
+
+	scene.depthView = WGPU.createView(scene.depthTexture)
+
+
 	renderPipeline = WGPU.createRenderPipeline(
 		gpuDevice, pipelineLayout, 
 		renderpipelineOptions; 
-		label=" "
+		label=" RENDER PIPELINE "
 	)
-	return (renderPipeline, nothing)
+	return (renderPipeline, scene.depthTexture)
 end
 
 
 function runApp(scene, gpuDevice, renderPipeline)
-	a1 = 0.3f0
-	a2 = time()
-	s = 0.6f0
-	
-	ortho = s.*Matrix{Float32}(I, (3, 3))
-	rotxy = RotXY(a1, a2)
-	scene.uniformData[1:3, 1:3] .= rotxy*ortho
-	
+	camera = scene.camera
+	camera.eye = [4.0, 4.0, 4.0] .|> Float32
+	rotxy = RotXY(pi/3, time()%3.14)
+	rotary = Matrix{Float32}(I, (4, 4))
+	rotary[1:3, 1:3] .= rotxy
+
+	scale = scaleTransform([1, 1, 1] .|> Float32)
+	viewMatrix = lookAtRightHanded(camera) ∘ scale
+	projectionMatrix = perspectiveMatrix(pi/2, 1.0, -1.0, -100.0)
+
+	# (nx, ny) = scene.canvas.size
+	# mvpProject = LinearMap(
+		# @SMatrix(
+			# [
+				# nx/2	0 		0 		(nx-1)/2;
+				# 0 		ny/2	0 		(ny-1)/2;
+				# 0 		0  		1 		0 		;
+				# 0 		0 		0  		1 		;
+			# ]
+		# )
+	# )
+
+	viewProject = projectionMatrix ∘ viewMatrix
+
+	scene.uniformData .= viewProject.linear * rotary
+
 	(tmpBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, "ROTATION BUFFER", scene.uniformData, "CopySrc"
 	)
 	
-	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]) |> Ref;
+	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]);
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
+	
 	WGPU.copyBufferToBuffer(
 		cmdEncoder,
 		tmpBuffer,
@@ -205,7 +246,7 @@ function runApp(scene, gpuDevice, renderPipeline)
 		WGPU.GPUColorAttachments => [
 			:attachments => [
 				WGPU.GPUColorAttachment => [
-					:view => currentTextureView[],
+					:view => currentTextureView,
 					:resolveTarget => C_NULL,
 					:clearValue => (0.8, 0.8, 0.7, 1.0),
 					:loadOp => WGPULoadOp_Clear,
@@ -213,9 +254,21 @@ function runApp(scene, gpuDevice, renderPipeline)
 				],
 			]
 		],
+		WGPU.GPUDepthStencilAttachments => [
+			:attachments => [
+				WGPU.GPUDepthStencilAttachment => [
+					:view => scene.depthView,
+					:depthClearValue => 1.0f0,
+					:depthLoadOp => WGPULoadOp_Clear,
+					:depthStoreOp => WGPUStoreOp_Store,
+					:stencilLoadOp => WGPULoadOp_Clear,
+					:stencilStoreOp => WGPUStoreOp_Store,
+				]
+			]
+		]
 	]
 	
-	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions; label= "BEGIN RENDER PASS")
+	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
 	
 	WGPU.setPipeline(renderPass, renderPipeline)
 	WGPU.setIndexBuffer(renderPass, scene.indexBuffer, "Uint32")

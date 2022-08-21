@@ -1,24 +1,23 @@
 # 
-# 
 # struct Sphere
 	# radius
 	# nDivs
 	# vertexData
 	# indexData
-	# textureData
+	# colorData
 # end
 # 
-# function defaultUniformData(::Type{Cube})
+# function defaultUniformData(::Type{Sphere})
 	# uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	# return uniformData
 # end
 # 
-# function getUniformData(cube::Cube)
-	# return defaultUniformData(Cube)
+# function getUniformData(sphere::Sphere)
+	# return defaultUniformData(Sphere)
 # end
 # 
-# function getUniformBuffer(gpuDevice, cube::Cube)
-	# uniformData = defaultUniformData(Cube)
+# function getUniformBuffer(gpuDevice, sphere::Sphere)
+	# uniformData = defaultUniformData(Sphere)
 	# (uniformBuffer, _) = WGPU.createBufferWithData(
 		# gpuDevice,
 		# "uniformBuffer",
@@ -26,6 +25,16 @@
 		# ["Uniform", "CopyDst"]
 	# )
 	# uniformBuffer
+# end
+# 
+# 
+# function generateSphere(radius, nDivs)
+	# vec = [0, 0, 1, 0]
+	# for θz in 0:pi/nDivs:pi
+		# rot = RotX(θ)
+		# 
+		# θ = 2*pi/nDivs
+	# end
 # end
 # 
 # function defaultSphere()
@@ -72,23 +81,23 @@
 	        # [200, 50, 100, 150],
 	    # ]..., dims=2) .|> UInt8
 	# 
-	# cube = Cube(vertexData, indexData, textureData)
-	# cube
+	# sphere = Sphere(vertexData, indexData, textureData)
+	# sphere
 # end
 # 
-# function getVertexBuffer(gpuDevice, cube::Cube)
+# function getVertexBuffer(gpuDevice, sphere::Sphere)
 	# (vertexBuffer, _) = WGPU.createBufferWithData(
 		# gpuDevice,
 		# "vertexBuffer",
-		# cube.vertexData,
+		# sphere.vertexData,
 		# ["Vertex", "CopySrc"]
 	# )
 	# vertexBuffer
 # end
 # 
 # 
-# function getTextureView(gpuDevice, cube::Cube)
-	# textureDataResized = repeat(cube.textureData, inner=(64, 64))
+# function getTextureView(gpuDevice, sphere::Sphere)
+	# textureDataResized = repeat(sphere.textureData, inner=(64, 64))
 	# textureSize = (size(textureDataResized)..., 1)
 # 
 	# texture = WGPU.createTexture(
@@ -106,8 +115,8 @@
 	# (textureView, textureDataResized)
 # end
 # 
-# function writeTexture(gpuDevice, cube::Cube)
-	# (textureView, textureDataResized) = getTextureView(gpuDevice, cube)
+# function writeTexture(gpuDevice, sphere::Sphere)
+	# (textureView, textureDataResized) = getTextureView(gpuDevice, sphere)
 	# textureSize = textureView.size
 	# dstLayout = [
 		# :dst => [
@@ -127,17 +136,17 @@
 	# return textureView
 # end
 # 
-# function getIndexBuffer(gpuDevice, cube::Cube)
+# function getIndexBuffer(gpuDevice, sphere::Sphere)
 	# (indexBuffer, _) = WGPU.createBufferWithData(
 		# gpuDevice,
 		# "indexBuffer",
-		# cube.indexData |> flatten,
+		# sphere.indexData |> flatten,
 		# "Index"
 	# )
 	# indexBuffer
 # end
 # 
-# function getVertexBufferLayout(cube::Cube)
+# function getVertexBufferLayout(sphere::Sphere)
 	# WGPU.GPUVertexBufferLayout => [
 		# :arrayStride => 6*4,
 		# :stepMode => "Vertex",
@@ -156,7 +165,7 @@
 	# ]
 # end
 # 
-# function toMesh(::Type{Cube})
+# function toMesh(::Type{Sphere})
 	# 
 # end
 # 

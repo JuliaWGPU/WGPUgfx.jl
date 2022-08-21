@@ -1,8 +1,9 @@
-using WGPU_jll
 
+using WGPU_jll
 using WGPU
 
 export defaultPlane, Plane
+
 
 mutable struct Plane
 	width
@@ -14,14 +15,17 @@ mutable struct Plane
 	colorData
 end
 
+
 function defaultUniformData(::Type{Plane}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
 
+
 function getUniformData(plane::Plane)
 	return defaultUniformData(Plane)
 end
+
 
 function getUniformBuffer(gpuDevice, plane::Plane)
 	uniformData = defaultUniformData(Plane)
@@ -34,44 +38,44 @@ function getUniformBuffer(gpuDevice, plane::Plane)
 	uniformBuffer
 end
 
+
 function generatePlane(width, height, wSegments, hSegments)
 	w, h = width, height
-	nx, ny = wSegments, hSegments
-	wsegments = 1:wSegments |> collect
-	hsegments = 1:hSegments |> collect
+	nx, ny = wSegments + 1, hSegments + 1
+	wsegments = 1:wSegments+1 |> collect
+	hsegments = 1:hSegments+1 |> collect
 	x = (wsegments .- sum(wsegments)/length(wsegments))./length(wsegments)
 	x = (x./maximum(x)).*width
 	y = (hsegments .- sum(hsegments)/length(hsegments))./length(hsegments)
 	y = (y./maximum(y)).*height
-	xx = repeat(x , 1, size(y) |> first)[:] 
+	xx = repeat(x , 1, size(y) |> first)[:]
 	yy = repeat(-y |> adjoint, size(x) |> first)[:]
-	positions = cat(xx, yy, ones(size(xx)), 1.5.*ones(size(xx)), dims=2)
+	positions = cat(xx, yy, ones(size(xx)), ones(size(xx)), dims=2) .|> Float32
+	positions = positions |> adjoint |> collect
 	dim = (w, h)
-	indices = (0:(nx*ny) - 1) |> collect |> (x) -> reshape(x, (nx, ny))
-	index = zeros(wSegments, hSegments, 2, 3)
-	index[:, :, 1, 1] = indices[1:hSegments, 1:wSegments]
-	index[:, :, 1, 2] = index[:, :, 1, 1] .+ 1
-	index[:, :, 1, 3] = index[:, :, 1, 1] .+ nx
-	index[:, :, 2, 1] = index[:, :, 1, 1] .+ nx .+ 1
-	index[:, :, 2, 2] = index[:, :, 2, 1] .- 1
-	index[:, :, 2, 3] = index[:, :, 2, 1] .- nx
-	return (positions .|> Float32, index)
+	indices = (0:(nx*ny)-1)|> (x) -> reshape(x, (nx, ny)) |> adjoint  |> collect 
+	index = zeros(nx - 1, ny - 1, 3, 2)
+	index[:, :, 1, 1] = indices[1:wSegments, 1:hSegments]
+	index[:, :, 2, 1] = index[:, :, 1, 1] .+ wSegments .+ 1
+	index[:, :, 3, 1] = index[:, :, 2, 1] .+ 1
+	index[:, :, 1, 2] = index[:, :, 1, 1]
+	index[:, :, 2, 2] = index[:, :, 3, 1]
+	index[:, :, 3, 2] = index[:, :, 1, 1] .+ 1
+	return (positions, index)
 end
 
-function defaultPlane()
-	width = 1
-	height = 1
-	wSegments = 10
-	hSegments = 10
-	(vertexData, indices) = generatePlane(width, height, wSegments, hSegments)
-	vertexData = vertexData |> adjoint |> collect
-	indexData = permutedims(indices, (1, 2, 4, 3))
-	indexData = reshape(indexData, reduce(*, size(indices)[1:2]), reduce(*, size(indices)[3:4])) .|> UInt32
+
+function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0.2, 0.5, 1.0])
+	(positions, indices) = generatePlane(width, height, wSegments, hSegments)
+	indexData = reshape(indices, reduce(*, size(indices)[1:2]), reduce(*, size(indices)[3:4])) .|> UInt32
 	indexData = indexData |> adjoint |> collect
-	colorData = repeat([0.3, 0.2, 0.7, 1.0] |> adjoint, inner=(size(vertexData)[2] |> Int, 1)) .|> Float32
-	colorData = colorData |> adjoint |> collect
+	unitcolor = cat(color, dims=2)
+	colorData = repeat(unitcolor, inner=(1, size(unitcolor, 2)), outer=(1, reduce(*, size(indices)))) .|> Float32
+	vertexData = hcat([positions[:, idx + 1] for idx in indexData[:]]...)
+	indexData = collect(0:reduce(*, size(indices)) - 1) .|> UInt32
 	Plane(width, height, wSegments, hSegments, vertexData, indexData, colorData)
 end
+
 
 function getVertexBuffer(gpuDevice, plane::Plane)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
@@ -83,6 +87,7 @@ function getVertexBuffer(gpuDevice, plane::Plane)
 	vertexBuffer
 end
 
+
 function getIndexBuffer(gpuDevice, plane::Plane)
 	(indexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
@@ -92,6 +97,7 @@ function getIndexBuffer(gpuDevice, plane::Plane)
 	)
 	indexBuffer
 end
+
 
 function getVertexBufferLayout(plane::Type{Plane})
 	WGPU.GPUVertexBufferLayout => [
@@ -112,6 +118,7 @@ function getVertexBufferLayout(plane::Type{Plane})
 	]
 end
 
+
 function getBindingLayouts(::Type{Plane})
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
@@ -122,6 +129,7 @@ function getBindingLayouts(::Type{Plane})
 	]
 	return bindingLayouts
 end
+
 
 function getBindings(::Type{Plane}, uniformBuffer)
 	bindings = [
@@ -134,6 +142,7 @@ function getBindings(::Type{Plane}, uniformBuffer)
 	]
 end
 
+
 function getShaderCode(::Type{Plane})
 	shaderSource = quote
 		struct PlaneUniform
@@ -144,6 +153,7 @@ function getShaderCode(::Type{Plane})
  	
 	return shaderSource
 end
+
 
 function toMesh(::Type{Plane})
 	

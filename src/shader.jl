@@ -15,7 +15,8 @@ export createShaderObj, defaultCamera, defaultCube, Cube, Camera, getShaderCode,
 		getVertexBuffer, defaultUniformData, getUniformBuffer, getIndexBuffer,
 		getBindingLayouts, getBindings, getVertexBufferLayout, defaultPlane, Plane,
 		defaultTriangle3D, Triangle3D, perspectiveMatrix, orthographicMatrix, lookAtRightHanded,
-		windowingTransform
+		windowingTransform, translateCamera, openglToWGSL, defaultCircle, Circle, translate,
+		scaleTransform
 
 struct ShaderObj
 	src

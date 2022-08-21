@@ -5,13 +5,81 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 
-export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, windowingTransform
+
+export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
+	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform
+
+
+mutable struct Camera
+	eye
+	lookat
+	up
+end
+
+
+function defaultCamera()
+	eye = [1.0, 1.0, 1.0] .|> Float32
+	lookat = [0, 0, 0] .|> Float32
+	up = [0, 1, 0] .|> Float32
+	return Camera(
+		eye,
+		lookat,
+		up
+	)
+end
+
 
 xCoords(bb) = bb[1:2:end]
 yCoords(bb) = bb[2:2:end]
 
 lowerCoords(bb) = bb[1:2]
 upperCoords(bb) = bb[3:4]
+
+
+function translate(loc)
+	(x, y, z) = loc
+	return LinearMap(
+		@SMatrix(
+			[
+				1 	0 	0 	x;
+				0 	1 	0 	y;
+				0 	0 	1 	z;
+				0 	0 	0 	1;
+			]
+		)
+	)
+end
+
+
+function scaleTransform(loc)
+	(x, y, z) = loc
+	return LinearMap(
+		@SMatrix(
+			[
+				x 	0 	0 	0;
+				0	y   0	0;
+				0	0	z 	0;
+				0	0	0	1;
+			]
+		)
+	)
+
+end
+
+
+function translateCamera(camera::Camera)
+	(x, y, z) = (camera.eye...,)
+	return LinearMap(
+		@SMatrix(
+			[
+				1 	0 	0 	x;
+				0 	1 	0 	y;
+				0 	0 	1 	z;
+				0 	0 	0 	1;
+			]
+		)
+	) |> inv
+end
 
 
 function computeScaleFromBB(bb1, bb2)
@@ -29,6 +97,7 @@ function windowingTransform(fromSize, toSize)
 	return trans2 ∘ scale ∘ trans1 
 end
 
+
 """
 # Usage
 bb1 = [20, 20, 400, 400]
@@ -41,52 +110,53 @@ transform([upperCoords(bb1)..., 0, 0])
 # Should write tests on it
 """
 
-function lookAtRightHanded(eye, center, up)
-	z = normalize(eye-center)
-	x =	cross(up, z) |> normalize
-	y = cross(z, x) |> normalize
+
+function lookAtRightHanded(camera::Camera)
+	eye = camera.eye
+	lookat = camera.lookat
+	up = camera.up
+	w = -(eye .- lookat) |> normalize
+	u =	cross(up, w) |> normalize
+	v = cross(w, u)
 	m = Matrix{Float32}(I, (4, 4))
-	m[1:3, 1:3] .= (cat([x, y, z]..., dims=2) .|> Float32 |> collect)
-	return LinearMap(m)
+	m[1:3, 1:3] .= (cat([u, v, w]..., dims=2) |> adjoint .|> Float32 |> collect)
+	return LinearMap(m) ∘ translateCamera(camera)
 end
 
 
-function perspectiveMatrix(fov::Float64, aspectRatio::Float64, near, far)
-	yscale = 1/tan(fov/2)
-	xscale = yscale/aspectRatio
-	zn = near
-	zf = far
-	s = zf/(zn - zf)
+function perspectiveMatrix(fov, aspectRatio, near, far)
+	fov = fov |> Float32
+	ar = aspectRatio |> Float32
+	n = near |> Float32
+	f = far |> Float32
+	t = n*tan(fov/2)
+	b = -t
+	r = ar*t
+	l = -r
+	return perspectiveMatrix(n, f, l, r, t, b)
+end
+
+
+function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, t::Float32, b::Float32)
+	n = near
+	f = far
+	xS = -2*n/(r-l)
+	yS = -2*n/(t-b)
+	xR = -(r+l)/(r-l)
+	yR = -(t+b)/(t-b)
+	zR = -(f+n)/(n-f)
+	oR = -2*f*n/(n-f)
 	return LinearMap(
 		@SMatrix(
 			[
-				xscale	0      	0 		0;
-				0		yscale	0		0;
-				0	   	0		s		-1;
-				0		0		zn*s	0;
+				xS		0		xR		0	;
+				0		yS		yR		0	;
+				0		0		zR		oR	;
+				0		0		1		0	;
 			]
-		) .|> Float32
+		)
 	)
 end
-
-# 
-# function perspectiveMatrix(w::Int, h::Int, near, far)
-	# yscale = 1/tan(fov/2)
-	# xscale = yscale/aspectRatio
-	# zn = near
-	# zf = far
-	# s = zf/(zn - zf)
-	# return LinearMap(
-		# @SMatrix(
-			# [
-				# 2*zn/w 	0      	0 		0;
-				# 0		2*zn/h	0		0;
-				# 0	   	0		s		-1;
-				# 0		0		zn*s	0;
-			# ]
-		# )
-	# )
-# end
 
 
 function orthographicMatrix(w::Int, h::Int, near, far)
@@ -99,30 +169,12 @@ function orthographicMatrix(w::Int, h::Int, near, far)
 	return LinearMap(
 		@SMatrix(
 			[
-				2*w 	0      	0 		0;
+				2/w 	0      	0 		0;
 				0		2/h		0		0;
 				0	   	0		s		0;
 				0		0		zn*s	1;
 			]
-		)
-	)
-end
-
-
-mutable struct Camera
-	position
-	lookat
-	up
-end
-
-function defaultCamera()
-	position = [3.0, 1.5, -3.0] .|> Float32
-	lookat = [0, 0, 0] .|> Float32
-	up = [0, 1, 0] .|> Float32
-	return Camera(
-		position,
-		lookat,
-		up
+		) .|> Float32
 	)
 end
 
@@ -132,9 +184,11 @@ function defaultUniformData(::Type{Camera})
 	return uniformData
 end
 
+
 function getUniformData(camera::Camera)
 	return defaultUniformData(Camera)
 end
+
 
 function getUniformBuffer(gpuDevice, camera::Camera)
 	uniformData = defaultUniformData(Camera)
@@ -165,6 +219,7 @@ function getVertexBufferLayout(::Type{Camera})
 	WGPU.GPUVertexBufferLayout => []
 end
 
+
 function getBindingLayouts(::Type{Camera})
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
@@ -176,6 +231,7 @@ function getBindingLayouts(::Type{Camera})
 	return bindingLayouts
 end
 
+
 function getBindings(::Type{Camera}, uniformBuffer)
 	bindings = [
 		WGPU.GPUBuffer => [
@@ -186,4 +242,5 @@ function getBindings(::Type{Camera}, uniformBuffer)
 		],
 	]
 end
+
 

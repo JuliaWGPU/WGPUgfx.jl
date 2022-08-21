@@ -1,9 +1,6 @@
 
-using Debugger
-
 using WGPUgfx
 using WGPU
-using WGPU_jll
 using GLFW
 using GLFW: WindowShouldClose, PollEvents, DestroyWindow
 using LinearAlgebra
@@ -11,14 +8,16 @@ using Rotations
 using StaticArrays
 
 WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
+
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
 scene = Scene(canvas, [], repeat([nothing], 9)...)
 camera = defaultCamera()
 push!(scene.objects, camera)
-cube = defaultCube()
-push!(scene.objects, cube)
+
+circle = defaultCircle(12)
+push!(scene.objects, circle)
 
 (renderPipeline, _) = setup(scene, gpuDevice);
 

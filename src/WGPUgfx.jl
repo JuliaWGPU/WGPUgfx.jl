@@ -27,6 +27,6 @@ export @builtin, @location, wgslType, @var, @letvar,
 	getUniformData, defaultUniformData, defaultCube, getVertexBufferLayout,
 	composeShader, Scene, getShaderCode, defaultCamera, defaultCube, Camera, Cube,
 	setup, runApp, getBindingLayouts, getBindings, defaultPlane, Plane, defaultTriangle3D,
-	Triangle3D
+	Triangle3D, defaultCircle, Circle
 	
 end

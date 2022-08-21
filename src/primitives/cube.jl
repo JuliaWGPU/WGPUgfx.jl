@@ -5,24 +5,20 @@ using WGPU
 
 export defaultCube, Cube
 
-
 mutable struct Cube
 	vertexData
 	colorData
 	indexData
 end
 
-
 function defaultUniformData(::Type{Cube}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
 
-
 function getUniformData(cube::Cube)
 	return defaultUniformData(Cube)
 end
-
 
 function getUniformBuffer(gpuDevice, cube::Cube)
 	uniformData = defaultUniformData(Cube)
@@ -35,61 +31,45 @@ function getUniformBuffer(gpuDevice, cube::Cube)
 	uniformBuffer
 end
 
+function generateCube()
+	
+end
 
 function defaultCube()
-	vertexData =  cat([
-	    [-1, -1, 1, 1.5],
-	    [1, -1, 1, 1.5],
-	    [1, 1, 1, 1.5],
-	    [-1, 1, 1, 1.5],
-	    [-1, 1, -1, 1.5],
-	    [1, 1, -1, 1.5],
-	    [1, -1, -1, 1.5],
-	    [-1, -1, -1, 1.5],
-	    [1, -1, -1, 1.5],
-	    [1, 1, -1, 1.5],
-	    [1, 1, 1, 1.5],
-	    [1, -1, 1, 1.5],
-	    [-1, -1, 1, 1.5],
-	    [-1, 1, 1, 1.5],
-	    [-1, 1, -1, 1.5],
-	    [-1, -1, -1, 1.5],
-	    [1, 1, -1, 1.5],
-	    [-1, 1, -1, 1.5],
-	    [-1, 1, 1, 1.5],
-	    [1, 1, 1, 1.5],
-	    [1, -1, 1, 1.5],
-	    [-1, -1, 1, 1.5],
-	    [-1, -1, -1, 1.5],
-	    [1, -1, -1, 1.5],
+	vertexData = cat([
+	    [-1, -1, 1, 1],
+	    [1, -1, 1, 1],
+	    [1, 1, 1, 1],
+	    [-1, 1, 1, 1],
+	    [-1, 1, -1, 1],
+	    [1, 1, -1, 1],
+	    [1, -1, -1, 1],
+	    [-1, -1, -1, 1],
+	    [1, -1, -1, 1],
+	    [1, 1, -1, 1],
+	    [1, 1, 1, 1],
+	    [1, -1, 1, 1],
+	    [-1, -1, 1, 1],
+	    [-1, 1, 1, 1],
+	    [-1, 1, -1, 1],
+	    [-1, -1, -1, 1],
+	    [1, 1, -1, 1],
+	    [-1, 1, -1, 1],
+	    [-1, 1, 1, 1],
+	    [1, 1, 1, 1],
+	    [1, -1, 1, 1],
+	    [-1, -1, 1, 1],
+	    [-1, -1, -1, 1],
+	    [1, -1, -1, 1],
 	]..., dims=2) .|> Float32
 
-	colorData = cat([
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[1, 0, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 1, 0, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
-		[0, 0, 1, 1],
+	unitColor = cat([
+		[0.6, 0.4, 0.5, 1],
+		[0.5, 0.6, 0.3, 1],
+		[0.4, 0.5, 0.6, 1],
 	]..., dims=2) .|> Float32
+
+	colorData = repeat(unitColor, inner=(1, 8))
 
 	indexData =   cat([
 	        [0, 1, 2, 2, 3, 0], 
