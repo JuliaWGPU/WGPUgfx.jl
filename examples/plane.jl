@@ -13,9 +13,9 @@ canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
 scene = Scene(canvas, [], repeat([nothing], 9)...)
-camera = defaultCamera()
+camera = defaultCamera(gpuDevice)
 push!(scene.objects, camera)
-plane = defaultPlane(gpuDevice)
+plane = defaultPlane()
 push!(scene.objects, plane)
 
 (renderPipeline, _) = setup(scene, gpuDevice);
