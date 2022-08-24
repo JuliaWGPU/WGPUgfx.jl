@@ -15,7 +15,7 @@ using .ShaderMod
 
 export Scene, composeShader, defaultCamera, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
-	defaultCircle, Circle, setup, runApp
+	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting
 
 
 mutable struct Scene
@@ -97,6 +97,7 @@ function setup(scene, gpuDevice)
 	vertexBuffer = nothing
 	
 	for obj in scene.objects
+		prepareObject(gpuDevice, obj)
 		if typeof(obj) == Camera
 			scene.camera = obj
 			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
@@ -111,7 +112,7 @@ function setup(scene, gpuDevice)
 			# obj.vertexData .= viewMatrix(obj.vertexData)
 			vertexBuffer =getVertexBuffer(gpuDevice, obj)
 			uniformData = defaultUniformData(typeof(obj))
-			uniformBuffer = getUniformBuffer(gpuDevice, obj)
+			uniformBuffer = getUniformBuffer(obj)
 			indexBuffer = getIndexBuffer(gpuDevice, obj)
 			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
 			push!(bindings, getBindings(typeof(obj), uniformBuffer)...)

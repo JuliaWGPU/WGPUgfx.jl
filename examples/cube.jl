@@ -13,13 +13,15 @@ canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
 scene = Scene(canvas, [], repeat([nothing], 9)...)
-camera = defaultCamera(gpuDevice)
+camera = defaultCamera()
 
 push!(scene.objects, camera)
 cube = defaultCube()
+
 push!(scene.objects, cube)
 
 (renderPipeline, _) = setup(scene, gpuDevice);
+
 
 mutable struct MouseState
 	leftClick
@@ -29,18 +31,23 @@ mutable struct MouseState
 	speed
 end
 
+
 mouseState = MouseState(false, false, false, (0, 0), (0.01, 0.01))
+
 
 istruthy(::Val{GLFW.PRESS}) = true
 istruthy(::Val{GLFW.RELEASE}) = false
+
 
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_1}, state)
 	mouse.leftClick = istruthy(Val(state))
 end
 
+
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_2}, state)
 	mouse.rightClick = istruthy(Val(state))
 end
+
 
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 	mouse.middleClick = istruthy(Val(state))
@@ -50,6 +57,7 @@ function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 	camera.uniformData = a
 end
 
+
 WGPU.setMouseButtonCallback(
 	canvas, 
 	(_, button, action, a) -> begin
@@ -57,6 +65,7 @@ WGPU.setMouseButtonCallback(
 		setMouseState(mouseState, Val(button), action)
 	end
 )
+
 
 WGPU.setScrollCallback(
 	canvas,
@@ -77,19 +86,19 @@ WGPU.setCursorPosCallback(
 				delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
 				@info delta
 				rot = RotXY(delta...)
-				mat = Matrix{Float32}(I, (4, 4))
+				mat = MMatrix{4, 4, Float32}(I)
 				mat[1:3, 1:3] = rot
-				camera.uniformData = camera.uniformData*mat 
+				camera.transform = camera.transform*mat 
 				mouseState.prevPosition = (x, y)
 			elseif mouseState.rightClick
 				delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
-				mat = Matrix{Float32}(I, (4, 4))
+				mat = MMatrix{4, 4, Float32}(I)
 				mat[1:3, 3] .= [delta..., 0]
-				camera.uniformData = camera.uniformData*mat
+				camera.transform = camera.transform*mat
 				mouseState.prevPosition = (x, y)
 			elseif mouseState.middleClick
-				mat = Matrix{Float32}(I, (4, 4))
-				camera.uniformData = mat
+				mat = MMatrix{4, 4, Float32}(I)
+				camera.transform = mat
 			else
 				mouseState.prevPosition = (x, y)
 			end
@@ -97,8 +106,8 @@ WGPU.setCursorPosCallback(
 	end
 )
 
-# @enter	runApp(scene, gpuDevice, renderPipeline)
 
+# @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
@@ -112,6 +121,7 @@ main = () -> begin
 		WGPU.destroyWindow(canvas)
 	end
 end
+
 
 task = Task(main)
 

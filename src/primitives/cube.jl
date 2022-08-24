@@ -6,34 +6,40 @@ using WGPU
 export defaultCube, Cube
 
 mutable struct Cube
+	gpuDevice
 	vertexData
 	colorData
 	indexData
+	uniformData
+	uniformBuffer
 end
+
+function prepareObject(gpuDevice, cube::Cube)
+	uniformData = computeUniformData(cube)
+	(uniformBuffer, _) = WGPU.createBufferWithData(
+		gpuDevice,
+		"Cube Buffer",
+		uniformData,
+		["Uniform", "CopyDst", "CopySrc"]
+	)
+	setfield!(cube, :uniformData, uniformData)
+	setfield!(cube, :uniformBuffer, uniformBuffer)
+	setfield!(cube, :gpuDevice, gpuDevice)
+	return cube
+end
+
 
 function defaultUniformData(::Type{Cube}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
 
-function getUniformData(cube::Cube)
+# TODO for now cube is static
+# definitely needs change based on position, rotation etc ...
+function computeUniformData(cube::Cube)
 	return defaultUniformData(Cube)
 end
 
-function getUniformBuffer(gpuDevice, cube::Cube)
-	uniformData = defaultUniformData(Cube)
-	(uniformBuffer, _) = WGPU.createBufferWithData(
-		gpuDevice, 
-		"uniformBuffer", 
-		uniformData, 
-		["Uniform", "CopyDst"]
-	)
-	uniformBuffer
-end
-
-function generateCube()
-	
-end
 
 function defaultCube()
 	vertexData = cat([
@@ -80,11 +86,71 @@ function defaultCube()
 	        [20, 21, 22, 22, 23, 20], 
 	    ]..., dims=2) .|> UInt32
 
-	cube = Cube(vertexData, colorData, indexData)
+	cube = Cube(nothing, vertexData, colorData, indexData, nothing, nothing)
 	cube
 end
 
 
+Base.setproperty!(cube::Cube, f::Symbol, v) = begin
+	setfield!(cube, f, v)
+	setfield!(cube, :uniformData, f==:uniformData ? v : computeUniformData(cube))
+	updateUniformBuffer(cube)
+end
+
+
+Base.getproperty(cube::Cube, f::Symbol) = begin
+	if f != :uniformBuffer
+		return getfield(cube, f)
+	else
+		return readUniformBuffer(cube)
+	end
+end
+
+
+function getUniformData(cube::Cube)
+	return cube.uniformData
+end
+
+
+function updateUniformBuffer(cube::Cube)
+	data = SMatrix{4, 4}(cube.uniformData[:])
+	@info :UniformBuffer data
+	WGPU.writeBuffer(
+		cube.gpuDevice[].queue, 
+		getfield(cube, :uniformBuffer),
+		data,
+	)
+end
+
+function readUniformBuffer(cube::Cube)
+	data = WGPU.readBuffer(
+		cube.gpuDevice,
+		getfield(cube, :uniformBuffer),
+		0,
+		getfield(cube, :uniformBuffer).size
+	)
+	datareinterpret = reinterpret(Mat4{Float32}, data)[1]
+	@info "Received Buffer" datareinterpret
+end
+
+function getUniformBuffer(cube::Cube)
+	getfield(cube, :uniformBuffer)
+end
+
+
+function getShaderCode(::Type{Cube})
+	shaderSource = quote
+		struct CubeUniform
+			transform::Mat4{Float32}
+		end
+		@var Uniform 0 0 cube::@user CubeUniform
+ 	end
+ 	
+	return shaderSource
+end
+
+
+# TODO check it its called multiple times
 function getVertexBuffer(gpuDevice, cube::Cube)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
@@ -150,17 +216,6 @@ function getBindings(::Type{Cube}, uniformBuffer)
 	]
 end
 
-
-function getShaderCode(::Type{Cube})
-	shaderSource = quote
-		struct CubeUniform
-			transform::Mat4{Float32}
-		end
-		@var Uniform 0 0 rLocals::@user CubeUniform
- 	end
- 	
-	return shaderSource
-end
 
 function toMesh(::Type{Cube})
 	

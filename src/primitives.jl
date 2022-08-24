@@ -3,7 +3,7 @@ module PrimitivesMod
 using LinearAlgebra
 export getVertexBufferLayout, getUniformBuffer, getVertexBuffer, getIndexBuffer, 
 		defaultUniformData, getUniformData, getBindingLayouts, getBindings,
-		getShaderCode
+		getShaderCode, prepareObject
 
 flatten(x) = reshape(x, (:,))
 

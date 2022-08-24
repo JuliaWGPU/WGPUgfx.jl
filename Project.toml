@@ -1,6 +1,6 @@
 name = "WGPUgfx"
 uuid = "0ac00e0e-07f9-4db3-a787-e8970c1d2a82"
-authors = ["littu "]
+authors = ["arhik "]
 version = "0.1.0"
 
 [deps]

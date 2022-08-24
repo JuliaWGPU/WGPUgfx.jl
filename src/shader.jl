@@ -2,21 +2,18 @@ module ShaderMod
 
 using WGPU_jll
 using WGPU
+using Reexport
 
 include("macros.jl")
 include("primitives.jl")
 
+
 using .MacroMod
 using .MacroMod: wgslCode
 
-using .PrimitivesMod
+@reexport using .PrimitivesMod
 
-export createShaderObj, defaultCamera, defaultCube, Cube, Camera, getShaderCode,
-		getVertexBuffer, defaultUniformData, getUniformBuffer, getIndexBuffer,
-		getBindingLayouts, getBindings, getVertexBufferLayout, defaultPlane, Plane,
-		defaultTriangle3D, Triangle3D, perspectiveMatrix, orthographicMatrix, lookAtRightHanded,
-		windowingTransform, translateCamera, openglToWGSL, defaultCircle, Circle, translate,
-		scaleTransform
+export createShaderObj
 
 struct ShaderObj
 	src

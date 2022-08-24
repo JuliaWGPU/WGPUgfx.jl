@@ -1,11 +1,9 @@
 
 using WGPU
-using GeometryBasics: Vec2, Vec4, Vec3, Mat4, Mat3, Mat2
 using LinearAlgebra
 using StaticArrays
 using Rotations
 using CoordinateTransformations
-
 
 export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform,
@@ -17,47 +15,54 @@ mutable struct Camera
 	eye
 	lookat
 	up
-	uniformData
-	uniformBuffer
 	scale
 	fov
 	aspectRatio
 	nearPlane
 	farPlane
-	function Camera(gpuDevice, eye, lookat, up, scale, fov, aspectRatio, nearPlane, farPlane)
-		scale = [1, 1, 1] .|> Float32
-		camera = new(gpuDevice, eye, lookat, up, nothing, nothing, scale, fov, aspectRatio, nearPlane, farPlane)
-		uniformData = computeUniformData(camera)
-		(uniformBuffer, _) = WGPU.createBufferWithData(
-			gpuDevice, 
-			"uniformBuffer", 
-			uniformData, 
-			["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
-		)
-		setfield!(camera, :uniformData, uniformData)
-		setfield!(camera, :uniformBuffer, uniformBuffer)
-		return camera
-	end
+	uniformData
+	uniformBuffer
+end
+
+
+function prepareObject(gpuDevice, camera::Camera)
+	scale = [1, 1, 1] .|> Float32
+	io = computeUniformData(camera)
+	uniformDataBytes = io |> read
+	(uniformBuffer, _) = WGPU.createBufferWithData(
+		gpuDevice, 
+		"uniformBuffer", 
+		uniformDataBytes, 
+		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
+	)
+	setfield!(camera, :uniformData, io)
+	setfield!(camera, :uniformBuffer, uniformBuffer)
+	setfield!(camera, :gpuDevice, gpuDevice)
+	return camera
 end
 
 
 # TODO not used
 function defaultUniformData(::Type{Camera}) 
-	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
+	uniformData = ones(Float32, (4, 4)) |> Diagonal |> SMatrix{4, 4, Float32}
 	return uniformData
 end
 
 
 function computeUniformData(camera::Camera)
+	# TODO should take CameraBuffer instead
 	viewMatrix = lookAtRightHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
 	projectionMatrix = perspectiveMatrix(camera)
 	viewProject = projectionMatrix ∘ viewMatrix
-	uniformData = viewProject.linear
-	return uniformData
+	io = getfield(camera, :uniformData)
+	seek(io, 0)
+	write(io, viewProject.linear)
+	seek(io, 0)
+	return io
 end
 
 
-function defaultCamera(gpuDevice)
+function defaultCamera()
 	eye = [1.0, 1.0, 1.0] .|> Float32
 	lookat = [0, 0, 0] .|> Float32
 	up = [0, 1, 0] .|> Float32
@@ -67,7 +72,7 @@ function defaultCamera(gpuDevice)
 	nearPlane = -1.0 |> Float32
 	farPlane = -100.0 |> Float32
 	return Camera(
-		gpuDevice,
+		nothing,
 		eye,
 		lookat,
 		up,
@@ -75,25 +80,72 @@ function defaultCamera(gpuDevice)
 		fov,
 		aspectRatio,
 		nearPlane,
-		farPlane
+		farPlane,
+		IOBuffer(),
+		nothing
 	)
 end
 
 
+function setVal!(camera::Camera, ::Val{:transform}, v)
+	uniformData = getVal(camera, Val(:uniformData))
+	uniformType = typeof(uniformData)
+	offset = Base.fieldoffset(uniformType, Base.fieldindex(uniformType, :transform))
+	io = getfield(camera, :uniformData)
+	seek(io, offset)
+	write(io, v)
+	seek(io, 0)
+end
+
+function setVal!(camera::Camera, ::Val{:uniformData}, v)
+	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	t = Ref{UniformType}()
+	io = getfield(camera, :uniformData)
+	seek(io, 0)
+	unsafe_write(io, v)
+	seek(io, 0)
+	io
+end
+
+function setVal!(camera::Camera, ::Val{N}, v) where N
+	setfield!(camera, N, v)
+	computeUniformData(camera)
+end
+
 Base.setproperty!(camera::Camera, f::Symbol, v) = begin
-	setfield!(camera, f, v)
-	setfield!(camera, :uniformData, f==:uniformData ? v : computeUniformData(camera))
+	# setfield!(camera, f, v)
+	setVal!(camera, Val(f), v)
 	updateUniformBuffer(camera)
 end
 
 # TODO not working
-Base.getproperty(camera::Camera, f::Symbol) = begin
-	if f != :uniformBuffer
-		return getfield(camera, f)
-	else
-		return readUniformBuffer(camera)
-	end
+function getVal(camera::Camera, ::Val{:unifomBuffer})
+	return readUniformBuffer(camera)
 end
+
+function getVal(camera::Camera, ::Val{:transform})
+	uniformData = getVal(camera, Val(:uniformData))
+	return getfield(uniformData, :transform)
+end
+
+function getVal(camera::Camera, ::Val{:uniformData})
+	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	t = Ref{UniformType}()
+	io = getfield(camera, :uniformData)
+	seek(io, 0)
+	unsafe_read(io, t, sizeof(UniformType))
+	seek(io, 0)
+	t[]
+end
+
+function getVal(camera::Camera, ::Val{N}) where N
+	return getfield(camera, N)
+end
+
+Base.getproperty(camera::Camera, f::Symbol) = begin
+	return getVal(camera, Val(f))
+end
+
 
 xCoords(bb) = bb[1:2:end]
 yCoords(bb) = bb[2:2:end]
@@ -184,8 +236,9 @@ function lookAtRightHanded(camera::Camera)
 	w = -(eye .- lookat) |> normalize
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
-	m = Matrix{Float32}(I, (4, 4))
+	m = MMatrix{4, 4, Float32}(I)
 	m[1:3, 1:3] .= (cat([u, v, w]..., dims=2) |> adjoint .|> Float32 |> collect)
+	m = SMatrix(m)
 	return LinearMap(m) ∘ translateCamera(camera)
 end
 
@@ -250,8 +303,9 @@ end
 
 
 function updateUniformBuffer(camera::Camera)
-	data = SMatrix{4, 4}(camera.uniformData[:])
-	@info :UniformBuffer data
+	data = getfield(camera, :uniformData).data
+	# data = SMatrix{4, 4}(camera.uniformData[:])
+	# @info :UniformBuffer camera.uniformData.transform
 	WGPU.writeBuffer(
 		camera.gpuDevice[].queue, 
 		getfield(camera, :uniformBuffer),
@@ -259,18 +313,20 @@ function updateUniformBuffer(camera::Camera)
 	)
 end
 
-function readUniformBuffer(camera)
+
+function readUniformBuffer(camera::Camera)
 	data = WGPU.readBuffer(
 		camera.gpuDevice,
 		getfield(camera, :uniformBuffer),
 		0,
 		getfield(camera, :uniformBuffer).size
 	)
-	datareinterpret = reinterpret(Mat4{Float32}, data)[1]
+	datareinterpret = reinterpret(SMatrix{4, 4, Float32, 16}, data)[1]
 	@info "Received Buffer" datareinterpret
 end
 
-function getUniformBuffer(camera)
+
+function getUniformBuffer(camera::Camera)
 	getfield(camera, uniformBuffer)
 end
 
@@ -313,6 +369,4 @@ function getBindings(::Type{Camera}, uniformBuffer)
 		],
 	]
 end
-
-
 

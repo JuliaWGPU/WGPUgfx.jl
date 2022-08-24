@@ -57,7 +57,7 @@ macro location(btype, dtype)
 		@location Int DataType
 	------------------------------------------------
 	"""
-	@assert typeof(eval(dtype)) == DataType "Expecting Valid Data Type"
+	@assert typeof(eval(dtype)) == DataType "Expecting Valid Data Type : $btype, $dtype"
 	return LocationDataType(btype, eval(dtype))
 end
 

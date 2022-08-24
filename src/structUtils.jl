@@ -120,7 +120,7 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 				sz = bitrotate(sz, 1)
 				if (sz & padSize) == sz
 					padCount += 1
-					insert!(fieldVector, idx + padCount - 1, gensym()=>padType[sz])
+					insert!(fieldVector, idx + padCount - 1, gensym()=>juliaPadType[sz])
 					# println("\t_pad_$padCount:$(padType[sz]) # implicit struct padding")
 				end
 			end
@@ -208,5 +208,20 @@ function getStructDefs(a::Array{Pair{Symbol, Any}})
 end
 
 getVal(a::Val{T}) where T = T
+
+function Base.write(io::IOBuffer, t::UserStruct)
+	seek(io, 0)
+	for field in fieldnames(T)
+		offset = Base.fieldoffset(T, Base.fieldindex(T, field))
+		seek(io, offset)
+		write(io, getfield(t, field))
+	end
+end
+
+function Base.write(io::IOBuffer, t::UserStruct, field::Symbol)
+	offset = Base.fieldoffset(T, Base.fieldindex(T, field))
+	seek(io, offset)
+	write(io, getfield(t, field))
+end
 
 end

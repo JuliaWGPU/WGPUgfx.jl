@@ -13,7 +13,7 @@ canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
 scene = Scene(canvas, [], repeat([nothing], 9)...)
-camera = defaultCamera(gpuDevice)
+camera = defaultCamera()
 push!(scene.objects, camera)
 
 circle = defaultCircle(12)
