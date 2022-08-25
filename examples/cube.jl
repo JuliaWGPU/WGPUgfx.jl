@@ -12,7 +12,7 @@ WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
-scene = Scene(canvas, [], repeat([nothing], 9)...)
+scene = Scene(canvas, [], repeat([nothing], 10)...)
 camera = defaultCamera()
 
 push!(scene.objects, camera)
