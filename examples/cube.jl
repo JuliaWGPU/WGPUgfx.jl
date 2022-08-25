@@ -122,7 +122,6 @@ main = () -> begin
 	end
 end
 
-
-task = Task(main)
-
-schedule(task)
+if abspath(PROGRAM_FILE)==@__FILE__
+	main()
+end

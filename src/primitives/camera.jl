@@ -29,9 +29,10 @@ function prepareObject(gpuDevice, camera::Camera)
 	scale = [1, 1, 1] .|> Float32
 	io = computeUniformData(camera)
 	uniformDataBytes = io |> read
+	seek(io, 0)
 	(uniformBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
-		"uniformBuffer", 
+		"CameraBuffer", 
 		uniformDataBytes, 
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
@@ -54,9 +55,11 @@ function computeUniformData(camera::Camera)
 	viewMatrix = lookAtRightHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
 	projectionMatrix = perspectiveMatrix(camera)
 	viewProject = projectionMatrix ∘ viewMatrix
+	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	uniformData = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
-	write(io, viewProject.linear)
+	setVal!(camera, Val(:transform), viewProject.linear)
 	seek(io, 0)
 	return io
 end
@@ -88,23 +91,21 @@ end
 
 
 function setVal!(camera::Camera, ::Val{:transform}, v)
-	uniformData = getVal(camera, Val(:uniformData))
-	uniformType = typeof(uniformData)
-	offset = Base.fieldoffset(uniformType, Base.fieldindex(uniformType, :transform))
+	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :transform))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
 	write(io, v)
 	seek(io, 0)
 end
 
+
 function setVal!(camera::Camera, ::Val{:uniformData}, v)
 	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
-	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
-	unsafe_write(io, v)
+	unsafe_write(io, t, sizeof(t))
 	seek(io, 0)
-	io
 end
 
 function setVal!(camera::Camera, ::Val{N}, v) where N
@@ -181,7 +182,6 @@ function scaleTransform(loc)
 			]
 		) .|> Float32
 	)
-
 end
 
 
@@ -304,8 +304,7 @@ end
 
 function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData).data
-	# data = SMatrix{4, 4}(camera.uniformData[:])
-	# @info :UniformBuffer camera.uniformData.transform
+	@info :UniformBuffer camera.uniformData.transform
 	WGPU.writeBuffer(
 		camera.gpuDevice[].queue, 
 		getfield(camera, :uniformBuffer),
@@ -327,7 +326,7 @@ end
 
 
 function getUniformBuffer(camera::Camera)
-	getfield(camera, uniformBuffer)
+	getfield(camera, :uniformBuffer)
 end
 
 
