@@ -28,6 +28,7 @@ mutable struct Scene
 	presentContext
 	bindGroup
 	camera
+	lighting
 	depthTexture
 	depthView
 end
@@ -78,7 +79,7 @@ end
 function getVertexBufferLayouts(objs)
 	layout = []
 	for obj in objs
-		if typeof(obj) != Camera
+		if !(typeof(obj) in [Camera, Lighting])
 			push!(layout, getVertexBufferLayout(typeof(obj)))
 		end
 	end
@@ -102,14 +103,11 @@ function setup(scene, gpuDevice)
 			scene.camera = obj
 			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
 			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer))...)
-		end
-	end
-
-	scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
-	
-	for obj in scene.objects
-		if typeof(obj) != Camera
-			# obj.vertexData .= viewMatrix(obj.vertexData)
+		elseif typeof(obj) == Lighting
+			scene.lighting = obj
+			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
+			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer))...)
+		else
 			vertexBuffer =getVertexBuffer(gpuDevice, obj)
 			uniformData = defaultUniformData(typeof(obj))
 			uniformBuffer = getUniformBuffer(obj)
@@ -118,7 +116,9 @@ function setup(scene, gpuDevice)
 			push!(bindings, getBindings(typeof(obj), uniformBuffer)...)
 		end
 	end
-	
+
+	scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
+		
 	scene.indexBuffer = indexBuffer
 	scene.vertexBuffer = vertexBuffer
 	
