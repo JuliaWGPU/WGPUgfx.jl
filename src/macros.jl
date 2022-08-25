@@ -101,8 +101,8 @@ function wgslStruct(expr)
 			@error "Failed to understand one or more struct fields!!!"
 		end
 	end
-	makePaddedStruct(T, :UserStruct, fieldDict)
-	makePaddedWGSLStruct(T, fieldDict)
+	makePaddedStruct(T, :UserStruct, sort(fieldDict))
+	makePaddedWGSLStruct(T, sort(fieldDict))
 end
 
 # TODO rename simple asssignment and bring back original assignment if needed
