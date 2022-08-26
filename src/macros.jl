@@ -131,8 +131,13 @@ function wgslFunctionStatement(io, stmnt)
 		write(io, "    return $(wgslType(t));\n")
 	elseif @capture(stmnt, if cond_ ifblock__ end)
 		if cond == true
-			@info ifblock
 			wgslFunctionStatements(io, ifblock)
+		end
+	elseif @capture(stmnt, if cond_ ifBlock_ else elseBlock_ end)
+		if eval(cond) == true
+			wgslFunctionStatements(io, ifBlock.args)
+		else
+			wgslFunctionStatements(io, elseBlock.args)
 		end
 	else
 		@error "Failed to capture statment : $stmnt !!"
@@ -247,6 +252,14 @@ function wgslCode(expr)
 		elseif @capture(block, if cond_ ifblock_ end)
 			if eval(cond) == true
 				write(io, wgslCode(ifblock))
+				write(io, "\n")
+			end
+		elseif @capture(block, if cond_ ifBlock_ else elseBlock_ end)
+			if eval(cond) == true
+				write(io, wgslCode(ifBlock))
+				write(io, "\n")
+			else
+				write(io, wgslCode(elseBlock))
 				write(io, "\n")
 			end
 		end
