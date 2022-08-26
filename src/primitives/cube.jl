@@ -10,6 +10,8 @@ mutable struct Cube
 	vertexData
 	colorData
 	indexData
+	normalData
+	uvs
 	uniformData
 	uniformBuffer
 end
@@ -86,7 +88,18 @@ function defaultCube()
 	        [20, 21, 22, 22, 23, 20], 
 	    ]..., dims=2) .|> UInt32
 
-	cube = Cube(nothing, vertexData, colorData, indexData, nothing, nothing)
+	faceNormal = cat([
+		[0, 0, 1, 0],
+		[1, 0, 0, 0],
+		[0, 0, -1, 0],
+		[-1, 0, 0, 0],
+		[0, 1, 0, 0],
+		[0, -1, 0, 0]
+	]..., dims=2) .|> Float32
+	
+	normalData = repeat(faceNormal, inner=(1, 4))
+
+	cube = Cube(nothing, vertexData, colorData, indexData, normalData, nothing, nothing, nothing)
 	cube
 end
 
@@ -122,6 +135,7 @@ function updateUniformBuffer(cube::Cube)
 	)
 end
 
+
 function readUniformBuffer(cube::Cube)
 	data = WGPU.readBuffer(
 		cube.gpuDevice,
@@ -132,6 +146,7 @@ function readUniformBuffer(cube::Cube)
 	datareinterpret = reinterpret(Mat4{Float32}, data)[1]
 	@info "Received Buffer" datareinterpret
 end
+
 
 function getUniformBuffer(cube::Cube)
 	getfield(cube, :uniformBuffer)
@@ -155,7 +170,7 @@ function getVertexBuffer(gpuDevice, cube::Cube)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
-		vcat([cube.vertexData, cube.colorData]...), 
+		vcat([cube.vertexData, cube.colorData, cube.normalData]...), 
 		["Vertex", "CopySrc"]
 	)
 	vertexBuffer
@@ -175,7 +190,7 @@ end
 
 function getVertexBufferLayout(::Type{Cube})
 	WGPU.GPUVertexBufferLayout => [
-		:arrayStride => 8*4,
+		:arrayStride => 12*4,
 		:stepMode => "Vertex",
 		:attributes => [
 			:attribute => [
@@ -187,6 +202,11 @@ function getVertexBufferLayout(::Type{Cube})
 				:format => "Float32x4",
 				:offset => 4*4,
 				:shaderLocation => 1
+			],
+			:attribute => [
+				:format => "Float32x4",
+				:offset => 8*4,
+				:shaderLocation => 2
 			]
 		]
 	]
