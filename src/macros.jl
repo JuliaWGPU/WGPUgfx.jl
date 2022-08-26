@@ -118,6 +118,34 @@ function wgslAssignment(expr)
 	return stmnt
 end
 
+
+function wgslFunctionStatement(io, stmnt)
+	if @capture(stmnt, @var t__)
+		write(io, " "^4*wgslVariable(stmnt))
+	elseif @capture(stmnt, a_ = b_)
+		write(io, " "^4*wgslAssignment(stmnt))
+	elseif @capture(stmnt, @let t_ | @let t__)
+		stmnt.args[1] = Symbol("@letvar") # replace let with letvar
+		write(io, " "^4*wgslLet(stmnt))
+	elseif @capture(stmnt, return t_)
+		write(io, "    return $(wgslType(t));\n")
+	elseif @capture(stmnt, if cond_ ifblock__ end)
+		if cond == true
+			@info ifblock
+			wgslFunctionStatements(io, ifblock)
+		end
+	else
+		@error "Failed to capture statment : $stmnt !!"
+	end
+	
+end
+
+function wgslFunctionStatements(io, stmnts)
+	for stmnt in stmnts
+		wgslFunctionStatement(io, stmnt)
+	end
+end
+
 function wgslFunctionBody(fnbody, io, endstring)
 	if @capture(fnbody[1], fnname_(fnargs__)::fnout_)
 		write(io, "fn $fnname(")
@@ -133,24 +161,7 @@ function wgslFunctionBody(fnbody, io, endstring)
 		outtype = wgslType(eval(fnout))
 		write(io, ") -> $outtype { \n")
 		@capture(fnbody[2], stmnts__) || error("Expecting quote statements")
-		for stmnt in stmnts
-			if @capture(stmnt, @var t__)
-				write(io, " "^4*wgslVariable(stmnt))
-			elseif @capture(stmnt, a_ = b_)
-				write(io, " "^4*wgslAssignment(stmnt))
-			elseif @capture(stmnt, @let t_ | @let t__)
-				stmnt.args[1] = Symbol("@letvar") # replace let with letvar
-				write(io, " "^4*wgslLet(stmnt))
-			elseif @capture(stmnt, return t_)
-				write(io, "    return $(wgslType(t));\n")
-			elseif @capture(stmnt, if cond_ ifblock_ end)
-				if cond == true
-					write(io, wgslCode(ifblock))
-				end
-			else
-				@error "Failed to capture statment : $stmnt !!"
-			end
-		end
+		wgslFunctionStatements(io, stmnts)
 	end
 	write(io, endstring)
 end
