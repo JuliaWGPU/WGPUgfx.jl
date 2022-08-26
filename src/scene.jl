@@ -43,8 +43,13 @@ end
 
 function composeShader(scene, gpuDevice)
 	src = quote end
+
+	islight = false
 	
 	for object in scene.objects
+		if typeof(object) == Lighting
+			islight = true
+		end
 		push!(src.args, getShaderCode(typeof(object)))
 	end
 	
@@ -52,10 +57,16 @@ function composeShader(scene, gpuDevice)
 		struct VertexInput
 			@location 0 pos::Vec4{Float32}
 			@location 1 vColor::Vec4{Float32}
+			if $islight
+				@location 2 vNormal::Vec4{Float32}
+			end
 		end
 		
 		struct VertexOutput
 			@location 0 vColor::Vec4{Float32}
+			if $islight
+				@location 1 vNormal::Vec4{Float32}
+			end
 			@builtin position pos::Vec4{Float32}
 		end
 		
@@ -63,11 +74,24 @@ function composeShader(scene, gpuDevice)
 			@var out::@user VertexOutput
 			out.pos = camera.transform*in.pos
 			out.vColor = in.vColor
+			if $islight
+				out.vNormal = camera.transform*in.vNormal
+			end
 			return out
 		end
 		
 		@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
-			return in.vColor
+			if $islight
+				@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
+				@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
+				@let V::Vec3{Float32} = normalize(camera.eye.xyz - in.pos.xyz)
+				@let H::Vec3{Float32} = normalize(L + V)
+				@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
+				@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
+				@let ambient::Float32 = lighting.ambientIntensity
+				in.vColor = in.vColor.xyz*(ambient + diffuse) + lighting.specularColor.xyz*specular
+			end
+			return in.vColor;
 		end
 	end
 	
