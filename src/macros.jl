@@ -75,7 +75,7 @@ function evalStructField(field)
 		if eval(cond) == true
 			return evalStructField(ifblock)
 		else
-			return nothing
+			return :falseif
 		end
 	elseif @capture(field, name_::dtype_)
 		return name=>eval(dtype)
@@ -95,7 +95,9 @@ function wgslStruct(expr)
 	fieldDict = Dict{Symbol, DataType}()
 	for field in fields
 		evalfield = evalStructField(field)
-		if evalfield != nothing 
+		if evalfield == :falseif
+			continue
+		elseif evalfield != nothing
 			fieldDict[evalfield.first] = evalfield.second
 		else
 			@error "Failed to understand one or more struct fields!!!"
@@ -141,6 +143,10 @@ function wgslFunctionBody(fnbody, io, endstring)
 				write(io, " "^4*wgslLet(stmnt))
 			elseif @capture(stmnt, return t_)
 				write(io, "    return $(wgslType(t));\n")
+			elseif @capture(stmnt, if cond_ ifblock_ end)
+				if cond == true
+					write(io, wgslCode(ifblock))
+				end
 			else
 				@error "Failed to capture statment : $stmnt !!"
 			end
