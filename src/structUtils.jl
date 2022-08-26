@@ -20,7 +20,6 @@ visibiltyRender = getEnum(WGPUShaderStage, ["Vertex", "Fragment"])
 
 visibilityAll = getEnum(WGPUShaderStage, ["Vertex", "Fragment", "Compute"])
 
-
 function alignof(::Type{T}) where T
 	sz = sizeof(T)
 	c = 0
@@ -105,14 +104,18 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 	prevfieldSize = 0
 	fieldVector = [key=>val for (key, val) in fields...]
 	padCount = 0
+	maxAlign = 0
 	for (idx, (var, field)) in enumerate(fields...)
 		if idx == 1
+			maxAlign = max(maxAlign, alignof(field))
 			prevfieldSize = byteSize(field)
 			continue
 		end
 		fieldSize = byteSize(field)
+		maxAlign = max(maxAlign, alignof(field))
 		potentialOffset = prevfieldSize + offsets[end]
-		padSize = (div(potentialOffset, fieldSize, RoundUp)*fieldSize - potentialOffset) |> UInt8
+		newOffset = div(potentialOffset, alignof(field), RoundUp)*alignof(field)
+		padSize = (newOffset - potentialOffset) |> UInt8
 		@assert padSize >= 0 "pad size should be ≥ 0"
 		if padSize != 0
 			sz = 0x80 # MSB
@@ -125,9 +128,25 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 				end
 			end
 		end
-		push!(offsets, potentialOffset + padSize)
+		push!(offsets, newOffset)
 		prevfieldSize = fieldSize
 	end
+	potentialOffset = prevfieldSize + offsets[end]
+	newOffset = div(potentialOffset, maxAlign, RoundUp)*maxAlign
+	padSize = (newOffset - potentialOffset) |> UInt8
+	@assert padSize >= 0 "pad size should be ≥ 0"
+	if padSize != 0
+		sz = 0x80 # MSB
+		for i in 1:(sizeof(padSize)*8)
+			sz = bitrotate(sz, 1)
+			if (sz & padSize) == sz
+				padCount += 1
+				push!(fieldVector, gensym()=>juliaPadType[sz])
+				# println("\t_pad_$padCount:$(padType[sz]) # implicit struct padding")
+			end
+		end
+	end
+	push!(offsets, newOffset)
 	unfields = [:($key::$val) for (key, val) in fieldVector]
 	absType = abstractType != nothing ? :($abstractType) : :(Any)
 	Expr(:struct, false, :($name <: $absType), quote $(unfields...) end) |> eval
@@ -158,32 +177,52 @@ function makePaddedWGSLStruct(name::Symbol, fields...)
 	prevfieldSize = 0
 	fieldVector = [adaptType(field) for field in fields...]
 	padCount = 0
+	maxAlign = 0
 	for (idx, (var, field)) in enumerate(fields...)
 		if idx == 1
+			maxAlign = max(maxAlign, alignof(field))
 			prevfieldSize = byteSize(field)
 			continue
 		end
 		fieldSize = byteSize(field)
+		maxAlign = max(maxAlign, alignof(field))
 		potentialOffset = prevfieldSize + offsets[end]
 		padSize = (div(potentialOffset, fieldSize, RoundUp)*fieldSize - potentialOffset) |> UInt8
-		@assert padSize >= 0 "pad size should be ≥ 0"
-		if padSize != 0
-			sz = 0x80 # MSB
-			for i in 1:(sizeof(padSize)*8)
-				sz = bitrotate(sz, 1)
-				if (sz & padSize) == sz
-					padCount += 1
-					insert!(
-						fieldVector, 
-						idx + padCount - 1, 
-						Symbol(replace(String(gensym()), "##" => "_pad"))=>juliaPadType[sz]
-					)
-				end
-			end
-		end
-		push!(offsets, potentialOffset + padSize)
+		# @assert padSize >= 0 "pad size should be ≥ 0"
+		# if padSize != 0
+			# sz = 0x80 # MSB
+			# for i in 1:(sizeof(padSize)*8)
+				# sz = bitrotate(sz, 1)
+				# if (sz & padSize) == sz
+					# padCount += 1
+					# insert!(
+						# fieldVector,
+						# idx + padCount - 1,
+						# Symbol(replace(String(gensym()), "##" => "_pad"))=>juliaPadType[sz]
+					# )
+				# end
+			# end
+		# end
+		# push!(offsets, potentialOffset + padSize)
 		prevfieldSize = fieldSize
 	end
+	# potentialOffset = offsets[end] + prevfieldSize
+	# padSize = (div(potentialOffset, maxAlign, RoundUp)*maxAlign - potentialOffset) |> UInt8
+	# @assert padSize >= 0 "pad size should be ≥ 0"
+	# if padSize != 0
+		# sz = 0x80 # MSB
+		# for i in 1:(sizeof(padSize)*8)
+			# sz = bitrotate(sz, 1)
+			# if (sz & padSize) == sz
+				# padCount += 1
+				# push!(
+					# fieldVector,
+					# Symbol(replace(String(gensym()), "##" => "_pad"))=>juliaPadType[sz]
+				# )
+			# end
+		# end
+	# end
+	# push!(offsets, potentialOffset + padSize)
 	len = length(fieldVector)
 	# @assert issorted(fieldVector) "Fields should remain sorted"
 	line = ["\nstruct $name {"]
