@@ -39,6 +39,7 @@ function prepareObject(gpuDevice, camera::Camera)
 	setfield!(camera, :uniformData, io)
 	setfield!(camera, :uniformBuffer, uniformBuffer)
 	setfield!(camera, :gpuDevice, gpuDevice)
+	seek(io, 0)
 	return camera
 end
 
@@ -50,16 +51,20 @@ function defaultUniformData(::Type{Camera})
 end
 
 
-function computeUniformData(camera::Camera)
-	# TODO should take CameraBuffer instead
+function computeTransform(camera::Camera)
 	viewMatrix = lookAtRightHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
 	projectionMatrix = perspectiveMatrix(camera)
 	viewProject = projectionMatrix ∘ viewMatrix
+	return viewProject.linear
+end
+
+function computeUniformData(camera::Camera)
 	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
-	uniformData = Ref{UniformType}()
+	uniformData = Ref{UniformType}() # TODO only first is necessary
 	io = getfield(camera, :uniformData)
+	unsafe_write(io, uniformData, sizeof(uniformData))
 	seek(io, 0)
-	setVal!(camera, Val(:transform), viewProject.linear)
+	setVal!(camera, Val(:transform), computeTransform(camera))
 	seek(io, 0)
 	return io
 end
@@ -99,18 +104,58 @@ function setVal!(camera::Camera, ::Val{:transform}, v)
 	seek(io, 0)
 end
 
-
-function setVal!(camera::Camera, ::Val{:uniformData}, v)
+function setVal!(camera::Camera, ::Val{:eye}, v)
+	setfield!(camera, :eye, v)
 	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :eye))
 	io = getfield(camera, :uniformData)
+	seek(io, offset)
+	write(io, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
 	seek(io, 0)
-	unsafe_write(io, t, sizeof(t))
-	seek(io, 0)
+end
+
+function setVal!(camera::Camera, ::Val{:scale}, v)
+	setfield!(camera, :scale, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
+end
+
+function setVal!(camera::Camera, ::Val{:lookat}, v)
+	setfield!(camera, :lookat, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
+end
+
+function setVal!(camera::Camera, ::Val{:farPlane}, v)
+	setfield!(camera, :farPlane, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
+end
+
+function setVal!(camera::Camera, ::Val{:fov}, v)
+	setfield!(camera, :fov, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
+end
+
+function setVal!(camera::Camera, ::Val{:aspectRatio}, v)
+	setfield!(camera, :aspectRatio, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
+end
+
+function setVal!(camera::Camera, ::Val{:nearPlane}, v)
+	setfield!(camera, :nearPlane, v)
+	setVal!(camera, Val(:transform), computeTransform(camera))
 end
 
 function setVal!(camera::Camera, ::Val{N}, v) where N
 	setfield!(camera, N, v)
-	computeUniformData(camera)
+end
+
+function setVal!(camera::Camera, ::Val{:uniformData}, v)
+	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	t = Ref{UniformType}()
+	io = getfield(camera, :uniformData)
+	seek(io, 0)
+	unsafe_write(io, t, sizeof(t))
+	seek(io, 0)
 end
 
 Base.setproperty!(camera::Camera, f::Symbol, v) = begin
@@ -304,7 +349,7 @@ end
 
 function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData).data
-	@info :UniformBuffer camera.uniformData.transform
+	@info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
 	WGPU.writeBuffer(
 		camera.gpuDevice[].queue, 
 		getfield(camera, :uniformBuffer),
@@ -333,6 +378,7 @@ end
 function getShaderCode(::Type{Camera})
 	shaderSource = quote
 		struct CameraUniform
+			eye::Vec3{Float32}
 			transform::Mat4{Float32}
 		end
 		@var Uniform 0 1 camera::@user CameraUniform
