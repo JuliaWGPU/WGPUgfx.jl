@@ -12,7 +12,7 @@ export defaultLighting, Lighting, lookAtRightHanded,
 
 mutable struct Lighting
 	gpuDevice
-	color
+	position
 	specularColor
 	ambientIntensity
 	diffuseIntensity
@@ -52,7 +52,7 @@ function computeUniformData(lighting::Lighting)
 	io = getfield(lighting, :uniformData)
 	unsafe_write(io, uniformData, sizeof(UniformType))
 	seek(io, 0)
-	setVal!(lighting, Val(:color), lighting.color)
+	setVal!(lighting, Val(:position), lighting.position)
 	setVal!(lighting, Val(:specularColor), lighting.specularColor)
 	setVal!(lighting, Val(:diffuseIntensity), lighting.diffuseIntensity)
 	setVal!(lighting, Val(:ambientIntensity), lighting.ambientIntensity)
@@ -64,7 +64,7 @@ end
 
 
 function defaultLighting()
-	color = [1.0, 1.0, 1.0, 1.0] .|> Float32
+	position = [1.0, 1.0, 1.0, 1.0] .|> Float32
 	specularColor = [1.0, 1.0, 1.0, 1.0] .|> Float32
 	ambientIntensity = 1.0 |> Float32
 	diffuseIntensity = 1.0 |> Float32
@@ -72,7 +72,7 @@ function defaultLighting()
 	specularShininess = 1.0 |> Float32
 	return Lighting(
 		nothing,
-		color,
+		position,
 		specularColor,
 		ambientIntensity,
 		diffuseIntensity,
@@ -211,7 +211,7 @@ end
 function getShaderCode(::Type{Lighting})
 	shaderSource = quote
 		struct LightingUniform
-			color::Vec4{Float32}
+			position::Vec4{Float32}
 			specularColor::Vec4{Float32}
 			ambientIntensity::Float32
 			diffuseIntensity::Float32
