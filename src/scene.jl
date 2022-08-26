@@ -89,9 +89,10 @@ function composeShader(scene, gpuDevice)
 				@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
 				@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
 				@let ambient::Float32 = lighting.ambientIntensity
-				in.vColor = in.vColor.xyz*(ambient + diffuse) + lighting.specularColor.xyz*specular
+				return in.vColor*(ambient + diffuse) + lighting.specularColor*specular
+			else
+				return in.vColor
 			end
-			return in.vColor;
 		end
 	end
 	
