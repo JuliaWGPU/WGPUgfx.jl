@@ -22,7 +22,6 @@ push!(scene.objects, cube)
 
 (renderPipeline, _) = setup(scene, gpuDevice);
 
-
 mutable struct MouseState
 	leftClick
 	rightClick
@@ -31,9 +30,7 @@ mutable struct MouseState
 	speed
 end
 
-
 mouseState = MouseState(false, false, false, (0, 0), (0.01, 0.01))
-
 
 istruthy(::Val{GLFW.PRESS}) = true
 istruthy(::Val{GLFW.RELEASE}) = false
@@ -52,9 +49,9 @@ end
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 	mouse.middleClick = istruthy(Val(state))
 	mat = Matrix{Float32}(I, (4, 4))
-	a = camera.uniformData
+	a = camera.transform
 	a[1:3, 1:3] = mat[1:3, 1:3]
-	camera.uniformData = a
+	camera.transform = a
 end
 
 
@@ -113,7 +110,7 @@ main = () -> begin
 		while !WindowShouldClose(canvas.windowRef[])
 			# camera = scene.camera
 			# rotxy = RotXY(pi/3, time())
-			# camera.scale = [1, 1, 1] .|> Float32
+			# camera.eye = rotxy*[1, 1, 1] .|> Float32
 			runApp(scene, gpuDevice, renderPipeline)
 			PollEvents()
 		end
@@ -123,5 +120,7 @@ main = () -> begin
 end
 
 if abspath(PROGRAM_FILE)==@__FILE__
+	main()
+else
 	main()
 end
