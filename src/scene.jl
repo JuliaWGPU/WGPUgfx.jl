@@ -15,8 +15,8 @@ using .ShaderMod
 
 export Scene, composeShader, defaultCamera, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
-	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting
-
+	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting,
+	defaultWGPUMesh
 
 mutable struct Scene
 	canvas
