@@ -19,7 +19,7 @@ light = defaultLighting()
 push!(scene.objects, light)
 
 push!(scene.objects, camera)
-mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "pixarLamp.obj"))
 
 push!(scene.objects, mesh)
 

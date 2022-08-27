@@ -27,6 +27,7 @@ struct Index
 end
 
 # TODO not used yet
+# TODO think about conversion from blender export
 function readMesh(path::String)
 	extension = split(path, ".") |> last |> Symbol
 	readMesh(path::String, Val(extension))
@@ -115,13 +116,13 @@ function defaultWGPUMesh(path::String; topology=WGPUPrimitiveTopology_TriangleLi
 	vIndices = cat(map((x)->first.(x), meshdata.indices)..., dims=2) .|> UInt32
 	nIndices = cat(map((x)->getindex.(x, 3), meshdata.indices)..., dims=2)
 	vertexData = cat(meshdata.positions[vIndices[:]]..., dims=2) .|> Float32
-	indexData = vIndices
+	indexData = 0:length(vIndices)-1 |> collect .|> UInt32
 	unitColor = cat([
-		[0.3, 0.6, 0.5, 1]
+		[0.5, 0.6, 0.7, 1]
 	]..., dims=2) .|> Float32
 	
 	colorData = repeat(unitColor, inner=(1, length(vIndices)))
-
+	
 	normalData = cat(meshdata.normals[nIndices[:]]..., dims=2) .|> Float32
 	
 	mesh = WGPUMesh(
