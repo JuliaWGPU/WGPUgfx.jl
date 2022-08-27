@@ -153,12 +153,12 @@ function getUniformBuffer(cube::Cube)
 end
 
 
-function getShaderCode(::Type{Cube})
+function getShaderCode(::Type{Cube}; binding=0)
 	shaderSource = quote
 		struct CubeUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 0 cube::@user CubeUniform
+		@var Uniform 0 $binding cube::@user CubeUniform
  	end
  	
 	return shaderSource
@@ -188,7 +188,8 @@ function getIndexBuffer(gpuDevice, cube::Cube)
 end
 
 
-function getVertexBufferLayout(::Type{Cube})
+# TODO remove kwargs offset
+function getVertexBufferLayout(::Type{Cube}; offset = 0)
 	WGPU.GPUVertexBufferLayout => [
 		:arrayStride => 12*4,
 		:stepMode => "Vertex",
@@ -196,27 +197,27 @@ function getVertexBufferLayout(::Type{Cube})
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 0,
-				:shaderLocation => 0
+				:shaderLocation => offset + 0
 			],
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 4*4,
-				:shaderLocation => 1
+				:shaderLocation => offset + 1
 			],
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 8*4,
-				:shaderLocation => 2
+				:shaderLocation => offset + 2
 			]
 		]
 	]
 end
 
 
-function getBindingLayouts(::Type{Cube})
+function getBindingLayouts(::Type{Cube}; binding=0)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
-			:binding => 0,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -225,10 +226,10 @@ function getBindingLayouts(::Type{Cube})
 end
 
 
-function getBindings(::Type{Cube}, uniformBuffer)
+function getBindings(::Type{Cube}, uniformBuffer; binding=0)
 	bindings = [
 		WGPU.GPUBuffer => [
-			:binding => 0,
+			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,
 			:size => uniformBuffer.size

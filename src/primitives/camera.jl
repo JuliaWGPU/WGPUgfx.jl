@@ -375,27 +375,27 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(::Type{Camera})
+function getShaderCode(::Type{Camera}; binding=1)
 	shaderSource = quote
 		struct CameraUniform
 			eye::Vec3{Float32}
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 1 camera::@user CameraUniform
+		@var Uniform 0 $binding camera::@user CameraUniform
 	end
 	return shaderSource
 end
 
 
-function getVertexBufferLayout(::Type{Camera})
+function getVertexBufferLayout(::Type{Camera}; offset = 0)
 	WGPU.GPUVertexBufferLayout => []
 end
 
 
-function getBindingLayouts(::Type{Camera})
+function getBindingLayouts(::Type{Camera}; binding=1)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
-			:binding => 1,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -404,10 +404,10 @@ function getBindingLayouts(::Type{Camera})
 end
 
 
-function getBindings(::Type{Camera}, uniformBuffer)
+function getBindings(::Type{Camera}, uniformBuffer; binding=1)
 	bindings = [
 		WGPU.GPUBuffer => [
-			:binding => 1,
+			:binding => binding,
 			:buffer  => uniformBuffer,
 			:offset  => 0,
 			:size    => uniformBuffer.size

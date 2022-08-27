@@ -83,7 +83,7 @@ function getIndexBuffer(gpuDevice, circle::Circle)
 end
 
 
-function getVertexBufferLayout(::Type{Circle})
+function getVertexBufferLayout(::Type{Circle}; offset = 0)
 	WGPU.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
@@ -91,22 +91,22 @@ function getVertexBufferLayout(::Type{Circle})
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 0,
-				:shaderLocation => 0
+				:shaderLocation => offset + 0
 			],
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 4*4,
-				:shaderLocation => 1
+				:shaderLocation => offset + 1
 			]
 		]
 	]
 end
 
 
-function getBindingLayouts(::Type{Circle})
+function getBindingLayouts(::Type{Circle}; binding=0)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
-			:binding => 0,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -115,10 +115,10 @@ function getBindingLayouts(::Type{Circle})
 end
 
 
-function getBindings(::Type{Circle}, uniformBuffer)
+function getBindings(::Type{Circle}, uniformBuffer; binding=0)
 	bindings = [
 		WGPU.GPUBuffer => [
-			:binding => 0,
+			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,
 			:size => uniformBuffer.size
@@ -127,12 +127,12 @@ function getBindings(::Type{Circle}, uniformBuffer)
 end
 
 
-function getShaderCode(::Type{Circle})
+function getShaderCode(::Type{Circle}; binding=0)
 	shaderSource = quote
 		struct CircleUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 0 rLocals::@user CircleUniform
+		@var Uniform 0 $binding rLocals::@user CircleUniform
  	end
  	
 	return shaderSource

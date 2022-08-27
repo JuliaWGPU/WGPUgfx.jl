@@ -208,7 +208,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(::Type{Lighting})
+function getShaderCode(::Type{Lighting}; binding=0)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}
@@ -218,21 +218,21 @@ function getShaderCode(::Type{Lighting})
 			specularIntensity::Float32
 			specularShininess::Float32
 		end
-		@var Uniform 0 2 lighting::@user LightingUniform
+		@var Uniform 0 $binding lighting::@user LightingUniform
 	end
 	return shaderSource
 end
 
 
-function getVertexBufferLayout(::Type{Lighting})
+function getVertexBufferLayout(::Type{Lighting}; offset=0)
 	WGPU.GPUVertexBufferLayout => []
 end
 
 
-function getBindingLayouts(::Type{Lighting})
+function getBindingLayouts(::Type{Lighting}; binding=0)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
-			:binding => 2,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -241,10 +241,10 @@ function getBindingLayouts(::Type{Lighting})
 end
 
 
-function getBindings(::Type{Lighting}, uniformBuffer)
+function getBindings(::Type{Lighting}, uniformBuffer; binding=0)
 	bindings = [
 		WGPU.GPUBuffer => [
-			:binding => 2,
+			:binding => binding,
 			:buffer  => uniformBuffer,
 			:offset  => 0,
 			:size    => uniformBuffer.size

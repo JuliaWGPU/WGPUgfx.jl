@@ -99,7 +99,7 @@ function getIndexBuffer(gpuDevice, plane::Plane)
 end
 
 
-function getVertexBufferLayout(plane::Type{Plane})
+function getVertexBufferLayout(plane::Type{Plane}; offset=0)
 	WGPU.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
@@ -107,22 +107,22 @@ function getVertexBufferLayout(plane::Type{Plane})
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 0,
-				:shaderLocation => 0
+				:shaderLocation => offset + 0
 			],
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 4*4,
-				:shaderLocation => 1
+				:shaderLocation => offset + 1
 			]
 		]
 	]
 end
 
 
-function getBindingLayouts(::Type{Plane})
+function getBindingLayouts(::Type{Plane}; binding=0)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
-			:binding => 0,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -131,10 +131,10 @@ function getBindingLayouts(::Type{Plane})
 end
 
 
-function getBindings(::Type{Plane}, uniformBuffer)
+function getBindings(::Type{Plane}, uniformBuffer; binding=0)
 	bindings = [
 		WGPU.GPUBuffer => [
-			:binding => 0,
+			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,
 			:size => uniformBuffer.size
@@ -143,12 +143,12 @@ function getBindings(::Type{Plane}, uniformBuffer)
 end
 
 
-function getShaderCode(::Type{Plane})
+function getShaderCode(::Type{Plane}; binding=0)
 	shaderSource = quote
 		struct PlaneUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 0 rLocals::@user PlaneUniform
+		@var Uniform 0 $binding rLocals::@user PlaneUniform
  	end
  	
 	return shaderSource

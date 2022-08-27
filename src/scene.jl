@@ -46,12 +46,14 @@ function composeShader(scene, gpuDevice)
 
 	islight = false
 	
-	for object in scene.objects
+	for (binding, object) in enumerate(scene.objects)
 		if typeof(object) == Lighting
 			islight = true
 		end
-		push!(src.args, getShaderCode(typeof(object)))
+		push!(src.args, getShaderCode(typeof(object); binding))
 	end
+
+	bindingCount = length(src.args) # TODO we might need to track count
 	
 	defaultSource = quote
 		struct VertexInput
@@ -122,23 +124,23 @@ function setup(scene, gpuDevice)
 	indexBuffer = nothing
 	vertexBuffer = nothing
 	
-	for obj in scene.objects
+	for (binding, obj) in enumerate(scene.objects)
 		prepareObject(gpuDevice, obj)
 		if typeof(obj) == Camera
 			scene.camera = obj
-			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
-			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer))...)
+			push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
+			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer); binding=binding)...)
 		elseif typeof(obj) == Lighting
 			scene.lighting = obj
-			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
-			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer))...)
+			push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
+			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer); binding=binding)...)
 		else
 			vertexBuffer =getVertexBuffer(gpuDevice, obj)
 			uniformData = defaultUniformData(typeof(obj))
 			uniformBuffer = getUniformBuffer(obj)
 			indexBuffer = getIndexBuffer(gpuDevice, obj)
-			push!(bindingLayouts, getBindingLayouts(typeof(obj))...)
-			push!(bindings, getBindings(typeof(obj), uniformBuffer)...)
+			push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
+			push!(bindings, getBindings(typeof(obj), uniformBuffer; binding=binding)...)
 		end
 	end
 

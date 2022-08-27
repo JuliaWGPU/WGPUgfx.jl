@@ -185,12 +185,12 @@ function getUniformBuffer(mesh::WGPUMesh)
 end
 
 
-function getShaderCode(::Type{WGPUMesh})
+function getShaderCode(::Type{WGPUMesh}; binding=0)
 	shaderSource = quote
 		struct WGPUMeshUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 0 mesh::@user WGPUMeshUniform
+		@var Uniform 0 $binding mesh::@user WGPUMeshUniform
  	end
  	
 	return shaderSource
@@ -220,7 +220,7 @@ function getIndexBuffer(gpuDevice, mesh::WGPUMesh)
 end
 
 
-function getVertexBufferLayout(::Type{WGPUMesh})
+function getVertexBufferLayout(::Type{WGPUMesh}; offset=0)
 	WGPU.GPUVertexBufferLayout => [
 		:arrayStride => 12*4,
 		:stepMode => "Vertex",
@@ -228,27 +228,27 @@ function getVertexBufferLayout(::Type{WGPUMesh})
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 0,
-				:shaderLocation => 0
+				:shaderLocation => offset + 0
 			],
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 4*4,
-				:shaderLocation => 1
+				:shaderLocation => offset + 1
 			],
 			:attribute => [
 				:format => "Float32x4",
 				:offset => 8*4,
-				:shaderLocation => 2
+				:shaderLocation => offset + 2
 			]
 		]
 	]
 end
 
 
-function getBindingLayouts(::Type{WGPUMesh})
+function getBindingLayouts(::Type{WGPUMesh}; binding=4)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
-			:binding => 4,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -257,10 +257,10 @@ function getBindingLayouts(::Type{WGPUMesh})
 end
 
 
-function getBindings(::Type{WGPUMesh}, uniformBuffer)
+function getBindings(::Type{WGPUMesh}, uniformBuffer; binding=4)
 	bindings = [
 		WGPU.GPUBuffer => [
-			:binding => 4,
+			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,
 			:size => uniformBuffer.size
