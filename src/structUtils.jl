@@ -123,7 +123,7 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 				sz = bitrotate(sz, 1)
 				if (sz & padSize) == sz
 					padCount += 1
-					insert!(fieldVector, idx + padCount - 1, gensym()=>juliaPadType[sz])
+					insert!(fieldVector, idx + padCount - 1, Symbol(:pad, padCount)=>juliaPadType[sz])
 					# println("\t_pad_$padCount:$(padType[sz]) # implicit struct padding")
 				end
 			end
@@ -141,7 +141,7 @@ function makePaddedStruct(name::Symbol, abstractType::Union{Nothing, DataType}, 
 			sz = bitrotate(sz, 1)
 			if (sz & padSize) == sz
 				padCount += 1
-				push!(fieldVector, gensym()=>juliaPadType[sz])
+				push!(fieldVector, Symbol(:pad, padCount)=>juliaPadType[sz])
 				# println("\t_pad_$padCount:$(padType[sz]) # implicit struct padding")
 			end
 		end
@@ -188,41 +188,8 @@ function makePaddedWGSLStruct(name::Symbol, fields...)
 		maxAlign = max(maxAlign, alignof(field))
 		potentialOffset = prevfieldSize + offsets[end]
 		padSize = (div(potentialOffset, fieldSize, RoundUp)*fieldSize - potentialOffset) |> UInt8
-		# @assert padSize >= 0 "pad size should be ≥ 0"
-		# if padSize != 0
-			# sz = 0x80 # MSB
-			# for i in 1:(sizeof(padSize)*8)
-				# sz = bitrotate(sz, 1)
-				# if (sz & padSize) == sz
-					# padCount += 1
-					# insert!(
-						# fieldVector,
-						# idx + padCount - 1,
-						# Symbol(replace(String(gensym()), "##" => "_pad"))=>juliaPadType[sz]
-					# )
-				# end
-			# end
-		# end
-		# push!(offsets, potentialOffset + padSize)
 		prevfieldSize = fieldSize
 	end
-	# potentialOffset = offsets[end] + prevfieldSize
-	# padSize = (div(potentialOffset, maxAlign, RoundUp)*maxAlign - potentialOffset) |> UInt8
-	# @assert padSize >= 0 "pad size should be ≥ 0"
-	# if padSize != 0
-		# sz = 0x80 # MSB
-		# for i in 1:(sizeof(padSize)*8)
-			# sz = bitrotate(sz, 1)
-			# if (sz & padSize) == sz
-				# padCount += 1
-				# push!(
-					# fieldVector,
-					# Symbol(replace(String(gensym()), "##" => "_pad"))=>juliaPadType[sz]
-				# )
-			# end
-		# end
-	# end
-	# push!(offsets, potentialOffset + padSize)
 	len = length(fieldVector)
 	# @assert issorted(fieldVector) "Fields should remain sorted"
 	line = ["\nstruct $name {"]
