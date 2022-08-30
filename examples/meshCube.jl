@@ -12,19 +12,20 @@ WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
-scene = Scene(canvas, [], repeat([nothing], 10)...)
 camera = defaultCamera()
-
 light = defaultLighting()
-push!(scene.objects, light)
+scene = Scene(
+	gpuDevice, 
+	canvas, 
+	camera, 
+	light, 
+	[], 
+	repeat([nothing], 6)...
+)
 
-push!(scene.objects, camera)
 mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
 
-push!(scene.objects, mesh)
-
-(renderPipeline, _) = setup(scene, gpuDevice);
-
+addObject!(scene, mesh)
 
 mutable struct MouseState
 	leftClick
@@ -36,7 +37,6 @@ end
 
 
 mouseState = MouseState(false, false, false, (0, 0), (0.01, 0.01))
-
 
 istruthy(::Val{GLFW.PRESS}) = true
 istruthy(::Val{GLFW.RELEASE}) = false
@@ -50,7 +50,6 @@ end
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_2}, state)
 	mouse.rightClick = istruthy(Val(state))
 end
-
 
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 	mouse.middleClick = istruthy(Val(state))
@@ -117,7 +116,7 @@ main = () -> begin
 			# camera = scene.camera
 			# rotxy = RotXY(pi/3, time())
 			# camera.scale = [1, 1, 1] .|> Float32
-			runApp(scene, gpuDevice, renderPipeline)
+			runApp(gpuDevice, scene)
 			PollEvents()
 		end
 	finally

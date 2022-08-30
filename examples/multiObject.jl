@@ -26,7 +26,7 @@ scene = Scene(
 
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "orangebot.obj"))
 addObject!(scene, mesh1)
-mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "pixarlamp.obj"))
+mesh2 = defaultCube()
 addObject!(scene, mesh2)
 
 mesh1.uniformData = rand(4, 4) .|> Float32
@@ -119,10 +119,7 @@ WGPU.setCursorPosCallback(
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			# camera = scene.camera
-			# rotxy = RotXY(pi/3, time())
-			# camera.scale = [1, 1, 1] .|> Float32
-			runApp(scene, gpuDevice)
+			runApp(gpuDevice, scene)
 			PollEvents()
 		end
 	finally

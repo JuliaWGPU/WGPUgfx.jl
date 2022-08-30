@@ -12,15 +12,20 @@ WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
-scene = Scene(canvas, [], repeat([nothing], 10)...)
 camera = defaultCamera()
 
-push!(scene.objects, camera)
+scene = Scene(
+	gpuDevice, 
+	canvas, 
+	camera,
+	nothing,
+	[], 
+	repeat([nothing], 6)...
+)
+
 cube = defaultCube()
 
-push!(scene.objects, cube)
-
-(renderPipeline, _) = setup(scene, gpuDevice);
+addObject!(scene, cube)
 
 mutable struct MouseState
 	leftClick
@@ -73,7 +78,6 @@ WGPU.setScrollCallback(
 )
 
 
-# TODO camera.up will be useful in reasonable movements
 WGPU.setCursorPosCallback(
 	canvas, 
 	(_, x, y) -> begin
@@ -104,14 +108,10 @@ WGPU.setCursorPosCallback(
 )
 
 
-# @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			# camera = scene.camera
-			# rotxy = RotXY(pi/3, time())
-			# camera.eye = rotxy*[1, 1, 1] .|> Float32
-			runApp(scene, gpuDevice, renderPipeline)
+			runApp(scene)
 			PollEvents()
 		end
 	finally

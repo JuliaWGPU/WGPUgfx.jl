@@ -11,20 +11,21 @@ using StaticArrays
 WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
-
-scene = Scene(canvas, [], repeat([nothing], 10)...)
 camera = defaultCamera()
 
 light = defaultLighting()
-push!(scene.objects, light)
+scene = Scene(
+	gpuDevice, 
+	canvas, 
+	camera, 
+	light, 
+	[], 
+	repeat([nothing], 6)...
+)
 
-push!(scene.objects, camera)
 cube = defaultCube()
 
-push!(scene.objects, cube)
-
-(renderPipeline, _) = setup(scene, gpuDevice);
-
+addObject!(scene, cube)
 
 mutable struct MouseState
 	leftClick
@@ -114,10 +115,7 @@ WGPU.setCursorPosCallback(
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			# camera = scene.camera
-			# rotxy = RotXY(pi/3, time())
-			# camera.scale = [1, 1, 1] .|> Float32
-			runApp(scene, gpuDevice, renderPipeline)
+			runApp(scene)
 			PollEvents()
 		end
 	finally
@@ -126,5 +124,7 @@ main = () -> begin
 end
 
 if abspath(PROGRAM_FILE)==@__FILE__
+	main()
+else
 	main()
 end
