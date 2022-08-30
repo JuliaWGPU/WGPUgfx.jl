@@ -43,6 +43,11 @@ function prepareObject(gpuDevice, camera::Camera)
 	return camera
 end
 
+function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
+	uniformBuffer = getfield(camera, :uniformBuffer)
+	push!(scene.bindingLayouts, getBindingLayouts(typeof(camera); binding=binding)...)
+	push!(scene.bindings, getBindings(typeof(camera), uniformBuffer; binding=binding)...)
+end
 
 # TODO not used
 function defaultUniformData(::Type{Camera}) 

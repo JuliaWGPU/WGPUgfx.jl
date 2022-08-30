@@ -82,6 +82,10 @@ mutable struct WGPUMesh
 	uvData
 	uniformData
 	uniformBuffer
+	indexBuffer
+	vertexBuffer
+	bindGroup
+	renderPipeline
 end
 
 function prepareObject(gpuDevice, mesh::WGPUMesh)
@@ -95,9 +99,47 @@ function prepareObject(gpuDevice, mesh::WGPUMesh)
 	setfield!(mesh, :uniformData, uniformData)
 	setfield!(mesh, :uniformBuffer, uniformBuffer)
 	setfield!(mesh, :gpuDevice, gpuDevice)
+	setfield!(mesh, :indexBuffer, getIndexBuffer(gpuDevice, mesh))
+	setfield!(mesh, :vertexBuffer, getVertexBuffer(gpuDevice, mesh))
 	return mesh
 end
 
+
+
+function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; binding=2)
+	bindingLayouts = []
+	bindings = []
+	cameraUniform = getfield(scene.camera, :uniformBuffer)
+	vertexBuffer = getfield(mesh, :vertexBuffer)
+	uniformBuffer = getfield(mesh, :uniformBuffer)
+	indexBuffer = getfield(mesh, :indexBuffer)
+	append!(
+		bindingLayouts, 
+		getBindingLayouts(typeof(scene.camera); binding = 0), 
+		getBindingLayouts(typeof(scene.light); binding = 1), 
+		getBindingLayouts(typeof(mesh); binding=binding)
+	)
+	append!(
+		bindings, 
+		getBindings(typeof(scene.camera), cameraUniform; binding = 0), 
+		getBindings(typeof(scene.camera), cameraUniform; binding = 1), 
+		getBindings(typeof(mesh), uniformBuffer; binding=binding)
+	)
+	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
+	mesh.bindGroup = bindGroup
+	pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
+	renderPipelineOptions = getRenderPipelineOptions(
+		scene,
+		mesh,
+	)
+	renderPipeline = WGPU.createRenderPipeline(
+		gpuDevice, 
+		pipelineLayout, 
+		renderPipelineOptions; 
+		label=" MESH RENDER PIPELINE "
+	)
+	mesh.renderPipeline = renderPipeline
+end
 
 function defaultUniformData(::Type{WGPUMesh}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
@@ -134,6 +176,10 @@ function defaultWGPUMesh(path::String; topology=WGPUPrimitiveTopology_TriangleLi
 		normalData, 
 		nothing, 
 		nothing, 
+		nothing,
+		nothing,
+		nothing,
+		nothing,
 		nothing
 	)
 	mesh
@@ -186,11 +232,12 @@ end
 
 
 function getShaderCode(::Type{WGPUMesh}; binding=0)
+	name = Symbol(:mesh, binding)
 	shaderSource = quote
 		struct WGPUMeshUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding mesh::@user WGPUMeshUniform
+		@var Uniform 0 $binding $name::@user WGPUMeshUniform
  	end
  	
 	return shaderSource
@@ -268,3 +315,58 @@ function getBindings(::Type{WGPUMesh}, uniformBuffer; binding=4)
 	]
 end
 
+function getRenderPipelineOptions(scene, mesh::WGPUMesh)
+	renderpipelineOptions = [
+		WGPU.GPUVertexState => [
+			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
+			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
+			:buffers => [
+					getVertexBufferLayout(typeof(mesh))
+				]
+		],
+		WGPU.GPUPrimitiveState => [
+			:topology => "TriangleList",
+			:frontFace => "CCW",
+			:cullMode => "Front",
+			:stripIndexFormat => "Undefined"
+		],
+		WGPU.GPUDepthStencilState => [
+			:depthWriteEnabled => true,
+			:depthCompare => WGPUCompareFunction_LessEqual,
+			:format => WGPUTextureFormat_Depth24Plus
+		],
+		WGPU.GPUMultiSampleState => [
+			:count => 1,
+			:mask => typemax(UInt32),
+			:alphaToCoverageEnabled=>false,
+		],
+		WGPU.GPUFragmentState => [
+			:_module => scene.cshader.internal[],						# SET THIS
+			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
+			:targets => [
+				WGPU.GPUColorTargetState =>	[
+					:format => scene.renderTextureFormat,				# SET THIS
+					:color => [
+						:srcFactor => "One",
+						:dstFactor => "Zero",
+						:operation => "Add"
+					],
+					:alpha => [
+						:srcFactor => "One",
+						:dstFactor => "Zero",
+						:operation => "Add",
+					]
+				],
+			]
+		]
+	]
+	renderpipelineOptions
+end
+
+function render(renderPass, renderPassOptions, mesh::WGPUMesh)
+	WGPU.setPipeline(renderPass, mesh.renderPipeline)
+	WGPU.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
+	WGPU.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
+	WGPU.setBindGroup(renderPass, 0, mesh.bindGroup, UInt32[], 0, 99)
+	WGPU.drawIndexed(renderPass, Int32(mesh.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
+end

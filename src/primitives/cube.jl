@@ -14,6 +14,9 @@ mutable struct Cube
 	uvs
 	uniformData
 	uniformBuffer
+	indexBuffer
+	vertexBuffer
+	bindGroup
 end
 
 function prepareObject(gpuDevice, cube::Cube)
@@ -27,9 +30,32 @@ function prepareObject(gpuDevice, cube::Cube)
 	setfield!(cube, :uniformData, uniformData)
 	setfield!(cube, :uniformBuffer, uniformBuffer)
 	setfield!(cube, :gpuDevice, gpuDevice)
+	setfield!(cube, :indexBuffer, getIndexBuffer(gpuDevice, cube))
+	setfield!(cube, :vertexBuffer, getVertexBuffer(gpuDevice, cube))
 	return cube
 end
 
+function preparePipeline(gpuDevice, scene, cube::Cube; binding=0)
+	cameraUniform = getfield(scene.camera, :uniformBuffer)
+	vertexBuffer = getfield(cube, :vertexBuffer)
+	uniformBuffer = getfield(cube, :uniformBuffer)
+	indexBuffer = getfield(cube, :indexBuffer)
+	append!(bindingLayouts, getBindingLayouts(typeof(scene.camera); binding = 1), getBindingLayouts(typeof(cube); binding=binding)...)
+	append!(bindings, getBinding(typeof(scene.camera), cameraUniform; binding=1), getBindings(typeof(cube), uniformBuffer; binding=binding)...)
+	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
+	obj.bindGroup = bindGroup
+	pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
+	renderPipelineOptions = getRenderPipelineOptions(
+		scene.cshader,
+		cube,
+		scene.renderTextureFormat
+	)
+	renderPipeline = WGPU.createRenderPipeline(
+		gpuDevice, pipelineLayout, 
+		renderPipelineOptions; 
+		label=" CUBE RENDER PIPELINE "
+	)
+end
 
 function defaultUniformData(::Type{Cube}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
@@ -99,7 +125,19 @@ function defaultCube()
 	
 	normalData = repeat(faceNormal, inner=(1, 4))
 
-	cube = Cube(nothing, vertexData, colorData, indexData, normalData, nothing, nothing, nothing)
+	cube = Cube(
+		nothing, 		# gpuDevice
+		vertexData, 
+		colorData, 
+		indexData, 
+		normalData, 
+		nothing, 		# TODO fill UVs later
+		nothing, 		# uniformData
+		nothing, 		# uniformBuffer
+		nothing, 		# indexBuffer
+		nothing,	 	# vertexBuffer
+		nothing,		# bindGroup
+	)
 	cube
 end
 
@@ -153,17 +191,16 @@ function getUniformBuffer(cube::Cube)
 end
 
 
-function getShaderCode(::Type{Cube}; binding=0)
-	shaderSource = quote
+function getShaderCode(::Type{Cube}; isLight=false, binding=0)
+	shaderCode = quote
 		struct CubeUniform
 			transform::Mat4{Float32}
 		end
 		@var Uniform 0 $binding cube::@user CubeUniform
  	end
  	
-	return shaderSource
+	return shaderCode
 end
-
 
 # TODO check it its called multiple times
 function getVertexBuffer(gpuDevice, cube::Cube)
@@ -186,6 +223,7 @@ function getIndexBuffer(gpuDevice, cube::Cube)
 	)
 	indexBuffer
 end
+
 
 
 # TODO remove kwargs offset
@@ -220,7 +258,7 @@ function getBindingLayouts(::Type{Cube}; binding=0)
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
-		],
+		]
 	]
 	return bindingLayouts
 end
@@ -235,6 +273,15 @@ function getBindings(::Type{Cube}, uniformBuffer; binding=0)
 			:size => uniformBuffer.size
 		],
 	]
+end
+
+
+function render(renderPass, renderPassOptions, cube::Cube)
+	WGPU.setPipeline(renderPass, renderPipeline)
+	WGPU.setIndexBuffer(renderPass, cube.indexBuffer, "Uint32")
+	WGPU.setVertexBuffer(renderPass, 0, cube.vertexBuffer)
+	WGPU.setBindGroup(renderPass, 0, cube.bindGroup, UInt32[], 0, 99)
+	WGPU.drawIndexed(renderPass, Int32(cube.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 end
 
 

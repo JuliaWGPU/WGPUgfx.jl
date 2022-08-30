@@ -16,41 +16,42 @@ using .ShaderMod
 export Scene, composeShader, defaultCamera, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
 	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting,
-	defaultWGPUMesh
+	defaultWGPUMesh, addObject!
+
 
 mutable struct Scene
-	canvas
+	gpuDevice
+	canvas	
+	camera						# TODO cameras
+	light						# TODO lights
 	objects 					# ::Union{WorldObject, ObjectGroup}
-	indexBuffer
-	vertexBuffer
-	uniformData
-	uniformBuffer
 	presentContext
 	bindGroup
-	camera
-	lighting
-	depthTexture
-	depthView
+	depthTexture				# Not sure if this should be part of scene
+	depthView					# same here
+	renderTextureFormat
+	cshader
 end
 
 
-# prefer push! over add
-function attach(scene, obj)
+function addObject!(scene, obj)
 	push!(scene.objects, obj)
 	setup(scene)
 end
 
-
-function composeShader(scene, gpuDevice)
+function composeShader(gpuDevice, scene)
 	src = quote end
 
-	islight = false
+	islight = (scene.light != nothing)
+
+	push!(src.args, getShaderCode(typeof(scene.camera); binding=0))
+	push!(src.args, getShaderCode(typeof(scene.light); binding=1))
 	
 	for (binding, object) in enumerate(scene.objects)
 		if typeof(object) == Lighting
 			islight = true
 		end
-		push!(src.args, getShaderCode(typeof(object); binding))
+		push!(src.args, getShaderCode(typeof(object); binding = binding + 1))
 	end
 
 	bindingCount = length(src.args) # TODO we might need to track count
@@ -103,104 +104,24 @@ function composeShader(scene, gpuDevice)
 end
 
 
-function getVertexBufferLayouts(objs)
-	layout = []
-	for obj in objs
-		if !(typeof(obj) in [Camera, Lighting])
-			push!(layout, getVertexBufferLayout(typeof(obj)))
-		end
-	end
-	return layout
-end
+setup(scene) = setup(scene.gpuDevice, scene)
 
-
-function setup(scene, gpuDevice)
-	cshader = composeShader(scene, gpuDevice)
+function setup(gpuDevice, scene)
+	cshader = composeShader(gpuDevice, scene)
+	scene.cshader = cshader
 	@info cshader.src
-	renderTextureFormat = WGPU.getPreferredFormat(scene.canvas)
-	
-	bindings = []
-	bindingLayouts = []
-	indexBuffer = nothing
-	vertexBuffer = nothing
-	
-	for (binding, obj) in enumerate(scene.objects)
-		prepareObject(gpuDevice, obj)
-		if typeof(obj) == Camera
-			scene.camera = obj
-			push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
-			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer); binding=binding)...)
-		elseif typeof(obj) == Lighting
-			scene.lighting = obj
-			push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
-			push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer); binding=binding)...)
-		else
-			vertexBuffer =getVertexBuffer(gpuDevice, obj)
-			uniformData = defaultUniformData(typeof(obj))
-			uniformBuffer = getUniformBuffer(obj)
-			indexBuffer = getIndexBuffer(gpuDevice, obj)
-			push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
-			push!(bindings, getBindings(typeof(obj), uniformBuffer; binding=binding)...)
-		end
-	end
 
+	prepareObject(gpuDevice, scene.camera)
 	scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
-		
-	scene.indexBuffer = indexBuffer
-	scene.vertexBuffer = vertexBuffer
-	
-	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
-	scene.bindGroup = bindGroup
-	pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
+
+	prepareObject(gpuDevice, scene.light)
+
+	scene.renderTextureFormat = WGPU.getPreferredFormat(scene.canvas)
 	presentContext = WGPU.getContext(scene.canvas)
 	WGPU.determineSize(presentContext[])
-	WGPU.config(presentContext, device=gpuDevice, format = renderTextureFormat)
-	
+	WGPU.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
 	scene.presentContext = presentContext
 	
-	renderpipelineOptions = [
-		WGPU.GPUVertexState => [
-			:_module => cshader.internal[],						# SET THIS (AUTOMATICALLY)
-			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
-			:buffers => getVertexBufferLayouts(scene.objects)
-		],
-		WGPU.GPUPrimitiveState => [
-			:topology => "TriangleList",
-			:frontFace => "CCW",
-			:cullMode => "Front",
-			:stripIndexFormat => "Undefined"
-		],
-		WGPU.GPUDepthStencilState => [
-			:depthWriteEnabled => true,
-			:depthCompare => WGPUCompareFunction_LessEqual,
-			:format => WGPUTextureFormat_Depth24Plus
-		],
-		WGPU.GPUMultiSampleState => [
-			:count => 1,
-			:mask => typemax(UInt32),
-			:alphaToCoverageEnabled=>false,
-		],
-		WGPU.GPUFragmentState => [
-			:_module => cshader.internal[],						# SET THIS
-			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
-			:targets => [
-				WGPU.GPUColorTargetState =>	[
-					:format => renderTextureFormat,				# SET THIS
-					:color => [
-						:srcFactor => "One",
-						:dstFactor => "Zero",
-						:operation => "Add"
-					],
-					:alpha => [
-						:srcFactor => "One",
-						:dstFactor => "Zero",
-						:operation => "Add",
-					]
-				],
-			]
-		]
-	]
-
 	scene.depthTexture = WGPU.createTexture(
 		gpuDevice,
 		"DEPTH TEXTURE",
@@ -211,23 +132,29 @@ function setup(scene, gpuDevice)
 		WGPUTextureFormat_Depth24Plus,
 		WGPU.getEnum(WGPU.WGPUTextureUsage, "RenderAttachment")
 	)
-
+	
 	scene.depthView = WGPU.createView(scene.depthTexture)
 
-	renderPipeline = WGPU.createRenderPipeline(
-		gpuDevice, pipelineLayout, 
-		renderpipelineOptions; 
-		label=" RENDER PIPELINE "
-	)
-	return (renderPipeline, scene.depthTexture)
+	# TODO what if we have multiple sources of light
+	# TODO what about shadows
+	for (binding, object) in enumerate(scene.objects)
+		if typeof(object) == Lighting
+			scene.islight = true
+		end
+	end
+
+	for (binding, object) in enumerate(scene.objects)
+		prepareObject(gpuDevice, object)
+		preparePipeline(gpuDevice, scene, object)
+	end
+
 end
 
 
-function runApp(scene, gpuDevice, renderPipeline)
-
+function runApp(scene, gpuDevice)
 	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]);
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
-	
+
 	renderPassOptions = [
 		WGPU.GPUColorAttachments => [
 			:attachments => [
@@ -253,14 +180,13 @@ function runApp(scene, gpuDevice, renderPipeline)
 			]
 		]
 	]
-	
+
 	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
+
+	for object in scene.objects
+		render(renderPass, renderPassOptions, object)
+	end
 	
-	WGPU.setPipeline(renderPass, renderPipeline)
-	WGPU.setIndexBuffer(renderPass, scene.indexBuffer, "Uint32")
-	WGPU.setVertexBuffer(renderPass, 0, scene.vertexBuffer)
-	WGPU.setBindGroup(renderPass, 0, scene.bindGroup, UInt32[], 0, 99)
-	WGPU.drawIndexed(renderPass, Int32(scene.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 	WGPU.endEncoder(renderPass)
 	WGPU.submit(gpuDevice.queue, [WGPU.finish(cmdEncoder),])
 	WGPU.present(scene.presentContext[])

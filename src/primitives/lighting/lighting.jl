@@ -22,6 +22,12 @@ mutable struct Lighting
 	uniformBuffer
 end
 
+# elseif typeof(obj) == Lighting
+	# scene.lighting = obj
+	# push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
+	# push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer); binding=binding)...)
+# end
+
 
 function prepareObject(gpuDevice, lighting::Lighting)
 	io = computeUniformData(lighting)
@@ -38,6 +44,14 @@ function prepareObject(gpuDevice, lighting::Lighting)
 	setfield!(lighting, :gpuDevice, gpuDevice)
 	return lighting
 end
+
+
+function preparePipeline(gpuDevice, scene, light::Lighting; binding=1)
+	uniformBuffer = getfield(light, :uniformBuffer)
+	push!(scene.bindingLayouts, getBindingLayouts(typeof(light); binding=binding)...)
+	push!(scene.bindings, getBindings(typeof(light), uniformBuffer; binding=binding)...)
+end
+
 
 # TODO not used
 function defaultUniformData(::Type{Lighting}) 

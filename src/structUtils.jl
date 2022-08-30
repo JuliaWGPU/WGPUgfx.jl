@@ -81,6 +81,7 @@ adaptType(::Val{T}) where T = typeof(T) == BuiltinValue ? adaptType(T) : T
 adaptType(::Type{Val{T}}) where T = T
 adaptType(::Type{T}) where T = T
 adaptType(a::BuiltinValue) = string(a) |> Symbol
+# TODO check if gensym cause redefinition issues
 adaptType(::Type{BuiltInDataType{B, D}}) where {B, D} = BuiltIn(adaptType(B), gensym()=>adaptType(D))
 adaptType(::Type{LocationDataType{B, D}}) where {B, D} = Location(adaptType(B), gensym()=>adaptType(D))
 adaptType(a::Symbol, ::Type{BuiltInDataType{B, D}}) where {B, D} = BuiltIn(adaptType(B), a=>adaptType(D))
