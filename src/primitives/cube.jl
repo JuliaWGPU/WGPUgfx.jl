@@ -17,6 +17,7 @@ mutable struct Cube
 	indexBuffer
 	vertexBuffer
 	bindGroup
+	renderPipeline
 end
 
 function prepareObject(gpuDevice, cube::Cube)
@@ -35,26 +36,39 @@ function prepareObject(gpuDevice, cube::Cube)
 	return cube
 end
 
-function preparePipeline(gpuDevice, scene, cube::Cube; binding=0)
+function preparePipeline(gpuDevice, scene, cube::Cube; binding=2)
+	bindingLayouts = []
+	bindings = []
 	cameraUniform = getfield(scene.camera, :uniformBuffer)
 	vertexBuffer = getfield(cube, :vertexBuffer)
 	uniformBuffer = getfield(cube, :uniformBuffer)
 	indexBuffer = getfield(cube, :indexBuffer)
-	append!(bindingLayouts, getBindingLayouts(typeof(scene.camera); binding = 1), getBindingLayouts(typeof(cube); binding=binding)...)
-	append!(bindings, getBinding(typeof(scene.camera), cameraUniform; binding=1), getBindings(typeof(cube), uniformBuffer; binding=binding)...)
+	append!(
+		bindingLayouts, 
+		getBindingLayouts(typeof(scene.camera); binding = 0), 
+		scene.light != nothing ? getBindingLayouts(typeof(scene.light); binding = 1) : [], 
+		getBindingLayouts(typeof(cube); binding=binding)
+	)
+	append!(
+		bindings, 
+		getBindings(typeof(scene.camera), cameraUniform; binding=0), 
+		scene.light != nothing ? getBindings(typeof(scene.light), cameraUniform; binding=1) : [], 
+		getBindings(typeof(cube), uniformBuffer; binding=binding)
+	)
 	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
-	obj.bindGroup = bindGroup
+	cube.bindGroup = bindGroup
 	pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
 	renderPipelineOptions = getRenderPipelineOptions(
-		scene.cshader,
+		scene,
 		cube,
-		scene.renderTextureFormat
 	)
 	renderPipeline = WGPU.createRenderPipeline(
-		gpuDevice, pipelineLayout, 
+		gpuDevice, 
+		pipelineLayout, 
 		renderPipelineOptions; 
 		label=" CUBE RENDER PIPELINE "
 	)
+	cube.renderPipeline = renderPipeline
 end
 
 function defaultUniformData(::Type{Cube}) 
@@ -137,6 +151,7 @@ function defaultCube()
 		nothing, 		# indexBuffer
 		nothing,	 	# vertexBuffer
 		nothing,		# bindGroup
+		nothing			# renderPipeline
 	)
 	cube
 end
@@ -190,13 +205,13 @@ function getUniformBuffer(cube::Cube)
 	getfield(cube, :uniformBuffer)
 end
 
-
 function getShaderCode(::Type{Cube}; isLight=false, binding=0)
+	name = Symbol(:cube, binding)
 	shaderCode = quote
 		struct CubeUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding cube::@user CubeUniform
+		@var Uniform 0 $binding $name::@user CubeUniform
  	end
  	
 	return shaderCode
@@ -213,7 +228,6 @@ function getVertexBuffer(gpuDevice, cube::Cube)
 	vertexBuffer
 end
 
-
 function getIndexBuffer(gpuDevice, cube::Cube)
 	(indexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
@@ -223,8 +237,6 @@ function getIndexBuffer(gpuDevice, cube::Cube)
 	)
 	indexBuffer
 end
-
-
 
 # TODO remove kwargs offset
 function getVertexBufferLayout(::Type{Cube}; offset = 0)
@@ -275,9 +287,56 @@ function getBindings(::Type{Cube}, uniformBuffer; binding=0)
 	]
 end
 
+function getRenderPipelineOptions(scene, cube::Cube)
+	renderpipelineOptions = [
+		WGPU.GPUVertexState => [
+			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
+			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
+			:buffers => [
+					getVertexBufferLayout(typeof(cube))
+				]
+		],
+		WGPU.GPUPrimitiveState => [
+			:topology => "TriangleList",
+			:frontFace => "CCW",
+			:cullMode => "Front",
+			:stripIndexFormat => "Undefined"
+		],
+		WGPU.GPUDepthStencilState => [
+			:depthWriteEnabled => true,
+			:depthCompare => WGPUCompareFunction_LessEqual,
+			:format => WGPUTextureFormat_Depth24Plus
+		],
+		WGPU.GPUMultiSampleState => [
+			:count => 1,
+			:mask => typemax(UInt32),
+			:alphaToCoverageEnabled=>false,
+		],
+		WGPU.GPUFragmentState => [
+			:_module => scene.cshader.internal[],						# SET THIS
+			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
+			:targets => [
+				WGPU.GPUColorTargetState =>	[
+					:format => scene.renderTextureFormat,				# SET THIS
+					:color => [
+						:srcFactor => "One",
+						:dstFactor => "Zero",
+						:operation => "Add"
+					],
+					:alpha => [
+						:srcFactor => "One",
+						:dstFactor => "Zero",
+						:operation => "Add",
+					]
+				],
+			]
+		]
+	]
+	renderpipelineOptions
+end
 
 function render(renderPass, renderPassOptions, cube::Cube)
-	WGPU.setPipeline(renderPass, renderPipeline)
+	WGPU.setPipeline(renderPass, cube.renderPipeline)
 	WGPU.setIndexBuffer(renderPass, cube.indexBuffer, "Uint32")
 	WGPU.setVertexBuffer(renderPass, 0, cube.vertexBuffer)
 	WGPU.setBindGroup(renderPass, 0, cube.bindGroup, UInt32[], 0, 99)

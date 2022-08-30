@@ -45,7 +45,8 @@ function composeShader(gpuDevice, scene)
 	islight = (scene.light != nothing)
 
 	push!(src.args, getShaderCode(typeof(scene.camera); binding=0))
-	push!(src.args, getShaderCode(typeof(scene.light); binding=1))
+
+	islight && push!(src.args, getShaderCode(typeof(scene.light); binding=1))
 	
 	for (binding, object) in enumerate(scene.objects)
 		if typeof(object) == Lighting
@@ -114,7 +115,7 @@ function setup(gpuDevice, scene)
 	prepareObject(gpuDevice, scene.camera)
 	scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
 
-	prepareObject(gpuDevice, scene.light)
+	(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 
 	scene.renderTextureFormat = WGPU.getPreferredFormat(scene.canvas)
 	presentContext = WGPU.getContext(scene.canvas)
@@ -150,8 +151,9 @@ function setup(gpuDevice, scene)
 
 end
 
+runApp(scene) = runApp(scene.gpuDevice, scene)
 
-function runApp(scene, gpuDevice)
+function runApp(gpuDevice, scene)
 	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]);
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
 

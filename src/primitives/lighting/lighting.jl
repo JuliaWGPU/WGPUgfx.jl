@@ -22,12 +22,6 @@ mutable struct Lighting
 	uniformBuffer
 end
 
-# elseif typeof(obj) == Lighting
-	# scene.lighting = obj
-	# push!(bindingLayouts, getBindingLayouts(typeof(obj); binding=binding)...)
-	# push!(bindings, getBindings(typeof(obj), getfield(obj, :uniformBuffer); binding=binding)...)
-# end
-
 
 function prepareObject(gpuDevice, lighting::Lighting)
 	io = computeUniformData(lighting)
@@ -42,6 +36,7 @@ function prepareObject(gpuDevice, lighting::Lighting)
 	setfield!(lighting, :uniformData, io)
 	setfield!(lighting, :uniformBuffer, uniformBuffer)
 	setfield!(lighting, :gpuDevice, gpuDevice)
+	seek(io, 0)
 	return lighting
 end
 
