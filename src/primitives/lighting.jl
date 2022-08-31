@@ -217,7 +217,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(::Type{Lighting}; binding=0)
+function getShaderCode(::Type{Lighting}; islight=true, binding=0)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}

@@ -231,13 +231,39 @@ function getUniformBuffer(mesh::WGPUMesh)
 end
 
 
-function getShaderCode(::Type{WGPUMesh}; binding=0)
+function getShaderCode(::Type{WGPUMesh}; islight=false, binding=0)
 	name = Symbol(:mesh, binding)
 	shaderSource = quote
 		struct WGPUMeshUniform
 			transform::Mat4{Float32}
 		end
 		@var Uniform 0 $binding $name::@user WGPUMeshUniform
+
+		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
+			@var out::@user VertexOutput
+			out.pos = camera.transform*in.pos
+			out.vColor = in.vColor
+			if $islight
+				out.vNormal = camera.transform*in.vNormal
+			end
+			return out
+		end
+
+		@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
+			if $islight
+				@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
+				@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
+				@let V::Vec3{Float32} = normalize(camera.eye.xyz - in.pos.xyz)
+				@let H::Vec3{Float32} = normalize(L + V)
+				@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
+				@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
+				@let ambient::Float32 = lighting.ambientIntensity
+				return in.vColor*(ambient + diffuse) + lighting.specularColor*specular
+			else
+				return in.vColor
+			end
+		end
+
  	end
  	
 	return shaderSource

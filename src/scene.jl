@@ -39,24 +39,15 @@ function addObject!(scene, obj)
 	setup(scene)
 end
 
-function composeShader(gpuDevice, scene)
+function composeShader(gpuDevice, scene, object; binding=2)
 	src = quote end
 
 	islight = (scene.light != nothing)
 
-	push!(src.args, getShaderCode(typeof(scene.camera); binding=0))
+	push!(src.args, getShaderCode(typeof(scene.camera); islight=islight, binding=0))
 
-	islight && push!(src.args, getShaderCode(typeof(scene.light); binding=1))
-	
-	for (binding, object) in enumerate(scene.objects)
-		if typeof(object) == Lighting
-			islight = true
-		end
-		push!(src.args, getShaderCode(typeof(object); binding = binding + 1))
-	end
+	islight && push!(src.args, getShaderCode(typeof(scene.light); islight=islight, binding=1))
 
-	bindingCount = length(src.args) # TODO we might need to track count
-	
 	defaultSource = quote
 		struct VertexInput
 			@location 0 pos::Vec4{Float32}
@@ -73,34 +64,10 @@ function composeShader(gpuDevice, scene)
 			end
 			@builtin position pos::Vec4{Float32}
 		end
-		
-		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
-			@var out::@user VertexOutput
-			out.pos = camera.transform*in.pos
-			out.vColor = in.vColor
-			if $islight
-				out.vNormal = camera.transform*in.vNormal
-			end
-			return out
-		end
-		
-		@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
-			if $islight
-				@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
-				@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
-				@let V::Vec3{Float32} = normalize(camera.eye.xyz - in.pos.xyz)
-				@let H::Vec3{Float32} = normalize(L + V)
-				@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
-				@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
-				@let ambient::Float32 = lighting.ambientIntensity
-				return in.vColor*(ambient + diffuse) + lighting.specularColor*specular
-			else
-				return in.vColor
-			end
-		end
 	end
 	
 	push!(src.args, defaultSource)
+	push!(src.args, getShaderCode(typeof(object); islight=islight, binding = binding + 1))
 	createShaderObj(gpuDevice, src)
 end
 
@@ -108,14 +75,6 @@ end
 setup(scene) = setup(scene.gpuDevice, scene)
 
 function setup(gpuDevice, scene)
-	cshader = composeShader(gpuDevice, scene)
-	scene.cshader = cshader
-	@info cshader.src
-
-	prepareObject(gpuDevice, scene.camera)
-	scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
-
-	(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 
 	scene.renderTextureFormat = WGPU.getPreferredFormat(scene.canvas)
 	presentContext = WGPU.getContext(scene.canvas)
@@ -136,19 +95,19 @@ function setup(gpuDevice, scene)
 	
 	scene.depthView = WGPU.createView(scene.depthTexture)
 
-	# TODO what if we have multiple sources of light
-	# TODO what about shadows
 	for (binding, object) in enumerate(scene.objects)
-		if typeof(object) == Lighting
-			scene.islight = true
+		cshader = composeShader(gpuDevice, scene, object; binding=binding)
+		scene.cshader = cshader
+		@info cshader.src
+		if binding == 1
+			prepareObject(gpuDevice, scene.camera)
 		end
-	end
-
-	for (binding, object) in enumerate(scene.objects)
+		scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
+		(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 		prepareObject(gpuDevice, object)
 		preparePipeline(gpuDevice, scene, object)
 	end
-
+	
 end
 
 runApp(scene) = runApp(scene.gpuDevice, scene)

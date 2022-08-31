@@ -7,7 +7,7 @@ using CoordinateTransformations
 
 export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform,
-	getUniformBuffer, getUniformData
+	getUniformBuffer, getUniformData, getShaderCode
 
 
 mutable struct Camera
@@ -49,12 +49,6 @@ function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
 	push!(scene.bindings, getBindings(typeof(camera), uniformBuffer; binding=binding)...)
 end
 
-# TODO not used
-function defaultUniformData(::Type{Camera}) 
-	uniformData = ones(Float32, (4, 4)) |> Diagonal |> SMatrix{4, 4, Float32}
-	return uniformData
-end
-
 
 function computeTransform(camera::Camera)
 	viewMatrix = lookAtRightHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
@@ -62,6 +56,7 @@ function computeTransform(camera::Camera)
 	viewProject = projectionMatrix ∘ viewMatrix
 	return viewProject.linear
 end
+
 
 function computeUniformData(camera::Camera)
 	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
@@ -380,7 +375,7 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(::Type{Camera}; binding=1)
+function getShaderCode(::Type{Camera}; islight=false, binding=1)
 	shaderSource = quote
 		struct CameraUniform
 			eye::Vec3{Float32}

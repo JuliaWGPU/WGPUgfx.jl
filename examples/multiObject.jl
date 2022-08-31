@@ -8,7 +8,7 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 
-WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
+WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
 
@@ -25,11 +25,10 @@ scene = Scene(
 )
 
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "orangebot.obj"))
-addObject!(scene, mesh1)
-mesh2 = defaultCube()
+mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "pixarlamp.obj"))
 addObject!(scene, mesh2)
+addObject!(scene, mesh1)
 
-mesh1.uniformData = rand(4, 4) .|> Float32
 
 mutable struct MouseState
 	leftClick

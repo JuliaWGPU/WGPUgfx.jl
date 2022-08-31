@@ -1,4 +1,3 @@
-
 using WGPU_jll
 
 using WGPU
@@ -205,7 +204,7 @@ function getUniformBuffer(cube::Cube)
 	getfield(cube, :uniformBuffer)
 end
 
-function getShaderCode(::Type{Cube}; isLight=false, binding=0)
+function getShaderCode(::Type{Cube}; islight=false, binding=0)
 	name = Symbol(:cube, binding)
 	shaderCode = quote
 		struct CubeUniform

@@ -5,12 +5,12 @@ using WGPU
 using Reexport
 
 include("macros.jl")
-include("primitives.jl")
 
 
 using .MacroMod
 using .MacroMod: wgslCode
 
+include("primitives.jl")
 @reexport using .PrimitivesMod
 
 export createShaderObj
