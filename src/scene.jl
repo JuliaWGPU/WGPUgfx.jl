@@ -67,7 +67,7 @@ function composeShader(gpuDevice, scene, object; binding=2)
 	end
 	
 	push!(src.args, defaultSource)
-	push!(src.args, getShaderCode(typeof(object); islight=islight, binding = binding + 1))
+	push!(src.args, getShaderCode(typeof(object); islight=islight, binding = binding))
 	createShaderObj(gpuDevice, src)
 end
 
@@ -96,7 +96,7 @@ function setup(gpuDevice, scene)
 	scene.depthView = WGPU.createView(scene.depthTexture)
 
 	for (binding, object) in enumerate(scene.objects)
-		cshader = composeShader(gpuDevice, scene, object; binding=binding)
+		cshader = composeShader(gpuDevice, scene, object; binding=binding + 1)
 		scene.cshader = cshader
 		@info cshader.src
 		if binding == 1
@@ -105,7 +105,7 @@ function setup(gpuDevice, scene)
 		scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
 		(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 		prepareObject(gpuDevice, object)
-		preparePipeline(gpuDevice, scene, object)
+		preparePipeline(gpuDevice, scene, object; binding=binding + 1)
 	end
 	
 end

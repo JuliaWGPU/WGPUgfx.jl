@@ -110,6 +110,7 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; binding=2)
 	bindingLayouts = []
 	bindings = []
 	cameraUniform = getfield(scene.camera, :uniformBuffer)
+	lightUniform = getfield(scene.light, :uniformBuffer)
 	vertexBuffer = getfield(mesh, :vertexBuffer)
 	uniformBuffer = getfield(mesh, :uniformBuffer)
 	indexBuffer = getfield(mesh, :indexBuffer)
@@ -122,7 +123,7 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; binding=2)
 	append!(
 		bindings, 
 		getBindings(typeof(scene.camera), cameraUniform; binding = 0), 
-		getBindings(typeof(scene.camera), cameraUniform; binding = 1), 
+		getBindings(typeof(scene.light), lightUniform; binding = 1), 
 		getBindings(typeof(mesh), uniformBuffer; binding=binding)
 	)
 	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
@@ -237,14 +238,17 @@ function getShaderCode(::Type{WGPUMesh}; islight=false, binding=0)
 		struct WGPUMeshUniform
 			transform::Mat4{Float32}
 		end
+		
 		@var Uniform 0 $binding $name::@user WGPUMeshUniform
 
 		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
 			@var out::@user VertexOutput
-			out.pos = camera.transform*in.pos
+			out.pos = $(name).transform*in.pos
+			out.pos = camera.transform*out.pos
 			out.vColor = in.vColor
 			if $islight
-				out.vNormal = camera.transform*in.vNormal
+				out.vNormal = $(name).transform*in.vNormal
+				out.vNormal = camera.transform*out.vNormal
 			end
 			return out
 		end

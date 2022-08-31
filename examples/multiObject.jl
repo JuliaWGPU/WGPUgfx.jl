@@ -7,6 +7,7 @@ using GLFW: WindowShouldClose, PollEvents, DestroyWindow
 using LinearAlgebra
 using Rotations
 using StaticArrays
+using CoordinateTransformations
 
 WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
 canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
@@ -118,6 +119,12 @@ WGPU.setCursorPosCallback(
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
+
+			rot = RotXY(0.3, time())
+			mat = MMatrix{4, 4}(mesh1.uniformData)
+			mat[1:3, 1:3] .= rot
+			mesh1.uniformData = mat
+			
 			runApp(gpuDevice, scene)
 			PollEvents()
 		end
