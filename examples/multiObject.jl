@@ -10,7 +10,7 @@ using StaticArrays
 using CoordinateTransformations
 
 WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
-canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
+canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas; (800, 800));
 gpuDevice = WGPU.getDefaultDevice();
 
 camera = defaultCamera()

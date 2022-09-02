@@ -9,7 +9,7 @@ using Rotations
 using StaticArrays
 
 WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
-canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
+canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas; size=(500, 400));
 gpuDevice = WGPU.getDefaultDevice();
 camera = defaultCamera()
 
@@ -24,7 +24,7 @@ scene = Scene(
 	repeat([nothing], 6)...
 )
 
-mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "pixarLamp.obj"))
+mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
 addObject!(scene, mesh)
 
 
@@ -88,9 +88,9 @@ WGPU.setCursorPosCallback(
 		@info "Mouse Position" x, y
 		if all(((x, y) .- canvas.size) .< 0)
 			if mouseState.leftClick
-				delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
+				delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed.*-1
 				@info delta
-				rot = RotXY(delta...)
+				rot = RotXY((delta |> reverse)...)
 				mat = MMatrix{4, 4, Float32}(I)
 				mat[1:3, 1:3] = rot
 				camera.transform = camera.transform*mat 
@@ -116,6 +116,10 @@ WGPU.setCursorPosCallback(
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
+			rot = RotY(0.01) .|> Float32
+			mat = MMatrix{4, 4, Float32}(I)
+			mat[1:3, 1:3] .= rot
+			camera.transform = camera.transform*mat
 			runApp(scene)
 			PollEvents()
 		end
