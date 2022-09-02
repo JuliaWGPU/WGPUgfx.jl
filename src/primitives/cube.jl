@@ -1,5 +1,4 @@
 using WGPU_jll
-
 using WGPU
 
 export defaultCube, Cube

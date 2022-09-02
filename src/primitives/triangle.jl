@@ -1,5 +1,4 @@
 using WGPU_jll
-
 using WGPU
 
 export Triangle3D, defaultTriangle3D

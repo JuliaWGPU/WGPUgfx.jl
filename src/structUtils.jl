@@ -5,9 +5,9 @@ using WGPU: getEnum
 using WGPU_jll
 using Lazy: @forward
 
-export wgslType, @var, @letvar,
+export wgslType, @var, @letvar, 
 	BuiltIn, @builtin, getEnumBuiltinValue, 
-	makePaddedStruct, makePaddedWGSLStruct, makeStruct,
+	makePaddedStruct, makePaddedWGSLStruct, makeStruct, 
 	Location, @location, BuiltInDataType, BuiltinValue, LocationDataType
 
 using StaticArrays

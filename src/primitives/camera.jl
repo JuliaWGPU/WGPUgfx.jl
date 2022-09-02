@@ -1,4 +1,3 @@
-
 using WGPU
 using LinearAlgebra
 using StaticArrays

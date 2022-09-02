@@ -144,6 +144,13 @@ function runApp(gpuDevice, scene)
 	
 
 	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
+	WGPU.setViewport(renderPass, 100, 100, 300, 300, 0, 1)
+
+	for object in scene.objects
+		render(renderPass, renderPassOptions, object)
+	end
+
+	WGPU.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
 
 	for object in scene.objects
 		render(renderPass, renderPassOptions, object)

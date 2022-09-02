@@ -1,6 +1,4 @@
-
 using WGPU_jll
-
 using WGPU
 
 export defaultCircle, Circle

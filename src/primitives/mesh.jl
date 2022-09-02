@@ -1,5 +1,4 @@
 using WGPU_jll
-
 using WGPU
 using LinearAlgebra
 using StaticArrays
