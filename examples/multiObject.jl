@@ -10,7 +10,7 @@ using StaticArrays
 using CoordinateTransformations
 
 WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
-canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas; (800, 800));
+canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas; size=(500, 500));
 gpuDevice = WGPU.getDefaultDevice();
 
 camera = defaultCamera()
@@ -25,8 +25,8 @@ scene = Scene(
 	repeat([nothing], 6)...,
 )
 
-mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "orangebot.obj"))
-mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "pixarlamp.obj"))
+mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cylinder.obj"))
 addObject!(scene, mesh2)
 addObject!(scene, mesh1)
 
@@ -59,10 +59,8 @@ end
 
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 	mouse.middleClick = istruthy(Val(state))
-	mat = Matrix{Float32}(I, (4, 4))
-	a = camera.uniformData
-	a[1:3, 1:3] = mat[1:3, 1:3]
-	camera.uniformData = a
+	mat = MMatrix{4, 4, Float32}(I)
+	camera.uniformData = mat
 end
 
 
@@ -101,7 +99,7 @@ WGPU.setCursorPosCallback(
 			elseif mouseState.rightClick
 				delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
 				mat = MMatrix{4, 4, Float32}(I)
-				mat[1:3, 3] .= [delta..., 0]
+				mat[1:3, 3] .= [delta..., 0] .|> Float32
 				camera.transform = camera.transform*mat
 				mouseState.prevPosition = (x, y)
 			elseif mouseState.middleClick
