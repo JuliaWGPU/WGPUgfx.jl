@@ -81,19 +81,6 @@ function setup(gpuDevice, scene)
 	WGPU.determineSize(presentContext[])
 	WGPU.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
 	scene.presentContext = presentContext
-	
-	scene.depthTexture = WGPU.createTexture(
-		gpuDevice,
-		"DEPTH TEXTURE",
-		(scene.canvas.size..., 1),
-		1,
-		1,
-		WGPUTextureDimension_2D,
-		WGPUTextureFormat_Depth24Plus,
-		WGPU.getEnum(WGPU.WGPUTextureUsage, "RenderAttachment")
-	)
-	
-	scene.depthView = WGPU.createView(scene.depthTexture)
 
 	for (binding, object) in enumerate(scene.objects)
 		cshader = composeShader(gpuDevice, scene, object; binding=binding + 1)
@@ -115,6 +102,19 @@ runApp(scene) = runApp(scene.gpuDevice, scene)
 function runApp(gpuDevice, scene)
 	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]);
 	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
+
+	scene.depthTexture = WGPU.createTexture(
+		gpuDevice,
+		"DEPTH TEXTURE",
+		(scene.canvas.size..., 1),
+		1,
+		1,
+		WGPUTextureDimension_2D,
+		WGPUTextureFormat_Depth24Plus,
+		WGPU.getEnum(WGPU.WGPUTextureUsage, "RenderAttachment")
+	)
+	
+	scene.depthView = WGPU.createView(scene.depthTexture)
 
 	renderPassOptions = [
 		WGPU.GPUColorAttachments => [
@@ -141,6 +141,7 @@ function runApp(gpuDevice, scene)
 			]
 		]
 	]
+	
 
 	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
 
