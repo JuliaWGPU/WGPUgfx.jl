@@ -246,7 +246,7 @@ macro var(dtype::Expr)
 end
 
 macro var(vtype, dtype::Expr)
-	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype!"
+	@capture(dtype, a_::dt_) || @error "Expecting sym::dtype! Current args are: $vtype, $dtype"
 	defineVar(vtype, a=>eval(dt), nothing, nothing, nothing)
 end
 

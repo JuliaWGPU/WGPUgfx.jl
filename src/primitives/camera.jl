@@ -44,8 +44,8 @@ end
 
 function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
 	uniformBuffer = getfield(camera, :uniformBuffer)
-	push!(scene.bindingLayouts, getBindingLayouts(typeof(camera); binding=binding)...)
-	push!(scene.bindings, getBindings(typeof(camera), uniformBuffer; binding=binding)...)
+	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=binding)...)
+	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=binding)...)
 end
 
 
@@ -374,7 +374,7 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(::Type{Camera}; islight=false, binding=1)
+function getShaderCode(camera::Camera; islight=false, binding=1)
 	shaderSource = quote
 		struct CameraUniform
 			eye::Vec3{Float32}
@@ -386,12 +386,12 @@ function getShaderCode(::Type{Camera}; islight=false, binding=1)
 end
 
 
-function getVertexBufferLayout(::Type{Camera}; offset = 0)
+function getVertexBufferLayout(camera::Camera; offset = 0)
 	WGPU.GPUVertexBufferLayout => []
 end
 
 
-function getBindingLayouts(::Type{Camera}; binding=1)
+function getBindingLayouts(camera::Camera; binding=1)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
 			:binding => binding,
@@ -403,7 +403,7 @@ function getBindingLayouts(::Type{Camera}; binding=1)
 end
 
 
-function getBindings(::Type{Camera}, uniformBuffer; binding=1)
+function getBindings(camera::Camera, uniformBuffer; binding=1)
 	bindings = [
 		WGPU.GPUBuffer => [
 			:binding => binding,

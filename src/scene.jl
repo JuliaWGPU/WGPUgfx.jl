@@ -44,9 +44,16 @@ function composeShader(gpuDevice, scene, object; binding=2)
 
 	islight = (scene.light != nothing)
 
-	push!(src.args, getShaderCode(typeof(scene.camera); islight=islight, binding=0))
+	push!(src.args, getShaderCode(scene.camera; islight=islight, binding=0))
 
-	islight && push!(src.args, getShaderCode(typeof(scene.light); islight=islight, binding=1))
+	islight && push!(src.args, getShaderCode(scene.light; islight=islight, binding=1))
+
+	if typeof(object) in [Camera, Lighting]
+		isTexture = false
+	else
+		isTexture = object.textureData != nothing
+		@warn isTexture
+	end
 
 	defaultSource = quote
 		struct VertexInput
@@ -55,6 +62,9 @@ function composeShader(gpuDevice, scene, object; binding=2)
 			if $islight
 				@location 2 vNormal::Vec4{Float32}
 			end
+			if $isTexture
+				@location 3 vTexCoords::Vec2{Float32}
+			end
 		end
 		
 		struct VertexOutput
@@ -62,13 +72,21 @@ function composeShader(gpuDevice, scene, object; binding=2)
 			if $islight
 				@location 1 vNormal::Vec4{Float32}
 			end
+			if $isTexture
+				@location 2 vTexCoords::Vec2{Float32}
+			end
 			@builtin position pos::Vec4{Float32}
 		end
 	end
 	
 	push!(src.args, defaultSource)
-	push!(src.args, getShaderCode(typeof(object); islight=islight, binding = binding))
-	createShaderObj(gpuDevice, src)
+	push!(src.args, getShaderCode(object; islight=islight, binding = binding))
+	try
+		createShaderObj(gpuDevice, src)
+	catch(e)
+		@info e
+		rethrow(e)
+	end
 end
 
 
@@ -144,17 +162,17 @@ function runApp(gpuDevice, scene)
 	
 
 	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
-	WGPU.setViewport(renderPass, 100, 100, 300, 300, 0, 1)
+	# WGPU.setViewport(renderPass, 100, 100, 300, 300, 0, 1)
 
 	for object in scene.objects
 		render(renderPass, renderPassOptions, object)
 	end
 
-	WGPU.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
+	# WGPU.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
 
-	for object in scene.objects
-		render(renderPass, renderPassOptions, object)
-	end
+	# for object in scene.objects
+		# render(renderPass, renderPassOptions, object)
+	# end
 	
 	WGPU.endEncoder(renderPass)
 	WGPU.submit(gpuDevice.queue, [WGPU.finish(cmdEncoder),])

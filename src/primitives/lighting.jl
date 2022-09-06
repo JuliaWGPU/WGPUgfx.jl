@@ -43,13 +43,13 @@ end
 
 function preparePipeline(gpuDevice, scene, light::Lighting; binding=1)
 	uniformBuffer = getfield(light, :uniformBuffer)
-	push!(scene.bindingLayouts, getBindingLayouts(typeof(light); binding=binding)...)
-	push!(scene.bindings, getBindings(typeof(light), uniformBuffer; binding=binding)...)
+	push!(scene.bindingLayouts, getBindingLayouts(light; binding=binding)...)
+	push!(scene.bindings, getBindings(light, uniformBuffer; binding=binding)...)
 end
 
 
 # TODO not used
-function defaultUniformData(::Type{Lighting}) 
+function defaultUniformData(::Lighting) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
@@ -217,7 +217,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(::Type{Lighting}; islight=true, binding=0)
+function getShaderCode(lighting::Lighting; islight=true, binding=0)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}
@@ -233,12 +233,12 @@ function getShaderCode(::Type{Lighting}; islight=true, binding=0)
 end
 
 
-function getVertexBufferLayout(::Type{Lighting}; offset=0)
+function getVertexBufferLayout(lighting::Lighting; offset=0)
 	WGPU.GPUVertexBufferLayout => []
 end
 
 
-function getBindingLayouts(::Type{Lighting}; binding=0)
+function getBindingLayouts(lighting::Lighting; binding=0)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
 			:binding => binding,
@@ -250,7 +250,7 @@ function getBindingLayouts(::Type{Lighting}; binding=0)
 end
 
 
-function getBindings(::Type{Lighting}, uniformBuffer; binding=0)
+function getBindings(lighting::Lighting, uniformBuffer; binding=0)
 	bindings = [
 		WGPU.GPUBuffer => [
 			:binding => binding,

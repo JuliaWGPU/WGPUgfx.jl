@@ -4,8 +4,10 @@ using LinearAlgebra
 using StaticArrays
 using Rotations
 using CoordinateTransformations
+using Images
 
-export defaultWGPUMesh, WGPUMesh, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
+
+export defaultWGPUMesh, WGPUMesh, lookAtRightHanded, perspectiveMatrix, orthographicMatrix,
 	windowingTransform, translateWGPUMesh, openglToWGSL, translate, scaleTransform,
 	getUniformBuffer, getUniformData
 
@@ -54,7 +56,7 @@ function readObj(path::String)
                     (p, n) = [Meta.parse(j) for j in split(i, "//")]
                     push!(faceidxs, (p, n))
                 end
-                push!(indices, [Index(p, -1, n) for (p, n) in faceidxs])
+                push!(indices, [(p, -1, n) for (p, n) in faceidxs])
             elseif contains(line, "/")
                 faceidxs = []
                 for i in s[2:end]
@@ -63,7 +65,7 @@ function readObj(path::String)
                 end
                 push!(indices, [idx for idx in faceidxs])
             else 
-                indexList = [Index(Meta.parse(i), -1, -1) for i in s[2:end]]
+                indexList = [(Meta.parse(i), -1, -1) for i in s[2:end]]
                 push!(indices, indexList)
             end
         end
@@ -83,12 +85,61 @@ mutable struct WGPUMesh
 	uniformBuffer
 	indexBuffer
 	vertexBuffer
+	textureData
+	texture
+	textureView
+	sampler
 	bindGroup
 	renderPipeline
 end
 
 function prepareObject(gpuDevice, mesh::WGPUMesh)
 	uniformData = computeUniformData(mesh)
+	if mesh.textureData != nothing
+		textureSize = (size(mesh.textureData)[2:3]..., 1)
+		texture = WGPU.createTexture(
+			gpuDevice,
+			"Mesh Texture",
+			textureSize,
+			1,
+			1,
+			WGPU.WGPUTextureDimension_2D,
+			WGPU.WGPUTextureFormat_RGBA8UnormSrgb,
+			WGPU.getEnum(
+				WGPU.WGPUTextureUsage, 
+				[
+					"CopyDst",
+					"TextureBinding"
+				]
+			)
+		)
+		textureView = WGPU.createView(texture)
+		sampler = WGPU.createSampler(gpuDevice)
+		setfield!(mesh, :texture, texture)
+		setfield!(mesh, :textureView, textureView)
+		setfield!(mesh, :sampler, sampler)
+		dstLayout = [
+			:dst => [
+				:texture => texture |> Ref,
+				:mipLevel => 0,
+				:origin => ((0, 0, 0) .|> Float32)
+			],
+			:textureData => mesh.textureData |> Ref,
+			:layout => [
+				:offset => 0,
+				:bytesPerRow => 256*4, # TODO should be multiple of 256
+				:rowsPerImage => 256
+			],
+			:textureSize => textureSize
+		]
+		try
+			WGPU.writeTexture(gpuDevice.queue; dstLayout...)
+		catch(e)
+			@error "Writing texture in MeshLoader failed !!!"
+			rethrow(e)
+		end
+
+	end
 	(uniformBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice,
 		"Mesh Buffer",
@@ -115,15 +166,15 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; binding=2)
 	indexBuffer = getfield(mesh, :indexBuffer)
 	append!(
 		bindingLayouts, 
-		getBindingLayouts(typeof(scene.camera); binding = 0), 
-		getBindingLayouts(typeof(scene.light); binding = 1), 
-		getBindingLayouts(typeof(mesh); binding=binding)
+		getBindingLayouts(scene.camera; binding = 0), 
+		getBindingLayouts(scene.light; binding = 1), 
+		getBindingLayouts(mesh; binding=binding)
 	)
 	append!(
 		bindings, 
-		getBindings(typeof(scene.camera), cameraUniform; binding = 0), 
-		getBindings(typeof(scene.light), lightUniform; binding = 1), 
-		getBindings(typeof(mesh), uniformBuffer; binding=binding)
+		getBindings(scene.camera, cameraUniform; binding = 0), 
+		getBindings(scene.light, lightUniform; binding = 1), 
+		getBindings(mesh, uniformBuffer; binding=binding)
 	)
 	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
 	mesh.bindGroup = bindGroup
@@ -153,11 +204,28 @@ function computeUniformData(mesh::WGPUMesh)
 end
 
 
-function defaultWGPUMesh(path::String; topology=WGPUPrimitiveTopology_TriangleList)
+function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveTopology_TriangleList)
 	meshdata = readObj(path) # TODO hardcoding Obj format
 	vIndices = cat(map((x)->first.(x), meshdata.indices)..., dims=2) .|> UInt32
 	nIndices = cat(map((x)->getindex.(x, 3), meshdata.indices)..., dims=2)
+	uIndices = cat(map((x)->getindex.(x, 2), meshdata.indices)..., dims=2)
 	vertexData = cat(meshdata.positions[vIndices[:]]..., dims=2) .|> Float32
+
+	uvData = nothing
+	textureData = nothing
+	texture = nothing
+	textureView = nothing
+	
+	if image != ""
+		uvData = cat(meshdata.uvs[uIndices[:]]..., dims=2) .|> Float32
+		textureData = begin
+			img = load(image)
+			img = imresize(img, (256, 256)) # TODO hardcoded size
+			img = RGBA.(img)
+			imgview = channelview(img) |> collect 
+		end
+	end
+	
 	indexData = 0:length(vIndices)-1 |> collect .|> UInt32
 	unitColor = cat([
 		[0.5, 0.6, 0.7, 1]
@@ -174,9 +242,13 @@ function defaultWGPUMesh(path::String; topology=WGPUPrimitiveTopology_TriangleLi
 		colorData, 
 		indexData, 
 		normalData, 
-		nothing, 
+		uvData, 
 		nothing, 
 		nothing,
+		nothing,
+		nothing,
+		textureData,
+		nothing, 
 		nothing,
 		nothing,
 		nothing,
@@ -231,8 +303,9 @@ function getUniformBuffer(mesh::WGPUMesh)
 end
 
 
-function getShaderCode(::Type{WGPUMesh}; islight=false, binding=0)
+function getShaderCode(mesh::WGPUMesh; islight=false, binding=0)
 	name = Symbol(:mesh, binding)
+	isTexture = mesh.textureData != nothing
 	shaderSource = quote
 		struct WGPUMeshUniform
 			transform::Mat4{Float32}
@@ -240,11 +313,19 @@ function getShaderCode(::Type{WGPUMesh}; islight=false, binding=0)
 		
 		@var Uniform 0 $binding $name::@user WGPUMeshUniform
 
+		if $isTexture
+			@var Generic 0 $(binding + 1)  tex::Texture2D{Float32}
+			@var Generic 0 $(binding + 2)  smplr::Sampler
+		end
+
 		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
 			@var out::@user VertexOutput
 			out.pos = $(name).transform*in.pos
 			out.pos = camera.transform*out.pos
 			out.vColor = in.vColor
+			if $isTexture
+				out.vTexCoords = in.vTexCoords
+			end
 			if $islight
 				out.vNormal = $(name).transform*in.vNormal
 				out.vNormal = camera.transform*out.vNormal
@@ -253,6 +334,11 @@ function getShaderCode(::Type{WGPUMesh}; islight=false, binding=0)
 		end
 
 		@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
+			if $isTexture
+				@var color::Vec4{Float32} = textureSample(tex, smplr, in.vTexCoords)
+			else
+				@var color::Vec4{Float32} = in.vColor
+			end
 			if $islight
 				@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
 				@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
@@ -261,9 +347,9 @@ function getShaderCode(::Type{WGPUMesh}; islight=false, binding=0)
 				@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
 				@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
 				@let ambient::Float32 = lighting.ambientIntensity
-				return in.vColor*(ambient + diffuse) + lighting.specularColor*specular
+				return color*(ambient + diffuse) + lighting.specularColor*specular
 			else
-				return in.vColor
+				return color
 			end
 		end
 
@@ -278,7 +364,14 @@ function getVertexBuffer(gpuDevice, mesh::WGPUMesh)
 	(vertexBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
-		vcat([mesh.vertexData, mesh.colorData, mesh.normalData]...), 
+		vcat(
+			[
+				mesh.vertexData, 
+				mesh.colorData, 
+				mesh.normalData, 
+				mesh.uvData
+			][mesh.textureData != nothing ? (1:end) : (1:end-1)]...
+		), 
 		["Vertex", "CopySrc"]
 	)
 	vertexBuffer
@@ -296,9 +389,9 @@ function getIndexBuffer(gpuDevice, mesh::WGPUMesh)
 end
 
 
-function getVertexBufferLayout(::Type{WGPUMesh}; offset=0)
+function getVertexBufferLayout(mesh::WGPUMesh; offset=0)
 	WGPU.GPUVertexBufferLayout => [
-		:arrayStride => 12*4,
+		:arrayStride => mesh.textureData != nothing ? 14*4 : 12*4,
 		:stepMode => "Vertex",
 		:attributes => [
 			:attribute => [
@@ -315,25 +408,42 @@ function getVertexBufferLayout(::Type{WGPUMesh}; offset=0)
 				:format => "Float32x4",
 				:offset => 8*4,
 				:shaderLocation => offset + 2
+			],
+			:attribute => [
+				:format => "Float32x2",
+				:offset => 12*4,
+				:shaderLocation => offset + 3
 			]
-		]
+		][mesh.textureData != nothing ? (1:end) : (1:end-1)]
 	]
 end
 
 
-function getBindingLayouts(::Type{WGPUMesh}; binding=4)
+function getBindingLayouts(mesh::WGPUMesh; binding=4)
 	bindingLayouts = [
 		WGPU.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
-	]
+		WGPU.WGPUTextureEntry => [ # TODO hardcoded
+			:binding => binding + 1,
+			:visibility=> "Fragment",
+			:sampleType => "Float",
+			:viewDimension => "2D",
+			:multisampled => false
+		],
+		WGPU.WGPUSamplerEntry => [ # TODO hardcoded
+			:binding => binding + 2,
+			:visibility => "Fragment",
+			:type => "Filtering"
+		]
+	][mesh.textureData != nothing ? (1:end) : (1:1)]
 	return bindingLayouts
 end
 
 
-function getBindings(::Type{WGPUMesh}, uniformBuffer; binding=4)
+function getBindings(mesh::WGPUMesh, uniformBuffer; binding=4)
 	bindings = [
 		WGPU.GPUBuffer => [
 			:binding => binding,
@@ -341,7 +451,15 @@ function getBindings(::Type{WGPUMesh}, uniformBuffer; binding=4)
 			:offset => 0,
 			:size => uniformBuffer.size
 		],
-	]
+		WGPU.GPUTextureView => [
+			:binding => binding + 1, 
+			:textureView => mesh.textureView
+		],
+		WGPU.GPUSampler => [
+			:binding => binding + 2,
+			:sampler => mesh.sampler
+		]
+	][mesh.textureData != nothing ? (1:end) : (1:1)]
 end
 
 function getRenderPipelineOptions(scene, mesh::WGPUMesh)
@@ -350,7 +468,7 @@ function getRenderPipelineOptions(scene, mesh::WGPUMesh)
 			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
-					getVertexBufferLayout(typeof(mesh))
+					getVertexBufferLayout(mesh)
 				]
 		],
 		WGPU.GPUPrimitiveState => [
