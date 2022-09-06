@@ -128,7 +128,7 @@ function wgslFunctionStatement(io, stmnt)
 		stmnt.args[1] = Symbol("@letvar") # replace let with letvar
 		write(io, " "^4*wgslLet(stmnt))
 	elseif @capture(stmnt, return t_)
-		write(io, "return $(wgslType(t));\n")
+		write(io, " "^4*"return $(wgslType(t));\n")
 	elseif @capture(stmnt, if cond_ ifblock__ end)
 		if cond == true
 			wgslFunctionStatements(io, ifblock)
