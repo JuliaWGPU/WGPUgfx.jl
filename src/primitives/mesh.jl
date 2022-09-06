@@ -221,7 +221,7 @@ function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveT
 		textureData = begin
 			img = load(image)
 			img = imresize(img, (256, 256)) # TODO hardcoded size
-			img = RGBA.(img)
+			img = RGBA.(img) |> adjoint
 			imgview = channelview(img) |> collect 
 		end
 	end
