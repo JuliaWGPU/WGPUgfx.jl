@@ -1,3 +1,4 @@
+using Revise
 using Debugger
 using WGPUgfx
 using WGPU
@@ -8,11 +9,11 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 
-WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
-canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas; size=(500, 500));
+WGPU.SetLogLevel(WGPU.WGPULogLevel_Debug)
+canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas);
 gpuDevice = WGPU.getDefaultDevice();
-camera = defaultCamera()
 
+camera = defaultVision()
 light = defaultLighting()
 
 scene = Scene(
@@ -24,20 +25,16 @@ scene = Scene(
 	repeat([nothing], 6)...
 )
 
-mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "pixarlamp.obj"))
+mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+
 addObject!(scene, mesh)
 
 attachEventSystem(scene)
 
-# @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			rot = RotY(0.01) .|> Float32
-			mat = MMatrix{4, 4, Float32}(I)
-			mat[1:3, 1:3] .= rot
-			camera.transform = camera.transform*mat
-			runApp(scene)
+			runApp(gpuDevice, scene)
 			PollEvents()
 		end
 	finally

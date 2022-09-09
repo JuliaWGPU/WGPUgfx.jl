@@ -113,7 +113,7 @@ function getBindings(::Type{Triangle3D}, uniformBuffer; binding=0)
 	]
 end
 
-function getShaderCode(::Type{Triangle3D}; binding=0)
+function getShaderCode(::Type{Triangle3D}; isVision=false, islight=false, binding=0)
 	shaderSource = quote
 		struct TriUniform
 			transform::Mat4{Float32}

@@ -6,7 +6,6 @@ using WGPU
 
 using Reexport
 
-
 include("structutils.jl")
 include("macros.jl")
 include("scene.jl")
@@ -14,9 +13,10 @@ include("scene.jl")
 using GeometryBasics
 using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, SMatrix, SVector
 
-
 using .MacroMod
 @reexport using .SceneMod
+
+
 
 using .StructUtilsMod
 using .StructUtilsMod: UniformVar, StorageVar, PrivateVar, 
@@ -29,9 +29,13 @@ export @builtin, @location, wgslType, @var, @letvar,
 	Location, LocationDataType, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, SMatrix, SVector,
 	getVertexBuffer, getUniformBuffer, getTextureView, getIndexBuffer, writeTexture,
 	getUniformData, defaultUniformData, defaultCube, getVertexBufferLayout,
-	composeShader, Scene, getShaderCode, defaultCamera, defaultCube, Camera, Cube,
+	composeShader, Scene, getShaderCode, defaultCamera, Camera, defaultVision, Vision, defaultCube, Cube,
 	setup, runApp, getBindingLayouts, getBindings, defaultPlane, Plane, defaultTriangle3D,
 	Triangle3D, defaultCircle, Circle, defaultLighting, Lighting, defaultWGPUMesh,
-	addObject!
-	
+	addObject!, attachEventSystem
+
+include("events.jl")
+using .EventsMod
+
+
 end

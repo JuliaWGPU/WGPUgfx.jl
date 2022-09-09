@@ -156,7 +156,7 @@ end
 
 
 
-function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; binding=2)
+function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; isVision=false, binding=2)
 	bindingLayouts = []
 	bindings = []
 	cameraUniform = getfield(scene.camera, :uniformBuffer)
@@ -167,13 +167,13 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; binding=2)
 	append!(
 		bindingLayouts, 
 		getBindingLayouts(scene.camera; binding = 0), 
-		getBindingLayouts(scene.light; binding = 1), 
+		getBindingLayouts(scene.light; binding = isVision ? 2 : 1), 
 		getBindingLayouts(mesh; binding=binding)
 	)
 	append!(
 		bindings, 
 		getBindings(scene.camera, cameraUniform; binding = 0), 
-		getBindings(scene.light, lightUniform; binding = 1), 
+		getBindings(scene.light, lightUniform; binding = isVision ? 2 : 1), 
 		getBindings(mesh, uniformBuffer; binding=binding)
 	)
 	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
@@ -303,7 +303,7 @@ function getUniformBuffer(mesh::WGPUMesh)
 end
 
 
-function getShaderCode(mesh::WGPUMesh; islight=false, binding=0)
+function getShaderCode(mesh::WGPUMesh; isVision=false, islight=false, binding=0)
 	name = Symbol(:mesh, binding)
 	isTexture = mesh.textureData != nothing
 	shaderSource = quote
@@ -312,7 +312,7 @@ function getShaderCode(mesh::WGPUMesh; islight=false, binding=0)
 		end
 		
 		@var Uniform 0 $binding $name::@user WGPUMeshUniform
-
+		
 		if $isTexture
 			@var Generic 0 $(binding + 1)  tex::Texture2D{Float32}
 			@var Generic 0 $(binding + 2)  smplr::Sampler
@@ -320,15 +320,28 @@ function getShaderCode(mesh::WGPUMesh; islight=false, binding=0)
 
 		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
 			@var out::@user VertexOutput
-			out.pos = $(name).transform*in.pos
-			out.pos = camera.transform*out.pos
+			if $isVision
+				@var pos::Vec4{Float32} = $(name).transform*in.pos
+				out.vPosLeft = lefteye.transform*pos
+				out.vPosRight = righteye.transform*pos
+				out.pos = in.pos
+			else
+				out.pos = $(name).transform*in.pos
+				out.pos = camera.transform*out.pos
+			end
 			out.vColor = in.vColor
 			if $isTexture
 				out.vTexCoords = in.vTexCoords
 			end
 			if $islight
-				out.vNormal = $(name).transform*in.vNormal
-				out.vNormal = camera.transform*out.vNormal
+				if $isVision
+					@var normal::Vec4{Float32} = $(name).transform*in.vNormal
+					out.vNormalLeft = lefteye.transform*normal
+					out.vNormalRight = righteye.transform*normal
+				else
+					out.vNormal = $(name).transform*in.vNormal
+					out.vNormal = camera.transform*out.vNormal
+				end
 			end
 			return out
 		end
@@ -340,14 +353,34 @@ function getShaderCode(mesh::WGPUMesh; islight=false, binding=0)
 				@var color::Vec4{Float32} = in.vColor
 			end
 			if $islight
-				@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
-				@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
-				@let V::Vec3{Float32} = normalize(camera.eye.xyz - in.pos.xyz)
-				@let H::Vec3{Float32} = normalize(L + V)
-				@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
-				@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
-				@let ambient::Float32 = lighting.ambientIntensity
-				return color*(ambient + diffuse) + lighting.specularColor*specular
+				if $isVision
+					@let NLeft::Vec3{Float32} = normalize(in.vNormalLeft.xyz)
+					@let LLeft::Vec3{Float32} = normalize(lighting.position.xyz - in.vPosLeft.xyz)
+					@let VLeft::Vec3{Float32} = normalize(lefteye.eye.xyz - in.vPosLeft.xyz)
+					@let HLeft::Vec3{Float32} = normalize(LLeft + VLeft)
+					@let NRight::Vec3{Float32} = normalize(in.vNormalRight.xyz)
+					@let LRight::Vec3{Float32} = normalize(lighting.position.xyz - in.vPosRight.xyz)
+					@let VRight::Vec3{Float32} = normalize(righteye.eye.xyz - in.vPosRight.xyz)
+					@let HRight::Vec3{Float32} = normalize(LRight + VRight)
+					@let diffuseLeft::Float32 = lighting.diffuseIntensity*max(dot(NLeft, LLeft), 0.0)
+					@let specularLeft::Float32 = lighting.specularIntensity*pow(max(dot(NLeft, HLeft), 0.0), lighting.specularShininess)
+					@let ambientLeft::Float32 = lighting.ambientIntensity
+					@let diffuseRight::Float32 = lighting.diffuseIntensity*max(dot(NRight, LRight), 0.0)
+					@let specularRight::Float32 = lighting.specularIntensity*pow(max(dot(NRight, HRight), 0.0), lighting.specularShininess)
+					@let ambientRight::Float32 = lighting.ambientIntensity
+					@let colorLeft::Vec4{Float32} = color*(ambientLeft + diffuseLeft) + lighting.specularColor*specularLeft
+					@let colorRight::Vec4{Float32} = color*(ambientRight + diffuseRight) + lighting.specularColor*specularRight
+					return colorLeft + colorRight
+				else
+					@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
+					@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
+					@let V::Vec3{Float32} = normalize(camera.eye.xyz - in.pos.xyz)
+					@let H::Vec3{Float32} = normalize(L + V)
+					@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
+					@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
+					@let ambient::Float32 = lighting.ambientIntensity
+					return color*(ambient + diffuse) + lighting.specularColor*specular
+				end
 			else
 				return color
 			end
@@ -510,7 +543,7 @@ function getRenderPipelineOptions(scene, mesh::WGPUMesh)
 	renderpipelineOptions
 end
 
-function render(renderPass, renderPassOptions, mesh::WGPUMesh)
+function render(renderPass::WGPU.GPURenderPassEncoder, renderPassOptions, mesh::WGPUMesh)
 	WGPU.setPipeline(renderPass, mesh.renderPipeline)
 	WGPU.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
 	WGPU.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
