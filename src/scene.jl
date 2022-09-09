@@ -13,7 +13,7 @@ include("shader.jl")
 
 using .ShaderMod
 
-export Scene, composeShader, defaultCamera, Camera, defaultCube,
+export Scene, composeShader, defaultCamera, defaultVision, Vision, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
 	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting,
 	defaultWGPUMesh, addObject!
@@ -34,27 +34,25 @@ mutable struct Scene
 end
 
 
+# TODO viewport dependent addObject
 function addObject!(scene, obj)
 	push!(scene.objects, obj)
 	setup(scene)
 end
 
-function composeShader(gpuDevice, scene, object; binding=2)
+function composeShader(gpuDevice, scene, object; binding=3)
 	src = quote end
 
 	islight = (scene.light != nothing)
 
-	push!(src.args, getShaderCode(scene.camera; islight=islight, binding=0))
+	isVision = typeof(scene.camera) != Camera
+	
+	push!(src.args, getShaderCode(scene.camera; isVision=isVision, islight=islight, binding=0))
 
-	islight && push!(src.args, getShaderCode(scene.light; islight=islight, binding=1))
+	islight && push!(src.args, getShaderCode(scene.light; isVision=isVision, islight=islight, binding= isVision ? 2 : 1))
 
-	if typeof(object) in [Camera, Lighting]
-		isTexture = false
-	else
-		isTexture = object.textureData != nothing
-		@warn isTexture
-	end
-
+	isTexture = object.textureData != nothing
+	
 	defaultSource = quote
 		struct VertexInput
 			@location 0 pos::Vec4{Float32}
@@ -66,23 +64,38 @@ function composeShader(gpuDevice, scene, object; binding=2)
 				@location 3 vTexCoords::Vec2{Float32}
 			end
 		end
-		
+
 		struct VertexOutput
 			@location 0 vColor::Vec4{Float32}
+			@builtin position pos::Vec4{Float32}
+
+			if $isVision
+				@location 1 vPosLeft::Vec4{Float32}
+				@location 2 vPosRight::Vec4{Float32}
+			end
+
 			if $islight
-				@location 1 vNormal::Vec4{Float32}
+				if $isVision
+					@location 3 vNormalLeft::Vec4{Float32}
+					@location 4 vNormalRight::Vec4{Float32}
+				else
+					@location 1 vNormal::Vec4{Float32}
+				end
 			end
 			if $isTexture
-				@location 2 vTexCoords::Vec2{Float32}
+				if $isVision
+					@location 5 vTexCoords::Vec2{Float32}
+				else
+					@location 2 vTexCoords::Vec2{Float32}
+				end	
 			end
-			@builtin position pos::Vec4{Float32}
 		end
 	end
 	
 	push!(src.args, defaultSource)
-	push!(src.args, getShaderCode(object; islight=islight, binding = binding))
+	push!(src.args, getShaderCode(object; isVision=isVision, islight=islight, binding = binding))
 	try
-		createShaderObj(gpuDevice, src)
+		createShaderObj(gpuDevice, src; savefile=true)
 	catch(e)
 		@info e
 		rethrow(e)
@@ -99,18 +112,21 @@ function setup(gpuDevice, scene)
 	WGPU.determineSize(presentContext[])
 	WGPU.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
 	scene.presentContext = presentContext
+	
+	isVision = typeof(scene.camera) == Vision
 
-	for (binding, object) in enumerate(scene.objects)
-		cshader = composeShader(gpuDevice, scene, object; binding=binding + 1)
+	for (idx, object) in enumerate(scene.objects)
+		binding = idx + (isVision ? 2 : 1)
+		cshader = composeShader(gpuDevice, scene, object; binding=binding)
 		scene.cshader = cshader
 		@info cshader.src
-		if binding == 1
+		if idx == 1
 			prepareObject(gpuDevice, scene.camera)
 		end
 		scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
 		(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 		prepareObject(gpuDevice, object)
-		preparePipeline(gpuDevice, scene, object; binding=binding + 1)
+		preparePipeline(gpuDevice, scene, object; isVision=isVision, binding=binding)
 	end
 	
 end
@@ -159,17 +175,14 @@ function runApp(gpuDevice, scene)
 			]
 		]
 	]
-	
 
 	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
-	# WGPU.setViewport(renderPass, 100, 100, 300, 300, 0, 1)
 
 	for object in scene.objects
 		render(renderPass, renderPassOptions, object)
 	end
 
 	# WGPU.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
-
 	# for object in scene.objects
 		# render(renderPass, renderPassOptions, object)
 	# end

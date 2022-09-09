@@ -4,6 +4,7 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 
+
 export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform,
 	getUniformBuffer, getUniformData, getShaderCode
@@ -31,7 +32,7 @@ function prepareObject(gpuDevice, camera::Camera)
 	seek(io, 0)
 	(uniformBuffer, _) = WGPU.createBufferWithData(
 		gpuDevice, 
-		"CameraBuffer", 
+		" CAMERA BUFFER ",
 		uniformDataBytes, 
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
@@ -41,6 +42,7 @@ function prepareObject(gpuDevice, camera::Camera)
 	seek(io, 0)
 	return camera
 end
+
 
 function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
 	uniformBuffer = getfield(camera, :uniformBuffer)
@@ -153,7 +155,7 @@ function setVal!(camera::Camera, ::Val{:uniformData}, v)
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
-	unsafe_write(io, t, sizeof(t))
+	unsafe_write(io, t, sizeof(t)) # TODO BUG v should be passed instead of t.
 	seek(io, 0)
 end
 
@@ -374,7 +376,7 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(camera::Camera; islight=false, binding=1)
+function getShaderCode(camera::Camera; isVision=false, islight=false, binding=1)
 	shaderSource = quote
 		struct CameraUniform
 			eye::Vec3{Float32}
