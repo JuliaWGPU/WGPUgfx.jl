@@ -70,19 +70,36 @@ end
 	}
 """
 
-function evalStructField(field)
-	if @capture(field, if cond_ ifblock_ end)
+# TODO this function takes block of fields too
+# Another function that makes a sequence of field 
+# statements is needed.
+function evalStructField(fieldDict, field)
+	if @capture(field, if cond_ ifblock__ end)
 		if eval(cond) == true
-			return evalStructField(ifblock)
+			for iffield in ifblock
+				evalStructField(fieldDict, iffield)
+			end
+		end
+	elseif @capture(field, if cond_ ifblock__ else elseBlock__ end)
+		if eval(cond) == true
+			for iffield in ifblock
+				evalStructField(fieldDict, iffield)
+			end
 		else
-			return :falseif
+			for elsefield in elseBlock
+				evalStructField(fieldDict, elsefield)
+			end
 		end
 	elseif @capture(field, name_::dtype_)
-		return name=>eval(dtype)
+		return merge!(fieldDict, Dict(name=>eval(dtype)))
 	elseif @capture(field, @builtin btype_ name_::dtype_)
-		return name=>eval(:(@builtin $btype $dtype))
+		return merge!(fieldDict, Dict(name=>eval(:(@builtin $btype $dtype))))
 	elseif @capture(field, @location btype_ name_::dtype_)
-		return name=>eval(:(@location $btype $dtype))
+		return merge!(fieldDict, Dict(name=>eval(:(@location $btype $dtype))))
+	elseif @capture(field, quote stmnts__ end)
+		for stmnt in stmnts
+			evalStructField(fieldDict, stmnt)
+		end
 	else
 		@error "Unknown struct field! $field"
 	end
@@ -94,14 +111,7 @@ function wgslStruct(expr)
 	@capture(expr, struct T_ fields__ end) || error("verify struct format of $T with fields $fields")
 	fieldDict = Dict{Symbol, DataType}()
 	for field in fields
-		evalfield = evalStructField(field)
-		if evalfield == :falseif
-			continue
-		elseif evalfield != nothing
-			fieldDict[evalfield.first] = evalfield.second
-		else
-			@error "Failed to understand one or more struct fields!!!"
-		end
+		evalfield = evalStructField(fieldDict, field)
 	end
 	makePaddedStruct(T, :UserStruct, sort(fieldDict))
 	makePaddedWGSLStruct(T, sort(fieldDict))
@@ -142,7 +152,6 @@ function wgslFunctionStatement(io, stmnt)
 	else
 		@error "Failed to capture statment : $stmnt !!"
 	end
-	
 end
 
 function wgslFunctionStatements(io, stmnts)
