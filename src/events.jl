@@ -114,8 +114,6 @@ function attachCursorPosCallback(canvas, vision::Vision)
 					delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
 					@info delta
 					rot = RotXY(delta...)
-					# mat = MMatrix{4, 4, Float32}(vision.transform)
-					# mat[1:3, 1:3] = rot
 					vision.eye = rot*vision.eye
 					mouseState.prevPosition = (x, y)
 				elseif mouseState.rightClick
