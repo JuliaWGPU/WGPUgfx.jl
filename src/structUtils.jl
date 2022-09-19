@@ -2,7 +2,7 @@ module StructUtilsMod
 using WGPUgfx
 using WGPU
 using WGPU: getEnum
-using WGPU_jll
+using WGPUNative
 using Lazy: @forward
 
 export wgslType, @var, @letvar, 

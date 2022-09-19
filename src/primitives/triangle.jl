@@ -1,4 +1,4 @@
-using WGPU_jll
+using WGPUNative
 using WGPU
 
 export Triangle3D, defaultTriangle3D

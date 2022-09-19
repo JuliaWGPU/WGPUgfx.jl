@@ -1,7 +1,7 @@
 using Debugger
 using WGPUgfx
 using WGPU
-using WGPU_jll
+using WGPUNative
 using GLFW
 using GLFW: WindowShouldClose, PollEvents, DestroyWindow
 using LinearAlgebra

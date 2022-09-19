@@ -1,6 +1,6 @@
 module SceneMod
 
-using WGPU_jll
+using WGPUNative
 using WGPU
 using Rotations
 using CoordinateTransformations
