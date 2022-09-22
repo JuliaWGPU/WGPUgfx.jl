@@ -6,22 +6,15 @@ using WGPU
 
 using Reexport
 
-include("structutils.jl")
-include("macros.jl")
+@reexport using WGSLTypes
+
+include("shaders.jl")
+include("primitives.jl")
 include("scene.jl")
+include("events.jl")
 
 using GeometryBasics
 using GeometryBasics: Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, SMatrix, SVector
-
-using .MacroMod
-@reexport using .SceneMod
-
-
-
-using .StructUtilsMod
-using .StructUtilsMod: UniformVar, StorageVar, PrivateVar, 
-		BuiltIn, BuiltinValue, BuiltInDataType, 
-		makePaddedStruct, makePaddedWGSLStruct, makeStruct
 
 export @builtin, @location, wgslType, @var, @letvar,
 	makePaddedWGSLStruct, makePaddedStruct, makeStruct,
@@ -33,9 +26,5 @@ export @builtin, @location, wgslType, @var, @letvar,
 	setup, runApp, getBindingLayouts, getBindings, defaultPlane, Plane, defaultTriangle3D,
 	Triangle3D, defaultCircle, Circle, defaultLighting, Lighting, defaultWGPUMesh,
 	addObject!, attachEventSystem
-
-include("events.jl")
-using .EventsMod
-
 
 end

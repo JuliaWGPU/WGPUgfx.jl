@@ -1,5 +1,3 @@
-module SceneMod
-
 using WGPUNative
 using WGPU
 using Rotations
@@ -8,10 +6,6 @@ using MacroTools
 using LinearAlgebra
 using StaticArrays
 using GeometryBasics: Mat4
-
-include("shader.jl")
-
-using .ShaderMod
 
 export Scene, composeShader, defaultCamera, defaultVision, Vision, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
@@ -192,4 +186,3 @@ function runApp(gpuDevice, scene)
 	WGPU.present(scene.presentContext[])
 end
 
-end

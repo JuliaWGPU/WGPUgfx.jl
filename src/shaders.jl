@@ -1,17 +1,5 @@
-module ShaderMod
-
-using WGPUNative
 using WGPU
 using Reexport
-
-include("macros.jl")
-
-
-using .MacroMod
-using .MacroMod: wgslCode
-
-include("primitives.jl")
-@reexport using .PrimitivesMod
 
 export createShaderObj
 
@@ -72,4 +60,3 @@ function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
 	return shaderObj
 end
 
-end

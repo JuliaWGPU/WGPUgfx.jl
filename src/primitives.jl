@@ -1,6 +1,4 @@
 
-module PrimitivesMod
-
 using LinearAlgebra
 export getVertexBufferLayout, getUniformBuffer, getVertexBuffer, getIndexBuffer, 
 		defaultUniformData, getUniformData, getBindingLayouts, getBindings,
@@ -17,4 +15,3 @@ for (root, dirs, files) in walkdir(joinpath(@__DIR__,"primitives"))
 	end
 end
 
-end

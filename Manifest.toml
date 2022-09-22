@@ -2,18 +2,13 @@
 
 julia_version = "1.8.1"
 manifest_format = "2.0"
-project_hash = "c47d3f4add71ea8573af99cfeb307949fca4464c"
+project_hash = "9f0024f0bcfd69b16e51916509c6c4a621242999"
 
 [[deps.AbstractFFTs]]
 deps = ["ChainRulesCore", "LinearAlgebra"]
 git-tree-sha1 = "69f7020bd72f069c219b5e8c236c1fa90d2cb409"
 uuid = "621f4979-c628-5d54-868e-fcf4e3e8185c"
 version = "1.2.1"
-
-[[deps.AbstractTrees]]
-git-tree-sha1 = "03e0550477d86222521d254b741d470ba17ea0b5"
-uuid = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
-version = "0.3.4"
 
 [[deps.Adapt]]
 deps = ["LinearAlgebra"]
@@ -141,15 +136,15 @@ uuid = "dc8bdbbb-1ca9-579f-8c36-e416f6a65cce"
 version = "1.0.2"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "fb5f5316dd3fd4c5e7c30a24d50643b73e37cd40"
+git-tree-sha1 = "1106fa7e1256b402a86a8e7b15c00c85036fef49"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.10.0"
+version = "1.11.0"
 
 [[deps.DataStructures]]
-deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "88d48e133e6d3dd68183309877eac74393daa7eb"
+deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
+git-tree-sha1 = "d1fff3a548102f48987a52a2e0d114fa97d730f0"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.20"
+version = "0.18.13"
 
 [[deps.DataValueInterfaces]]
 git-tree-sha1 = "bfc1187b79289637fa0ef6d4436ebdfe6905cbd6"
@@ -204,12 +199,6 @@ git-tree-sha1 = "5e1e4c53fa39afe63a7d356e30452249365fba99"
 uuid = "411431e0-e8b7-467b-b5e0-f676ba4f2910"
 version = "0.1.1"
 
-[[deps.Eyeball]]
-deps = ["AbstractTrees", "FoldingTrees", "InteractiveUtils", "REPL", "Statistics", "TerminalPager"]
-git-tree-sha1 = "ee7e5c0df3eac9796f5aac138bd91e37ecd2d1bf"
-uuid = "ce36242b-ad83-4f84-8519-47cd8aeefd60"
-version = "0.4.6"
-
 [[deps.FFTViews]]
 deps = ["CustomUnitRanges", "FFTW"]
 git-tree-sha1 = "cbdf14d1e8c7c8aacbe8b19862e0179fd08321c2"
@@ -243,15 +232,11 @@ git-tree-sha1 = "335bfdceacc84c5cdf16aadc768aa5ddfc5383cc"
 uuid = "53c48c17-4a7d-5ca2-90c5-79b7896eea93"
 version = "0.8.4"
 
-[[deps.FoldingTrees]]
-deps = ["AbstractTrees", "REPL"]
-git-tree-sha1 = "d94efd85f2fe192cdf664aa8b7c431592faed59e"
-uuid = "1eca21be-9b9b-4ed8-839a-6d8ae26b1781"
-version = "1.2.1"
-
 [[deps.GLFW]]
 deps = ["GLFW_jll"]
-path = "../../May2022/GLFW.jl"
+git-tree-sha1 = "09bb412803f6e630fcf88a672e2b14e79c6bab5f"
+repo-rev = "master"
+repo-url = "https://github.com/dvijaha/GLFW.jl.git"
 uuid = "f7f18e0c-5ee9-5ccd-a5bf-e8befd85ed98"
 version = "3.4.1"
 
@@ -639,12 +624,6 @@ version = "1.0.2"
 [[deps.Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
-[[deps.ModernGL]]
-deps = ["Libdl"]
-git-tree-sha1 = "713fd24142921db94e5f7d7961f9ee033c6573d5"
-uuid = "66fc600b-dfda-50eb-8b99-91cfa97b1301"
-version = "1.1.5"
-
 [[deps.MosaicViews]]
 deps = ["MappedArrays", "OffsetArrays", "PaddedViews", "StackViews"]
 git-tree-sha1 = "b34e3bc3ca7c94914418637cb10cc4d1d80d877d"
@@ -758,9 +737,9 @@ version = "1.8.0"
 
 [[deps.PkgVersion]]
 deps = ["Pkg"]
-git-tree-sha1 = "a7a7e1a88853564e551e4eba8650f8c38df79b37"
+git-tree-sha1 = "f6cf8e7944e50901594838951729a1861e668cb8"
 uuid = "eebad327-c553-4316-9ea0-9fa01ccd7688"
-version = "0.1.1"
+version = "0.3.2"
 
 [[deps.Preferences]]
 deps = ["TOML"]
@@ -786,9 +765,9 @@ version = "1.0.0"
 
 [[deps.Quaternions]]
 deps = ["DualNumbers", "LinearAlgebra", "Random"]
-git-tree-sha1 = "b327e4db3f2202a4efafe7569fcbe409106a1f75"
+git-tree-sha1 = "4ab19353944c46d65a10a75289d426ef57b0a40c"
 uuid = "94ee1d12-ae83-5a48-8b1c-48b8ff168ae0"
-version = "0.5.6"
+version = "0.5.7"
 
 [[deps.REPL]]
 deps = ["InteractiveUtils", "Markdown", "Sockets", "Unicode"]
@@ -919,11 +898,6 @@ git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 version = "0.33.21"
 
-[[deps.StringManipulation]]
-git-tree-sha1 = "46da2434b41f41ac3594ee9816ce5541c6096123"
-uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
-version = "0.3.0"
-
 [[deps.StructArrays]]
 deps = ["Adapt", "DataAPI", "StaticArraysCore", "Tables"]
 git-tree-sha1 = "8c6ac65ec9ab781af05b08ff305ddc727c25f680"
@@ -958,21 +932,15 @@ git-tree-sha1 = "1feb45f88d133a655e001435632f019a9a1bcdb6"
 uuid = "62fd8b95-f654-4bbd-a8a5-9c27f68ccd50"
 version = "0.1.1"
 
-[[deps.TerminalPager]]
-deps = ["Crayons", "REPL", "StringManipulation"]
-git-tree-sha1 = "a670e1396871c49b9ca371092910600e4ed0b7c4"
-uuid = "0c614874-6106-40ed-a7c2-2f1cd0bff883"
-version = "0.3.1"
-
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TiffImages]]
-deps = ["ColorTypes", "DocStringExtensions", "FileIO", "FixedPointNumbers", "IndirectArrays", "Inflate", "OffsetArrays", "OrderedCollections", "PkgVersion", "ProgressMeter"]
-git-tree-sha1 = "945b8d87c5e8d5e34e6207ee15edb9d11ae44716"
+deps = ["ColorTypes", "DataStructures", "DocStringExtensions", "FileIO", "FixedPointNumbers", "IndirectArrays", "Inflate", "Mmap", "OffsetArrays", "PkgVersion", "ProgressMeter", "UUIDs"]
+git-tree-sha1 = "70e6d2da9210371c927176cb7a56d41ef1260db7"
 uuid = "731e570b-9d59-4bfa-96dc-6df516fadf69"
-version = "0.4.3"
+version = "0.6.1"
 
 [[deps.TiledIteration]]
 deps = ["OffsetArrays"]
@@ -1014,7 +982,7 @@ uuid = "c4a57d5a-5b31-53a6-b365-19f8c011fbd6"
 version = "1.0.4"
 
 [[deps.WGPU]]
-deps = ["CEnum", "Eyeball", "GLFW", "Libdl", "ModernGL", "OhMyREPL", "Pkg", "Reexport", "Test", "WGPUNative"]
+deps = ["CEnum", "GLFW", "Libdl", "Pkg", "Reexport", "Test", "WGPUNative"]
 path = "../WGPU.jl"
 uuid = "53d714bf-0d76-4802-84b4-6cb75cca55f5"
 version = "0.1.1"
@@ -1024,6 +992,12 @@ deps = ["CEnum", "Libdl", "Pkg", "Reexport"]
 git-tree-sha1 = "f95283fd0096787b7192f49c4a36fc07445426f9"
 uuid = "c14bfd16-04f9-4c2f-a915-b355584b5509"
 version = "0.1.1"
+
+[[deps.WGSLTypes]]
+deps = ["GeometryBasics", "Lazy", "MacroTools", "Reexport", "StaticArrays", "WGPU"]
+path = "../WGSLTypes.jl"
+uuid = "8cf5275a-6167-4820-ac24-74d7d0e6cf05"
+version = "0.1.0"
 
 [[deps.WoodburyMatrices]]
 deps = ["LinearAlgebra", "SparseArrays"]

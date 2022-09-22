@@ -1,8 +1,5 @@
-module EventsMod
-
 using WGPU
 using GLFW
-using WGPUgfx.SceneMod.ShaderMod.PrimitivesMod: Camera, Vision
 using CoordinateTransformations
 using Rotations
 using StaticArrays
@@ -146,7 +143,5 @@ function attachEventSystem(scene)
 	attachMouseButtonCallback(canvas, camera)
 	attachScrollCallback(canvas, camera)
 	attachCursorPosCallback(canvas, camera)
-
-end
 
 end

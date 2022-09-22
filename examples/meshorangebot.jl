@@ -15,10 +15,18 @@ gpuDevice = WGPU.getDefaultDevice();
 camera = defaultCamera()
 light = defaultLighting()
 
-scene = Scene(gpuDevice, canvas, camera, light, [], repeat([nothing], 6)...)
+scene = Scene(
+	gpuDevice, 
+	canvas, 
+	camera, 
+	light, 
+	[], 
+	repeat([nothing], 6)...
+)
 
 
 mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "orangebot.obj"))
+
 addObject!(scene, mesh)
 
 attachEventSystem(scene)
