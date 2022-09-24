@@ -142,7 +142,7 @@ function getBindings(::Type{Plane}, uniformBuffer; binding=0)
 end
 
 
-function getShaderCode(::Type{Plane}; binding=0)
+function getShaderCode(::Type{Plane}; islight=false, isVision=false, binding=0)
 	shaderSource = quote
 		struct PlaneUniform
 			transform::Mat4{Float32}
