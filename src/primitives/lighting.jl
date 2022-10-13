@@ -56,7 +56,7 @@ end
 
 
 function computeUniformData(lighting::Lighting)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :LightingUniform)
+	UniformType = getproperty(WGSLTypes, :LightingUniform)
 	uniformData = Ref{UniformType}()
 	io = getfield(lighting, :uniformData)
 	unsafe_write(io, uniformData, sizeof(UniformType))
@@ -94,7 +94,7 @@ end
 
 function setVal!(lighting::Lighting, ::Val{N}, v) where N
 	setfield!(lighting, N, v)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :LightingUniform)
+	UniformType = getproperty(WGSLTypes, :LightingUniform)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, N))
 	io = getfield(lighting, :uniformData)
 	seek(io, offset)
@@ -103,7 +103,7 @@ function setVal!(lighting::Lighting, ::Val{N}, v) where N
 end
 
 function setVal!(lighting::Lighting, ::Val{:uniformData}, v)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :LightingUniform)
+	UniformType = getproperty(WGSLTypes, :LightingUniform)
 	t = UniformType(v) |> Ref
 	io = getfield(lighting, :uniformData)
 	seek(io, 0)
@@ -124,7 +124,7 @@ end
 
 
 function getVal(lighting::Lighting, ::Val{:uniformData})
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :LightingUniform)
+	UniformType = getproperty(WGSLTypes, :LightingUniform)
 	t = Ref{UniformType}()
 	io = getfield(lighting, :uniformData)
 	seek(io, 0)
@@ -200,7 +200,7 @@ end
 
 
 function readUniformBuffer(lighting::Lighting)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :LightingUniform)
+	UniformType = getproperty(WGSLTypes, :LightingUniform)
 	data = WGPU.readBuffer(
 		lighting.gpuDevice,
 		getfield(lighting, :uniformBuffer),
@@ -217,7 +217,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(lighting::Lighting; islight=true, binding=0)
+function getShaderCode(lighting::Lighting; isVision = false, islight=true, binding=0)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}

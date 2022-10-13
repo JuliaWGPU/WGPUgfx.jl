@@ -4,7 +4,6 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 
-
 export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform,
 	getUniformBuffer, getUniformData, getShaderCode
@@ -60,7 +59,7 @@ end
 
 
 function computeUniformData(camera::Camera)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	uniformData = Ref{UniformType}() # TODO only first is necessary
 	io = getfield(camera, :uniformData)
 	unsafe_write(io, uniformData, sizeof(uniformData))
@@ -97,7 +96,7 @@ end
 
 
 function setVal!(camera::Camera, ::Val{:transform}, v)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :transform))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
@@ -107,7 +106,7 @@ end
 
 function setVal!(camera::Camera, ::Val{:eye}, v)
 	setfield!(camera, :eye, v)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :eye))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
@@ -151,7 +150,7 @@ function setVal!(camera::Camera, ::Val{N}, v) where N
 end
 
 function setVal!(camera::Camera, ::Val{:uniformData}, v)
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
@@ -176,7 +175,7 @@ function getVal(camera::Camera, ::Val{:transform})
 end
 
 function getVal(camera::Camera, ::Val{:uniformData})
-	UniformType = getproperty(WGPUgfx.StructUtilsMod, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)

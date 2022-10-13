@@ -14,6 +14,7 @@ gpuDevice = WGPU.getDefaultDevice();
 camera = defaultCamera()
 
 light = defaultLighting()
+
 scene = Scene(
 	gpuDevice, 
 	canvas, 
@@ -23,7 +24,7 @@ scene = Scene(
 	repeat([nothing], 6)...
 )
 
-cube = defaultCube()
+cube = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
 
 addObject!(scene, cube)
 
