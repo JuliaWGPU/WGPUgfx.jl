@@ -1,5 +1,5 @@
 using WGPUNative
-using WGPU
+using WGPUCore
 
 export defaultCircle, Circle
 
@@ -20,7 +20,7 @@ end
 
 function getUniformBuffer(gpuDevice, circle::Circle)
 	uniformData = defaultUniformData(Circle)
-	(uniformBuffer, _) = WGPU.createBufferWithData(
+	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"uniformBuffer", 
 		uniformData, 
@@ -60,7 +60,7 @@ end
 
 
 function getVertexBuffer(gpuDevice, circle::Circle)
-	(vertexBuffer, _) = WGPU.createBufferWithData(
+	(vertexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
 		vcat([circle.vertexData, circle.colorData]...), 
@@ -71,7 +71,7 @@ end
 
 
 function getIndexBuffer(gpuDevice, circle::Circle)
-	(indexBuffer, _) = WGPU.createBufferWithData(
+	(indexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"indexBuffer", 
 		circle.indexData |> flatten, 
@@ -82,7 +82,7 @@ end
 
 
 function getVertexBufferLayout(::Type{Circle}; offset = 0)
-	WGPU.GPUVertexBufferLayout => [
+	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
 		:attributes => [
@@ -103,7 +103,7 @@ end
 
 function getBindingLayouts(::Type{Circle}; binding=0)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
@@ -115,7 +115,7 @@ end
 
 function getBindings(::Type{Circle}, uniformBuffer; binding=0)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,

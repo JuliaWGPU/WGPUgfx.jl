@@ -1,6 +1,6 @@
 using Debugger
 using WGPUgfx
-using WGPU
+using WGPUCore
 using WGPUNative
 using GLFW
 using GLFW: WindowShouldClose, PollEvents, DestroyWindow
@@ -8,9 +8,9 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 
-WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
-canvas = WGPU.defaultInit(WGPU.WGPUCanvas);
-gpuDevice = WGPU.getDefaultDevice();
+WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
+canvas = WGPUCore.defaultInit(WGPUCore.WGPUCanvas);
+gpuDevice = WGPUCore.getDefaultDevice();
 
 camera = defaultCamera()
 
@@ -60,7 +60,7 @@ function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 end
 
 
-WGPU.setMouseButtonCallback(
+WGPUCore.setMouseButtonCallback(
 	canvas, 
 	(_, button, action, a) -> begin
 		@info GLFW.MouseButton button action a mouseState
@@ -69,7 +69,7 @@ WGPU.setMouseButtonCallback(
 )
 
 
-WGPU.setScrollCallback(
+WGPUCore.setScrollCallback(
 	canvas,
 	(_, xoff, yoff) -> begin
 		@info "MouseScroll" xoff, yoff
@@ -78,7 +78,7 @@ WGPU.setScrollCallback(
 )
 
 
-WGPU.setCursorPosCallback(
+WGPUCore.setCursorPosCallback(
 	canvas, 
 	(_, x, y) -> begin
 		@info "Mouse Position" x, y
@@ -115,7 +115,7 @@ main = () -> begin
 			PollEvents()
 		end
 	finally
-		WGPU.destroyWindow(canvas)
+		WGPUCore.destroyWindow(canvas)
 	end
 end
 

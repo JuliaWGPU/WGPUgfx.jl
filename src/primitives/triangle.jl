@@ -1,5 +1,5 @@
 using WGPUNative
-using WGPU
+using WGPUCore
 
 export Triangle3D, defaultTriangle3D
 
@@ -30,7 +30,7 @@ end
 
 function getUniformBuffer(gpuDevice, tri::Triangle3D)
 	uniformData = defaultUniformData(Triangle3D)
-	(uniformBuffer, _) = WGPU.createBufferWithData(
+	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"uniformBuffer",
 		uniformData,
@@ -53,7 +53,7 @@ function defaultTriangle3D()
 end
 
 function getVertexBuffer(gpuDevice, tri::Triangle3D)
-	(vertexBuffer, _) = WGPU.createBufferWithData(
+	(vertexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"vertexBuffer",
 		vcat(tri.vertexData, tri.colorData),
@@ -63,7 +63,7 @@ function getVertexBuffer(gpuDevice, tri::Triangle3D)
 end
 
 function getIndexBuffer(gpuDevice, tri::Triangle3D)
-	(indexBuffer, _) = WGPU.createBufferWithData(
+	(indexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"indexBuffer", 
 		tri.indexData |> flatten, 
@@ -73,7 +73,7 @@ function getIndexBuffer(gpuDevice, tri::Triangle3D)
 end
 
 function getVertexBufferLayout(tri::Type{Triangle3D}; offset=0)
-	WGPU.GPUVertexBufferLayout => [
+	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
 		:attributes => [
@@ -93,7 +93,7 @@ end
 
 function getBindingLayouts(::Type{Triangle3D}; binding=0)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
@@ -104,7 +104,7 @@ end
 
 function getBindings(::Type{Triangle3D}, uniformBuffer; binding=0)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,

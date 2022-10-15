@@ -18,7 +18,7 @@
 # 
 # function getUniformBuffer(gpuDevice, sphere::Sphere)
 	# uniformData = defaultUniformData(Sphere)
-	# (uniformBuffer, _) = WGPU.createBufferWithData(
+	# (uniformBuffer, _) = WGPUCore.createBufferWithData(
 		# gpuDevice,
 		# "uniformBuffer",
 		# uniformData,
@@ -86,7 +86,7 @@
 # end
 # 
 # function getVertexBuffer(gpuDevice, sphere::Sphere)
-	# (vertexBuffer, _) = WGPU.createBufferWithData(
+	# (vertexBuffer, _) = WGPUCore.createBufferWithData(
 		# gpuDevice,
 		# "vertexBuffer",
 		# sphere.vertexData,
@@ -100,18 +100,18 @@
 	# textureDataResized = repeat(sphere.textureData, inner=(64, 64))
 	# textureSize = (size(textureDataResized)..., 1)
 # 
-	# texture = WGPU.createTexture(
+	# texture = WGPUCore.createTexture(
 		# gpuDevice,
 		# "texture",
 		# textureSize,
 		# 1,
 		# 1,
-		# WGPUTextureDimension_2D,
+		# WGPUCoreTextureDimension_2D,
 		# WGPUTextureFormat_R8Unorm,
-		# WGPU.getEnum(WGPU.WGPUTextureUsage, ["CopyDst", "TextureBinding"]),
+		# WGPUCore.getEnum(WGPUCore.WGPUTextureUsage, ["CopyDst", "TextureBinding"]),
 	# )
 # 
-	# textureView = WGPU.createView(texture)
+	# textureView = WGPUCore.createView(texture)
 	# (textureView, textureDataResized)
 # end
 # 
@@ -132,12 +132,12 @@
 		# ],
 		# :textureSize => textureSize
 	# ]
-	# WGPU.writeTexture(gpuDevice.queue; dstLayout...)
+	# WGPUCore.writeTexture(gpuDevice.queue; dstLayout...)
 	# return textureView
 # end
 # 
 # function getIndexBuffer(gpuDevice, sphere::Sphere)
-	# (indexBuffer, _) = WGPU.createBufferWithData(
+	# (indexBuffer, _) = WGPUCore.createBufferWithData(
 		# gpuDevice,
 		# "indexBuffer",
 		# sphere.indexData |> flatten,
@@ -147,7 +147,7 @@
 # end
 # 
 # function getVertexBufferLayout(sphere::Sphere)
-	# WGPU.GPUVertexBufferLayout => [
+	# WGPUCore.GPUVertexBufferLayout => [
 		# :arrayStride => 6*4,
 		# :stepMode => "Vertex",
 		# :attributes => [

@@ -1,4 +1,4 @@
-using WGPU
+using WGPUCore
 using WGPUgfx
 using LinearAlgebra
 using StaticArrays
@@ -27,7 +27,7 @@ function prepareObject(gpuDevice, lighting::Lighting)
 	io = computeUniformData(lighting)
 	uniformDataBytes = io |> read
 	seek(io, 0) # TODO not necessary maybe
-	(uniformBuffer, _) = WGPU.createBufferWithData(
+	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"LightingBuffer",
 		uniformDataBytes,
@@ -191,7 +191,7 @@ end
 function updateUniformBuffer(lighting::Lighting)
 	data = getfield(lighting, :uniformData).data
 	@info :UniformBuffer lighting.uniformData
-	WGPU.writeBuffer(
+	WGPUCore.writeBuffer(
 		lighting.gpuDevice[].queue, 
 		getfield(lighting, :uniformBuffer),
 		data,
@@ -201,7 +201,7 @@ end
 
 function readUniformBuffer(lighting::Lighting)
 	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	data = WGPU.readBuffer(
+	data = WGPUCore.readBuffer(
 		lighting.gpuDevice,
 		getfield(lighting, :uniformBuffer),
 		0,
@@ -234,13 +234,13 @@ end
 
 
 function getVertexBufferLayout(lighting::Lighting; offset=0)
-	WGPU.GPUVertexBufferLayout => []
+	WGPUCore.GPUVertexBufferLayout => []
 end
 
 
 function getBindingLayouts(lighting::Lighting; binding=0)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
@@ -252,7 +252,7 @@ end
 
 function getBindings(lighting::Lighting, uniformBuffer; binding=0)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer  => uniformBuffer,
 			:offset  => 0,

@@ -1,4 +1,4 @@
-using WGPU
+using WGPUCore
 using LinearAlgebra
 using StaticArrays
 using Rotations
@@ -29,7 +29,7 @@ function prepareObject(gpuDevice, camera::Camera)
 	io = computeUniformData(camera)
 	uniformDataBytes = io |> read
 	seek(io, 0)
-	(uniformBuffer, _) = WGPU.createBufferWithData(
+	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		" CAMERA BUFFER ",
 		uniformDataBytes, 
@@ -350,7 +350,7 @@ end
 function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData).data
 	@info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
-	WGPU.writeBuffer(
+	WGPUCore.writeBuffer(
 		camera.gpuDevice[].queue, 
 		getfield(camera, :uniformBuffer),
 		data,
@@ -359,7 +359,7 @@ end
 
 
 function readUniformBuffer(camera::Camera)
-	data = WGPU.readBuffer(
+	data = WGPUCore.readBuffer(
 		camera.gpuDevice,
 		getfield(camera, :uniformBuffer),
 		0,
@@ -388,13 +388,13 @@ end
 
 
 function getVertexBufferLayout(camera::Camera; offset = 0)
-	WGPU.GPUVertexBufferLayout => []
+	WGPUCore.GPUVertexBufferLayout => []
 end
 
 
 function getBindingLayouts(camera::Camera; binding=1)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
@@ -406,7 +406,7 @@ end
 
 function getBindings(camera::Camera, uniformBuffer; binding=1)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer  => uniformBuffer,
 			:offset  => 0,

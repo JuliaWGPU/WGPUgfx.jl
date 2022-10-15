@@ -1,8 +1,7 @@
 using WGPUNative
-using WGPU
+using WGPUCore
 using Rotations
 using CoordinateTransformations
-using MacroTools
 using LinearAlgebra
 using StaticArrays
 using GeometryBasics: Mat4
@@ -101,10 +100,10 @@ setup(scene) = setup(scene.gpuDevice, scene)
 
 function setup(gpuDevice, scene)
 
-	scene.renderTextureFormat = WGPU.getPreferredFormat(scene.canvas)
-	presentContext = WGPU.getContext(scene.canvas)
-	WGPU.determineSize(presentContext[])
-	WGPU.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
+	scene.renderTextureFormat = WGPUCore.getPreferredFormat(scene.canvas)
+	presentContext = WGPUCore.getContext(scene.canvas)
+	WGPUCore.determineSize(presentContext[])
+	WGPUCore.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
 	scene.presentContext = presentContext
 	
 	isVision = typeof(scene.camera) == Vision
@@ -128,10 +127,10 @@ end
 runApp(scene) = runApp(scene.gpuDevice, scene)
 
 function runApp(gpuDevice, scene)
-	currentTextureView = WGPU.getCurrentTexture(scene.presentContext[]);
-	cmdEncoder = WGPU.createCommandEncoder(gpuDevice, "CMD ENCODER")
+	currentTextureView = WGPUCore.getCurrentTexture(scene.presentContext[]);
+	cmdEncoder = WGPUCore.createCommandEncoder(gpuDevice, "CMD ENCODER")
 
-	scene.depthTexture = WGPU.createTexture(
+	scene.depthTexture = WGPUCore.createTexture(
 		gpuDevice,
 		"DEPTH TEXTURE",
 		(scene.canvas.size..., 1),
@@ -139,15 +138,15 @@ function runApp(gpuDevice, scene)
 		1,
 		WGPUTextureDimension_2D,
 		WGPUTextureFormat_Depth24Plus,
-		WGPU.getEnum(WGPU.WGPUTextureUsage, "RenderAttachment")
+		WGPUCore.getEnum(WGPUCore.WGPUTextureUsage, "RenderAttachment")
 	)
 	
-	scene.depthView = WGPU.createView(scene.depthTexture)
+	scene.depthView = WGPUCore.createView(scene.depthTexture)
 
 	renderPassOptions = [
-		WGPU.GPUColorAttachments => [
+		WGPUCore.GPUColorAttachments => [
 			:attachments => [
-				WGPU.GPUColorAttachment => [
+				WGPUCore.GPUColorAttachment => [
 					:view => currentTextureView,
 					:resolveTarget => C_NULL,
 					:clearValue => (0.8, 0.8, 0.7, 1.0),
@@ -156,9 +155,9 @@ function runApp(gpuDevice, scene)
 				],
 			]
 		],
-		WGPU.GPUDepthStencilAttachments => [
+		WGPUCore.GPUDepthStencilAttachments => [
 			:attachments => [
-				WGPU.GPUDepthStencilAttachment => [
+				WGPUCore.GPUDepthStencilAttachment => [
 					:view => scene.depthView,
 					:depthClearValue => 1.0f0,
 					:depthLoadOp => WGPULoadOp_Clear,
@@ -170,19 +169,19 @@ function runApp(gpuDevice, scene)
 		]
 	]
 
-	renderPass = WGPU.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
+	renderPass = WGPUCore.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
 
 	for object in scene.objects
 		render(renderPass, renderPassOptions, object)
 	end
 
-	# WGPU.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
+	# WGPUCore.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
 	# for object in scene.objects
 		# render(renderPass, renderPassOptions, object)
 	# end
 	
-	WGPU.endEncoder(renderPass)
-	WGPU.submit(gpuDevice.queue, [WGPU.finish(cmdEncoder),])
-	WGPU.present(scene.presentContext[])
+	WGPUCore.endEncoder(renderPass)
+	WGPUCore.submit(gpuDevice.queue, [WGPUCore.finish(cmdEncoder),])
+	WGPUCore.present(scene.presentContext[])
 end
 
