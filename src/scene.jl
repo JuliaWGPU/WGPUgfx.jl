@@ -88,7 +88,7 @@ function composeShader(gpuDevice, scene, object; binding=3)
 	push!(src.args, defaultSource)
 	push!(src.args, getShaderCode(object; isVision=isVision, islight=islight, binding = binding))
 	try
-		createShaderObj(gpuDevice, src; savefile=true)
+		createShaderObj(gpuDevice, src; savefile=false)
 	catch(e)
 		@info e
 		rethrow(e)
