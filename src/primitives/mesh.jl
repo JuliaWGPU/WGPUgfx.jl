@@ -204,7 +204,7 @@ function computeUniformData(mesh::WGPUMesh)
 end
 
 
-function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveTopology_TriangleList)
+function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology=WGPUPrimitiveTopology_TriangleList)
 	meshdata = readObj(path) # TODO hardcoding Obj format
 	vIndices = reduce(hcat, map((x)->broadcast(first, x), meshdata.indices)) .|> UInt32
 	nIndices = reduce(hcat, map((x)->getindex.(x, 3), meshdata.indices))
@@ -228,7 +228,7 @@ function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveT
 	
 	indexData = 0:length(vIndices)-1 |> collect .|> UInt32
 	unitColor = cat([
-		[0.5, 0.6, 0.7, 1]
+		color
 	]..., dims=2) .|> Float32
 	
 	colorData = repeat(unitColor, inner=(1, length(vIndices)))
