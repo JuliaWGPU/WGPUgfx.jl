@@ -149,7 +149,7 @@ function runApp(gpuDevice, scene)
 				WGPUCore.GPUColorAttachment => [
 					:view => currentTextureView,
 					:resolveTarget => C_NULL,
-					:clearValue => (0.8, 0.8, 0.7, 1.0),
+					:clearValue => (0.2, 0.2, 0.2, 1.0),
 					:loadOp => WGPULoadOp_Clear,
 					:storeOp => WGPUStoreOp_Store,
 				],
