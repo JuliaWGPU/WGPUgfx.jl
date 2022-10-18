@@ -52,6 +52,8 @@ jobs:
       - run : DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --color=yes --project=wgpugfx -e 'using Pkg; pkg"dev WGSLTypes . WGPUNative WGPUCore"'
       - run : DISPLAY=:0 xvfb-run -s '-screen 0 1024x768x24' julia --color=yes --project=wgpugfx -e 'using Pkg; Pkg.test("WGPUgfx", coverage=true)'
       - uses: julia-actions/julia-docdeploy@v1
+        with:
+            prefix: xvfb-run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Generating Docs
