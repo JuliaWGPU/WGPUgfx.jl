@@ -1,5 +1,5 @@
 using WGPUNative
-using WGPU
+using WGPUCore
 using LinearAlgebra
 using StaticArrays
 using Rotations
@@ -97,24 +97,24 @@ function prepareObject(gpuDevice, mesh::WGPUMesh)
 	uniformData = computeUniformData(mesh)
 	if mesh.textureData != nothing
 		textureSize = (size(mesh.textureData)[2:3]..., 1)
-		texture = WGPU.createTexture(
+		texture = WGPUCore.createTexture(
 			gpuDevice,
 			"Mesh Texture",
 			textureSize,
 			1,
 			1,
-			WGPU.WGPUTextureDimension_2D,
-			WGPU.WGPUTextureFormat_RGBA8UnormSrgb,
-			WGPU.getEnum(
-				WGPU.WGPUTextureUsage, 
+			WGPUCore.WGPUTextureDimension_2D,
+			WGPUCore.WGPUTextureFormat_RGBA8UnormSrgb,
+			WGPUCore.getEnum(
+				WGPUCore.WGPUTextureUsage, 
 				[
 					"CopyDst",
 					"TextureBinding"
 				]
 			)
 		)
-		textureView = WGPU.createView(texture)
-		sampler = WGPU.createSampler(gpuDevice)
+		textureView = WGPUCore.createView(texture)
+		sampler = WGPUCore.createSampler(gpuDevice)
 		setfield!(mesh, :texture, texture)
 		setfield!(mesh, :textureView, textureView)
 		setfield!(mesh, :sampler, sampler)
@@ -133,14 +133,14 @@ function prepareObject(gpuDevice, mesh::WGPUMesh)
 			:textureSize => textureSize
 		]
 		try
-			WGPU.writeTexture(gpuDevice.queue; dstLayout...)
+			WGPUCore.writeTexture(gpuDevice.queue; dstLayout...)
 		catch(e)
 			@error "Writing texture in MeshLoader failed !!!"
 			rethrow(e)
 		end
 
 	end
-	(uniformBuffer, _) = WGPU.createBufferWithData(
+	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"Mesh Buffer",
 		uniformData,
@@ -176,14 +176,14 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; isVision=false, bindi
 		getBindings(scene.light, lightUniform; binding = isVision ? 2 : 1), 
 		getBindings(mesh, uniformBuffer; binding=binding)
 	)
-	(bindGroupLayouts, bindGroup) = WGPU.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
+	(bindGroupLayouts, bindGroup) = WGPUCore.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
 	mesh.bindGroup = bindGroup
-	pipelineLayout = WGPU.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
+	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
 	renderPipelineOptions = getRenderPipelineOptions(
 		scene,
 		mesh,
 	)
-	renderPipeline = WGPU.createRenderPipeline(
+	renderPipeline = WGPUCore.createRenderPipeline(
 		gpuDevice, 
 		pipelineLayout, 
 		renderPipelineOptions; 
@@ -206,10 +206,10 @@ end
 
 function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveTopology_TriangleList)
 	meshdata = readObj(path) # TODO hardcoding Obj format
-	vIndices = cat(map((x)->first.(x), meshdata.indices)..., dims=2) .|> UInt32
-	nIndices = cat(map((x)->getindex.(x, 3), meshdata.indices)..., dims=2)
-	uIndices = cat(map((x)->getindex.(x, 2), meshdata.indices)..., dims=2)
-	vertexData = cat(meshdata.positions[vIndices[:]]..., dims=2) .|> Float32
+	vIndices = reduce(hcat, map((x)->broadcast(first, x), meshdata.indices)) .|> UInt32
+	nIndices = reduce(hcat, map((x)->getindex.(x, 3), meshdata.indices))
+	uIndices = reduce(hcat, map((x)->getindex.(x, 2), meshdata.indices))
+	vertexData = reduce(hcat, meshdata.positions[vIndices[:]]) .|> Float32
 
 	uvData = nothing
 	textureData = nothing
@@ -217,7 +217,7 @@ function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveT
 	textureView = nothing
 	
 	if image != ""
-		uvData = cat(meshdata.uvs[uIndices[:]]..., dims=2) .|> Float32
+		uvData = reduce(hcat, meshdata.uvs[uIndices[:]]) .|> Float32
 		textureData = begin
 			img = load(image)
 			img = imresize(img, (256, 256)) # TODO hardcoded size
@@ -233,7 +233,7 @@ function defaultWGPUMesh(path::String; image::String="", topology=WGPUPrimitiveT
 	
 	colorData = repeat(unitColor, inner=(1, length(vIndices)))
 	
-	normalData = cat(meshdata.normals[nIndices[:]]..., dims=2) .|> Float32
+	normalData = reduce(hcat, meshdata.normals[nIndices[:]]) .|> Float32
 	
 	mesh = WGPUMesh(
 		nothing, 
@@ -278,7 +278,7 @@ end
 function updateUniformBuffer(mesh::WGPUMesh)
 	data = SMatrix{4, 4}(mesh.uniformData[:])
 	@info :UniformBuffer data
-	WGPU.writeBuffer(
+	WGPUCore.writeBuffer(
 		mesh.gpuDevice[].queue, 
 		getfield(mesh, :uniformBuffer),
 		data,
@@ -287,7 +287,7 @@ end
 
 
 function readUniformBuffer(mesh::WGPUMesh)
-	data = WGPU.readBuffer(
+	data = WGPUCore.readBuffer(
 		mesh.gpuDevice,
 		getfield(mesh, :uniformBuffer),
 		0,
@@ -318,49 +318,49 @@ function getShaderCode(mesh::WGPUMesh; isVision=false, islight=false, binding=0)
 			@var Generic 0 $(binding + 2)  smplr::Sampler
 		end
 
-		@vertex function vs_main(in::@user VertexInput)::@user VertexOutput
+		@vertex function vs_main(vertexIn::@user VertexInput)::@user VertexOutput
 			@var out::@user VertexOutput
 			if $isVision
-				@var pos::Vec4{Float32} = $(name).transform*in.pos
+				@var pos::Vec4{Float32} = $(name).transform*vertexIn.pos
 				out.vPosLeft = lefteye.transform*pos
 				out.vPosRight = righteye.transform*pos
-				out.pos = in.pos
+				out.pos = vertexIn.pos
 			else
-				out.pos = $(name).transform*in.pos
+				out.pos = $(name).transform*vertexIn.pos
 				out.pos = camera.transform*out.pos
 			end
-			out.vColor = in.vColor
+			out.vColor = vertexIn.vColor
 			if $isTexture
-				out.vTexCoords = in.vTexCoords
+				out.vTexCoords = vertexIn.vTexCoords
 			end
 			if $islight
 				if $isVision
-					@var normal::Vec4{Float32} = $(name).transform*in.vNormal
+					@var normal::Vec4{Float32} = $(name).transform*vertexIn.vNormal
 					out.vNormalLeft = lefteye.transform*normal
 					out.vNormalRight = righteye.transform*normal
 				else
-					out.vNormal = $(name).transform*in.vNormal
+					out.vNormal = $(name).transform*vertexIn.vNormal
 					out.vNormal = camera.transform*out.vNormal
 				end
 			end
 			return out
 		end
 
-		@fragment function fs_main(in::@user VertexOutput)::@location 0 Vec4{Float32}
+		@fragment function fs_main(fragmentIn::@user VertexOutput)::@location 0 Vec4{Float32}
 			if $isTexture
-				@var color::Vec4{Float32} = textureSample(tex, smplr, in.vTexCoords)
+				@var color::Vec4{Float32} = textureSample(tex, smplr, fragmentIn.vTexCoords)
 			else
-				@var color::Vec4{Float32} = in.vColor
+				@var color::Vec4{Float32} = fragmentIn.vColor
 			end
 			if $islight
 				if $isVision
-					@let NLeft::Vec3{Float32} = normalize(in.vNormalLeft.xyz)
-					@let LLeft::Vec3{Float32} = normalize(lighting.position.xyz - in.vPosLeft.xyz)
-					@let VLeft::Vec3{Float32} = normalize(lefteye.eye.xyz - in.vPosLeft.xyz)
+					@let NLeft::Vec3{Float32} = normalize(fragmentIn.vNormalLeft.xyz)
+					@let LLeft::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.vPosLeft.xyz)
+					@let VLeft::Vec3{Float32} = normalize(lefteye.eye.xyz - fragmentIn.vPosLeft.xyz)
 					@let HLeft::Vec3{Float32} = normalize(LLeft + VLeft)
-					@let NRight::Vec3{Float32} = normalize(in.vNormalRight.xyz)
-					@let LRight::Vec3{Float32} = normalize(lighting.position.xyz - in.vPosRight.xyz)
-					@let VRight::Vec3{Float32} = normalize(righteye.eye.xyz - in.vPosRight.xyz)
+					@let NRight::Vec3{Float32} = normalize(fragmentIn.vNormalRight.xyz)
+					@let LRight::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.vPosRight.xyz)
+					@let VRight::Vec3{Float32} = normalize(righteye.eye.xyz - fragmentIn.vPosRight.xyz)
 					@let HRight::Vec3{Float32} = normalize(LRight + VRight)
 					@let diffuseLeft::Float32 = lighting.diffuseIntensity*max(dot(NLeft, LLeft), 0.0)
 					@let specularLeft::Float32 = lighting.specularIntensity*pow(max(dot(NLeft, HLeft), 0.0), lighting.specularShininess)
@@ -372,9 +372,9 @@ function getShaderCode(mesh::WGPUMesh; isVision=false, islight=false, binding=0)
 					@let colorRight::Vec4{Float32} = color*(ambientRight + diffuseRight) + lighting.specularColor*specularRight
 					return colorLeft + colorRight
 				else
-					@let N::Vec3{Float32} = normalize(in.vNormal.xyz)
-					@let L::Vec3{Float32} = normalize(lighting.position.xyz - in.pos.xyz)
-					@let V::Vec3{Float32} = normalize(camera.eye.xyz - in.pos.xyz)
+					@let N::Vec3{Float32} = normalize(fragmentIn.vNormal.xyz)
+					@let L::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.pos.xyz)
+					@let V::Vec3{Float32} = normalize(camera.eye.xyz - fragmentIn.pos.xyz)
 					@let H::Vec3{Float32} = normalize(L + V)
 					@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
 					@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
@@ -394,7 +394,7 @@ end
 
 # TODO check it its called multiple times
 function getVertexBuffer(gpuDevice, mesh::WGPUMesh)
-	(vertexBuffer, _) = WGPU.createBufferWithData(
+	(vertexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
 		vcat(
@@ -412,7 +412,7 @@ end
 
 
 function getIndexBuffer(gpuDevice, mesh::WGPUMesh)
-	(indexBuffer, _) = WGPU.createBufferWithData(
+	(indexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"indexBuffer", 
 		mesh.indexData |> flatten, 
@@ -423,7 +423,7 @@ end
 
 
 function getVertexBufferLayout(mesh::WGPUMesh; offset=0)
-	WGPU.GPUVertexBufferLayout => [
+	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => mesh.textureData != nothing ? 14*4 : 12*4,
 		:stepMode => "Vertex",
 		:attributes => [
@@ -454,19 +454,19 @@ end
 
 function getBindingLayouts(mesh::WGPUMesh; binding=4)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
-		WGPU.WGPUTextureEntry => [ # TODO hardcoded
+		WGPUCore.WGPUTextureEntry => [ # TODO hardcoded
 			:binding => binding + 1,
 			:visibility=> "Fragment",
 			:sampleType => "Float",
 			:viewDimension => "2D",
 			:multisampled => false
 		],
-		WGPU.WGPUSamplerEntry => [ # TODO hardcoded
+		WGPUCore.WGPUSamplerEntry => [ # TODO hardcoded
 			:binding => binding + 2,
 			:visibility => "Fragment",
 			:type => "Filtering"
@@ -478,17 +478,17 @@ end
 
 function getBindings(mesh::WGPUMesh, uniformBuffer; binding=4)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,
 			:size => uniformBuffer.size
 		],
-		WGPU.GPUTextureView => [
+		WGPUCore.GPUTextureView => [
 			:binding => binding + 1, 
 			:textureView => mesh.textureView
 		],
-		WGPU.GPUSampler => [
+		WGPUCore.GPUSampler => [
 			:binding => binding + 2,
 			:sampler => mesh.sampler
 		]
@@ -497,34 +497,34 @@ end
 
 function getRenderPipelineOptions(scene, mesh::WGPUMesh)
 	renderpipelineOptions = [
-		WGPU.GPUVertexState => [
+		WGPUCore.GPUVertexState => [
 			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
 					getVertexBufferLayout(mesh)
 				]
 		],
-		WGPU.GPUPrimitiveState => [
+		WGPUCore.GPUPrimitiveState => [
 			:topology => "TriangleList",
 			:frontFace => "CCW",
 			:cullMode => "Front",
 			:stripIndexFormat => "Undefined"
 		],
-		WGPU.GPUDepthStencilState => [
+		WGPUCore.GPUDepthStencilState => [
 			:depthWriteEnabled => true,
 			:depthCompare => WGPUCompareFunction_LessEqual,
 			:format => WGPUTextureFormat_Depth24Plus
 		],
-		WGPU.GPUMultiSampleState => [
+		WGPUCore.GPUMultiSampleState => [
 			:count => 1,
 			:mask => typemax(UInt32),
 			:alphaToCoverageEnabled=>false,
 		],
-		WGPU.GPUFragmentState => [
+		WGPUCore.GPUFragmentState => [
 			:_module => scene.cshader.internal[],						# SET THIS
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
-				WGPU.GPUColorTargetState =>	[
+				WGPUCore.GPUColorTargetState =>	[
 					:format => scene.renderTextureFormat,				# SET THIS
 					:color => [
 						:srcFactor => "One",
@@ -543,10 +543,10 @@ function getRenderPipelineOptions(scene, mesh::WGPUMesh)
 	renderpipelineOptions
 end
 
-function render(renderPass::WGPU.GPURenderPassEncoder, renderPassOptions, mesh::WGPUMesh)
-	WGPU.setPipeline(renderPass, mesh.renderPipeline)
-	WGPU.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
-	WGPU.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
-	WGPU.setBindGroup(renderPass, 0, mesh.bindGroup, UInt32[], 0, 99)
-	WGPU.drawIndexed(renderPass, Int32(mesh.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
+function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, mesh::WGPUMesh)
+	WGPUCore.setPipeline(renderPass, mesh.renderPipeline)
+	WGPUCore.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
+	WGPUCore.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
+	WGPUCore.setBindGroup(renderPass, 0, mesh.bindGroup, UInt32[], 0, 99)
+	WGPUCore.drawIndexed(renderPass, Int32(mesh.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 end

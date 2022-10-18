@@ -7,7 +7,7 @@ export getVertexBufferLayout, getUniformBuffer, getVertexBuffer, getIndexBuffer,
 flatten(x) = reshape(x, (:,))
 
 using WGPUNative
-using WGPU
+using WGPUCore
 
 for (root, dirs, files) in walkdir(joinpath(@__DIR__,"primitives"))
 	for file in files

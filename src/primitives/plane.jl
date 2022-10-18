@@ -1,5 +1,5 @@
 using WGPUNative
-using WGPU
+using WGPUCore
 
 export defaultPlane, Plane
 
@@ -28,7 +28,7 @@ end
 
 function getUniformBuffer(gpuDevice, plane::Plane)
 	uniformData = defaultUniformData(Plane)
-	(uniformBuffer, _) = WGPU.createBufferWithData(
+	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"uniformBuffer", 
 		uniformData, 
@@ -77,7 +77,7 @@ end
 
 
 function getVertexBuffer(gpuDevice, plane::Plane)
-	(vertexBuffer, _) = WGPU.createBufferWithData(
+	(vertexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
 		vcat([plane.vertexData, plane.colorData]...), 
@@ -88,7 +88,7 @@ end
 
 
 function getIndexBuffer(gpuDevice, plane::Plane)
-	(indexBuffer, _) = WGPU.createBufferWithData(
+	(indexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"indexBuffer", 
 		plane.indexData |> flatten, 
@@ -99,7 +99,7 @@ end
 
 
 function getVertexBufferLayout(plane::Type{Plane}; offset=0)
-	WGPU.GPUVertexBufferLayout => [
+	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
 		:attributes => [
@@ -120,7 +120,7 @@ end
 
 function getBindingLayouts(::Type{Plane}; binding=0)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
@@ -132,7 +132,7 @@ end
 
 function getBindings(::Type{Plane}, uniformBuffer; binding=0)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer => uniformBuffer,
 			:offset => 0,

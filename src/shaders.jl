@@ -1,4 +1,4 @@
-using WGPU
+using WGPUCore
 using Reexport
 
 export createShaderObj
@@ -14,7 +14,7 @@ function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
 	shaderSource = shaderSource |> wgslCode 
 	shaderBytes  = shaderSource |> Vector{UInt8}
 
-	descriptor = WGPU.loadWGSL(shaderBytes) |> first
+	descriptor = WGPUCore.loadWGSL(shaderBytes) |> first
 
 	if savefile
 		shaderSource = replace(shaderSource, "@stage(fragment)"=>"@fragment")
@@ -26,7 +26,7 @@ function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
 	
 	shaderObj = ShaderObj(
 		shaderSource,
-		WGPU.createShaderModule(
+		WGPUCore.createShaderModule(
 			gpuDevice,
 			"shaderCode",
 			descriptor,

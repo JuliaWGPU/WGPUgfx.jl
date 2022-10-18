@@ -1,4 +1,4 @@
-using WGPU
+using WGPUCore
 using LinearAlgebra
 using StaticArrays
 using Rotations
@@ -277,18 +277,18 @@ end
 
 
 function getVertexBufferLayout(vision::Vision; offset = 0)
-	WGPU.GPUVertexBufferLayout => []
+	WGPUCore.GPUVertexBufferLayout => []
 end
 
 
 function getBindingLayouts(vision::Vision; binding=1)
 	bindingLayouts = [
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
-		WGPU.WGPUBufferEntry => [
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding + 1,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
@@ -300,13 +300,13 @@ end
 
 function getBindings(vision::Vision, uniformBuffer; binding=1)
 	bindings = [
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding,
 			:buffer  => uniformBuffer[1],
 			:offset  => 0,
 			:size    => uniformBuffer[1].size
 		],
-		WGPU.GPUBuffer => [
+		WGPUCore.GPUBuffer => [
 			:binding => binding + 1,
 			:buffer  => uniformBuffer[2],
 			:offset  => 0,

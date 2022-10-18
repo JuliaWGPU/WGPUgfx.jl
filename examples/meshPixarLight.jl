@@ -1,6 +1,6 @@
 using Debugger
 using WGPUgfx
-using WGPU
+using WGPUCore
 using WGPUNative
 using GLFW
 using GLFW: WindowShouldClose, PollEvents, DestroyWindow
@@ -8,9 +8,9 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 
-WGPU.SetLogLevel(WGPU.WGPULogLevel_Off)
-canvas = WGPU.defaultCanvas(WGPU.WGPUCanvas; size=(500, 500));
-gpuDevice = WGPU.getDefaultDevice();
+WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
+canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas; size=(500, 500));
+gpuDevice = WGPUCore.getDefaultDevice();
 camera = defaultCamera()
 
 light = defaultLighting()
@@ -41,7 +41,7 @@ main = () -> begin
 			PollEvents()
 		end
 	finally
-		WGPU.destroyWindow(canvas)
+		WGPUCore.destroyWindow(canvas)
 	end
 end
 

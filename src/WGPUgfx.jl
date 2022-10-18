@@ -1,8 +1,7 @@
-
 module WGPUgfx
 
 using LinearAlgebra
-using WGPU
+using WGPUCore
 
 using Reexport
 
