@@ -27,6 +27,7 @@ WGPUNative = "c14bfd16-04f9-4c2f-a915-b355584b5509"
 WGSLTypes = "8cf5275a-6167-4820-ac24-74d7d0e6cf05"
 
 [compat]
+Images = "0.25"
 julia = "1.8"
 
 [extras]
