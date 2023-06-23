@@ -192,7 +192,7 @@ function updateUniformBuffer(lighting::Lighting)
 	data = getfield(lighting, :uniformData).data
 	@info :UniformBuffer lighting.uniformData
 	WGPUCore.writeBuffer(
-		lighting.gpuDevice[].queue, 
+		lighting.gpuDevice.queue, 
 		getfield(lighting, :uniformBuffer),
 		data,
 	)

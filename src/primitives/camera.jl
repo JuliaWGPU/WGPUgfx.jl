@@ -351,7 +351,7 @@ function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData).data
 	@info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
 	WGPUCore.writeBuffer(
-		camera.gpuDevice[].queue, 
+		camera.gpuDevice.queue, 
 		getfield(camera, :uniformBuffer),
 		data,
 	)

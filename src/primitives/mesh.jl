@@ -89,7 +89,7 @@ mutable struct WGPUMesh
 	texture
 	textureView
 	sampler
-	bindGroup
+	pipelineLayout
 	renderPipeline
 end
 
@@ -120,11 +120,11 @@ function prepareObject(gpuDevice, mesh::WGPUMesh)
 		setfield!(mesh, :sampler, sampler)
 		dstLayout = [
 			:dst => [
-				:texture => texture |> Ref,
+				:texture => texture,
 				:mipLevel => 0,
 				:origin => ((0, 0, 0) .|> Float32)
 			],
-			:textureData => mesh.textureData |> Ref,
+			:textureData => mesh.textureData,
 			:layout => [
 				:offset => 0,
 				:bytesPerRow => 256*4, # TODO should be multiple of 256
@@ -176,9 +176,8 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; isVision=false, bindi
 		getBindings(scene.light, lightUniform; binding = isVision ? 2 : 1), 
 		getBindings(mesh, uniformBuffer; binding=binding)
 	)
-	(bindGroupLayouts, bindGroup) = WGPUCore.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
-	mesh.bindGroup = bindGroup
-	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
+	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindingLayouts, bindings)
+	mesh.pipelineLayout = pipelineLayout
 	renderPipelineOptions = getRenderPipelineOptions(
 		scene,
 		mesh,
@@ -277,9 +276,9 @@ end
 
 function updateUniformBuffer(mesh::WGPUMesh)
 	data = SMatrix{4, 4}(mesh.uniformData[:])
-	@info :UniformBuffer data
+	# @info :UniformBuffer data
 	WGPUCore.writeBuffer(
-		mesh.gpuDevice[].queue, 
+		mesh.gpuDevice.queue, 
 		getfield(mesh, :uniformBuffer),
 		data,
 	)
@@ -294,7 +293,7 @@ function readUniformBuffer(mesh::WGPUMesh)
 		getfield(mesh, :uniformBuffer).size
 	)
 	datareinterpret = reinterpret(Mat4{Float32}, data)[1]
-	@info "Received Buffer" datareinterpret
+	# @info "Received Buffer" datareinterpret
 end
 
 
@@ -547,6 +546,6 @@ function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, me
 	WGPUCore.setPipeline(renderPass, mesh.renderPipeline)
 	WGPUCore.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
 	WGPUCore.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
-	WGPUCore.setBindGroup(renderPass, 0, mesh.bindGroup, UInt32[], 0, 99)
+	WGPUCore.setBindGroup(renderPass, 0, mesh.pipelineLayout.bindGroup, UInt32[], 0, 99)
 	WGPUCore.drawIndexed(renderPass, Int32(mesh.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 end

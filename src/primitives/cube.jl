@@ -180,7 +180,7 @@ function updateUniformBuffer(cube::Cube)
 	data = SMatrix{4, 4}(cube.uniformData[:])
 	@info :UniformBuffer data
 	WGPUCore.writeBuffer(
-		cube.gpuDevice[].queue, 
+		cube.gpuDevice.queue, 
 		getfield(cube, :uniformBuffer),
 		data,
 	)
@@ -288,7 +288,7 @@ end
 function getRenderPipelineOptions(scene, cube::Cube)
 	renderpipelineOptions = [
 		WGPUCore.GPUVertexState => [
-			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
+			:_module => scene.cshader,						# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
 					getVertexBufferLayout(typeof(cube))
@@ -311,7 +311,7 @@ function getRenderPipelineOptions(scene, cube::Cube)
 			:alphaToCoverageEnabled=>false,
 		],
 		WGPUCore.GPUFragmentState => [
-			:_module => scene.cshader.internal[],						# SET THIS
+			:_module => scene.cshader,						# SET THIS
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPUCore.GPUColorTargetState =>	[
