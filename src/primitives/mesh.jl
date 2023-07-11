@@ -167,13 +167,13 @@ function preparePipeline(gpuDevice, scene, mesh::WGPUMesh; isVision=false, bindi
 	append!(
 		bindingLayouts, 
 		getBindingLayouts(scene.camera; binding = 0), 
-		getBindingLayouts(scene.light; binding = isVision ? 2 : 1), 
+		getBindingLayouts(scene.light; binding = (isVision ? 2 : 1)), 
 		getBindingLayouts(mesh; binding=binding)
 	)
 	append!(
 		bindings, 
 		getBindings(scene.camera, cameraUniform; binding = 0), 
-		getBindings(scene.light, lightUniform; binding = isVision ? 2 : 1), 
+		getBindings(scene.light, lightUniform; binding = (isVision ? 2 : 1)), 
 		getBindings(mesh, uniformBuffer; binding=binding)
 	)
 	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindingLayouts, bindings)
@@ -202,7 +202,6 @@ function computeUniformData(mesh::WGPUMesh)
 	return defaultUniformData(WGPUMesh)
 end
 
-
 function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology=WGPUPrimitiveTopology_TriangleList)
 	meshdata = readObj(path) # TODO hardcoding Obj format
 	vIndices = reduce(hcat, map((x)->broadcast(first, x), meshdata.indices)) .|> UInt32
@@ -210,6 +209,11 @@ function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.
 	uIndices = reduce(hcat, map((x)->getindex.(x, 2), meshdata.indices))
 	vertexData = reduce(hcat, meshdata.positions[vIndices[:]]) .|> Float32
 
+	# TODO blender conversion 
+	swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
+	# swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
+	
+	vertexData = swapMat*vertexData
 	uvData = nothing
 	textureData = nothing
 	texture = nothing
@@ -232,7 +236,7 @@ function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.
 	
 	colorData = repeat(unitColor, inner=(1, length(vIndices)))
 	
-	normalData = reduce(hcat, meshdata.normals[nIndices[:]]) .|> Float32
+	normalData = swapMat*reduce(hcat, meshdata.normals[nIndices[:]]) .|> Float32
 	
 	mesh = WGPUMesh(
 		nothing, 
@@ -263,16 +267,13 @@ Base.setproperty!(mesh::WGPUMesh, f::Symbol, v) = begin
 	updateUniformBuffer(mesh)
 end
 
-
 Base.getproperty(mesh::WGPUMesh, f::Symbol) = begin
 	getfield(mesh, f)
 end
 
-
 function getUniformData(mesh::WGPUMesh)
 	return mesh.uniformData
 end
-
 
 function updateUniformBuffer(mesh::WGPUMesh)
 	data = SMatrix{4, 4}(mesh.uniformData[:])
@@ -283,7 +284,6 @@ function updateUniformBuffer(mesh::WGPUMesh)
 		data,
 	)
 end
-
 
 function readUniformBuffer(mesh::WGPUMesh)
 	data = WGPUCore.readBuffer(
@@ -296,11 +296,9 @@ function readUniformBuffer(mesh::WGPUMesh)
 	# @info "Received Buffer" datareinterpret
 end
 
-
 function getUniformBuffer(mesh::WGPUMesh)
 	getfield(mesh, :uniformBuffer)
 end
-
 
 function getShaderCode(mesh::WGPUMesh; isVision=false, islight=false, binding=0)
 	name = Symbol(:mesh, binding)
@@ -506,7 +504,7 @@ function getRenderPipelineOptions(scene, mesh::WGPUMesh)
 		WGPUCore.GPUPrimitiveState => [
 			:topology => "TriangleList",
 			:frontFace => "CCW",
-			:cullMode => "Front",
+			:cullMode => "Back",
 			:stripIndexFormat => "Undefined"
 		],
 		WGPUCore.GPUDepthStencilState => [
