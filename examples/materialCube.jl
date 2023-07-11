@@ -24,7 +24,7 @@ scene = Scene(
 	repeat([nothing], 6)...
 )
 
-cube = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+cube = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"); image= "/Users/arhik/Pictures/OIP.jpeg")
 
 addObject!(scene, cube)
 

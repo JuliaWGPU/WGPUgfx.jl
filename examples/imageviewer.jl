@@ -33,19 +33,31 @@ attachEventSystem(scene)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-
-			# rot = RotXY(0.3, time())
-			# mat = MMatrix{4, 4}(mesh1.uniformData)
-			# mat[1:3, 1:3] .= rot
-			# mesh1.uniformData = mat
-			
 			runApp(gpuDevice, scene)
 			PollEvents()
 		end
 	finally
+		for object in scene.objects
+			for prop in propertynames(object)
+				if WGPUCore.isDestroyable(getfield(object, prop))
+					@warn "Destroying" typeof(object) prop 
+					WGPUCore.destroy(getfield(object, prop))
+				end
+			end
+		end
+		WGPUCore.destroy(scene.cshader.internal[])
+		# WGPUCore.destroy(gpuDevice.adapter)
+		WGPUCore.destroy(gpuDevice)
 		WGPUCore.destroyWindow(canvas)
 	end
 end
+
+# using Profile
+# Profile.Allocs.clear()
+# @time Profile.Allocs.@profile sample_rate=1 runApp(gpuDevice, scene)
+# 
+# using PProf
+# PProf.Allocs.pprof(from_c = true)
 
 if abspath(PROGRAM_FILE)==@__FILE__
 	main()

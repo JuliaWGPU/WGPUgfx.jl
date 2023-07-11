@@ -23,19 +23,19 @@ scene = Scene(
 	repeat([nothing], 6)...
 )
 
-mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"))
 
 addObject!(scene, mesh)
 
 attachEventSystem(scene)
 
-# @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			# camera = scene.camera
-			# rotxy = RotXY(pi/3, time())
-			# camera.scale = [1, 1, 1] .|> Float32
+			tz = translate([sin(time()), 0, 0]).linear
+			mat = MMatrix{4, 4}(mesh.uniformData)
+			mat .= tz
+			mesh.uniformData = mat
 			runApp(gpuDevice, scene)
 			PollEvents()
 		end

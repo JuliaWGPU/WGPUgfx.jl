@@ -24,7 +24,6 @@ scene = Scene(
 	repeat([nothing], 6)...
 )
 
-
 mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "orangebot.obj"))
 
 addObject!(scene, mesh)

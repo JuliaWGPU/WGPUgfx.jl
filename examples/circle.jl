@@ -9,7 +9,7 @@ using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
 
-canvas = WGPUCore.defaultInit(WGPUCore.WGPUCanvas);
+canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
 gpuDevice = WGPUCore.getDefaultDevice();
 
 scene = Scene(canvas, [], repeat([nothing], 9)...)
