@@ -33,10 +33,10 @@ end
 
 function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 	mouse.middleClick = istruthy(Val(state))
-	mat = Matrix{Float32}(I, (4, 4))
-	a = camera.uniformData
-	a[1:3, 1:3] = mat[1:3, 1:3]
-	camera.uniformData = a
+	# mat = Matrix{Float32}(I, (4, 4))
+	# a = camera.uniformData
+	# a[1:3, 1:3] = mat[1:3, 1:3]
+	# camera.uniformData = a
 end
 
 
@@ -55,7 +55,9 @@ function attachScrollCallback(canvas, camera::Camera)
 		canvas,
 		(_, xoff, yoff) -> begin
 			@info "MouseScroll" xoff, yoff
+			eye = camera.eye
 			camera.scale = camera.scale .+ yoff.*maximum(mouseState.speed)
+			camera.eye = eye
 		end
 	)
 end
@@ -67,13 +69,13 @@ function attachCursorPosCallback(canvas, camera::Camera)
 			@info "Mouse Position" x, y
 			if all(((x, y) .- canvas.size) .< 0)
 				if mouseState.leftClick
-					delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
+					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
 					@info delta
 					rot = RotXY(delta...)
 					mat = MMatrix{4, 4, Float32}(I)
 					mat[1:3, 1:3] = rot
 					camera.transform = camera.transform*mat 
-					mouseState.prevPosition = (x, y)
+					mouseState.prevPosition = (y, x)
 				elseif mouseState.rightClick
 					delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
 					mat = MMatrix{4, 4, Float32}(I)
@@ -110,7 +112,7 @@ function attachCursorPosCallback(canvas, vision::Vision)
 			@info "Mouse Position" x, y
 			if all(((x, y) .- canvas.size) .< 0)
 				if mouseState.leftClick
-					delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
+					delta = (mouseState.prevPosition .- (y, x)).*mouseState.speed
 					@info delta
 					rot = RotXY(delta...)
 					mat = MMatrix{4, 4, Float32}(I)
