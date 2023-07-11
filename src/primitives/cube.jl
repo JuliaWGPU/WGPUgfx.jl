@@ -9,12 +9,16 @@ mutable struct Cube
 	colorData
 	indexData
 	normalData
-	uvs
+	uvData
 	uniformData
 	uniformBuffer
 	indexBuffer
 	vertexBuffer
-	bindGroup
+	textureData
+	texture
+	textureView
+	sampler
+	pipelineLayout
 	renderPipeline
 end
 
@@ -34,28 +38,28 @@ function prepareObject(gpuDevice, cube::Cube)
 	return cube
 end
 
-function preparePipeline(gpuDevice, scene, cube::Cube; binding=2)
+function preparePipeline(gpuDevice, scene, cube::Cube; isVision=false, binding=2)
 	bindingLayouts = []
 	bindings = []
 	cameraUniform = getfield(scene.camera, :uniformBuffer)
+	lightUniform = getfield(scene.light, :uniformBuffer)
 	vertexBuffer = getfield(cube, :vertexBuffer)
 	uniformBuffer = getfield(cube, :uniformBuffer)
 	indexBuffer = getfield(cube, :indexBuffer)
 	append!(
 		bindingLayouts, 
-		getBindingLayouts(typeof(scene.camera); binding = 0), 
-		scene.light != nothing ? getBindingLayouts(typeof(scene.light); binding = 1) : [], 
-		getBindingLayouts(typeof(cube); binding=binding)
+		getBindingLayouts(scene.camera; binding = 0), 
+		getBindingLayouts(scene.light; binding = (isVision ? 2 : 1)), 
+		getBindingLayouts(cube; binding=binding)
 	)
 	append!(
 		bindings, 
-		getBindings(typeof(scene.camera), cameraUniform; binding=0), 
-		scene.light != nothing ? getBindings(typeof(scene.light), cameraUniform; binding=1) : [], 
-		getBindings(typeof(cube), uniformBuffer; binding=binding)
+		getBindings(scene.camera, cameraUniform; binding=0), 
+		getBindings(scene.light, lightUniform; binding=(isVision ? 2 : 1)), 
+		getBindings(cube, uniformBuffer; binding=binding)
 	)
-	(bindGroupLayouts, bindGroup) = WGPUCore.makeBindGroupAndLayout(gpuDevice, bindingLayouts, bindings)
-	cube.bindGroup = bindGroup
-	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindGroupLayouts)
+	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindingLayouts, bindings)
+	cube.pipelineLayout = pipelineLayout
 	renderPipelineOptions = getRenderPipelineOptions(
 		scene,
 		cube,
@@ -128,8 +132,8 @@ function defaultCube()
 
 	faceNormal = cat([
 		[0, 0, 1, 0],
-		[1, 0, 0, 0],
 		[0, 0, -1, 0],
+		[1, 0, 0, 0],
 		[-1, 0, 0, 0],
 		[0, 1, 0, 0],
 		[0, -1, 0, 0]
@@ -143,12 +147,16 @@ function defaultCube()
 		colorData, 
 		indexData, 
 		normalData, 
-		nothing, 		# TODO fill UVs later
+		nothing, 		# TODO fill later
 		nothing, 		# uniformData
 		nothing, 		# uniformBuffer
 		nothing, 		# indexBuffer
 		nothing,	 	# vertexBuffer
-		nothing,		# bindGroup
+		nothing,	 	# textureData
+		nothing,	 	# texture
+		nothing,	 	# textureView
+		nothing,	 	# sampler
+		nothing,		# pipelineLayout
 		nothing			# renderPipeline
 	)
 	cube
@@ -203,16 +211,92 @@ function getUniformBuffer(cube::Cube)
 	getfield(cube, :uniformBuffer)
 end
 
-function getShaderCode(::Type{Cube}; islight=false, binding=0)
+function getShaderCode(cube::Cube; isVision::Bool, islight=false, binding=0)
 	name = Symbol(:cube, binding)
-	shaderCode = quote
-		struct CubeUniform
+	isTexture = cube.textureData != nothing
+	shaderSource = quote
+		struct WGPUCubeUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding $name::@user CubeUniform
+		
+		@var Uniform 0 $binding $name::@user WGPUCubeUniform
+		
+		if $isTexture
+			@var Generic 0 $(binding + 1)  tex::Texture2D{Float32}
+			@var Generic 0 $(binding + 2)  smplr::Sampler
+		end
+
+		@vertex function vs_main(vertexIn::@user VertexInput)::@user VertexOutput
+			@var out::@user VertexOutput
+			if $isVision
+				@var pos::Vec4{Float32} = $(name).transform*vertexIn.pos
+				out.vPosLeft = lefteye.transform*pos
+				out.vPosRight = righteye.transform*pos
+				out.pos = vertexIn.pos
+			else
+				out.pos = $(name).transform*vertexIn.pos
+				out.pos = camera.transform*out.pos
+			end
+			out.vColor = vertexIn.vColor
+			if $isTexture
+				out.vTexCoords = vertexIn.vTexCoords
+			end
+			if $islight
+				if $isVision
+					@var normal::Vec4{Float32} = $(name).transform*vertexIn.vNormal
+					out.vNormalLeft = lefteye.transform*normal
+					out.vNormalRight = righteye.transform*normal
+				else
+					out.vNormal = $(name).transform*vertexIn.vNormal
+					out.vNormal = camera.transform*out.vNormal
+				end
+			end
+			return out
+		end
+
+		@fragment function fs_main(fragmentIn::@user VertexOutput)::@location 0 Vec4{Float32}
+			if $isTexture
+				@var color::Vec4{Float32} = textureSample(tex, smplr, fragmentIn.vTexCoords)
+			else
+				@var color::Vec4{Float32} = fragmentIn.vColor
+			end
+			if $islight
+				if $isVision
+					@let NLeft::Vec3{Float32} = normalize(fragmentIn.vNormalLeft.xyz)
+					@let LLeft::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.vPosLeft.xyz)
+					@let VLeft::Vec3{Float32} = normalize(lefteye.eye.xyz - fragmentIn.vPosLeft.xyz)
+					@let HLeft::Vec3{Float32} = normalize(LLeft + VLeft)
+					@let NRight::Vec3{Float32} = normalize(fragmentIn.vNormalRight.xyz)
+					@let LRight::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.vPosRight.xyz)
+					@let VRight::Vec3{Float32} = normalize(righteye.eye.xyz - fragmentIn.vPosRight.xyz)
+					@let HRight::Vec3{Float32} = normalize(LRight + VRight)
+					@let diffuseLeft::Float32 = lighting.diffuseIntensity*max(dot(NLeft, LLeft), 0.0)
+					@let specularLeft::Float32 = lighting.specularIntensity*pow(max(dot(NLeft, HLeft), 0.0), lighting.specularShininess)
+					@let ambientLeft::Float32 = lighting.ambientIntensity
+					@let diffuseRight::Float32 = lighting.diffuseIntensity*max(dot(NRight, LRight), 0.0)
+					@let specularRight::Float32 = lighting.specularIntensity*pow(max(dot(NRight, HRight), 0.0), lighting.specularShininess)
+					@let ambientRight::Float32 = lighting.ambientIntensity
+					@let colorLeft::Vec4{Float32} = color*(ambientLeft + diffuseLeft) + lighting.specularColor*specularLeft
+					@let colorRight::Vec4{Float32} = color*(ambientRight + diffuseRight) + lighting.specularColor*specularRight
+					return colorLeft + colorRight
+				else
+					@let N::Vec3{Float32} = normalize(fragmentIn.vNormal.xyz)
+					@let L::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.pos.xyz)
+					@let V::Vec3{Float32} = normalize(camera.eye.xyz - fragmentIn.pos.xyz)
+					@let H::Vec3{Float32} = normalize(L + V)
+					@let diffuse::Float32 = lighting.diffuseIntensity*max(dot(N, L), 0.0)
+					@let specular::Float32 = lighting.specularIntensity*pow(max(dot(N, H), 0.0), lighting.specularShininess)
+					@let ambient::Float32 = lighting.ambientIntensity
+					return color*(ambient + diffuse) + lighting.specularColor*specular
+				end
+			else
+				return color
+			end
+		end
+
  	end
  	
-	return shaderCode
+	return shaderSource
 end
 
 # TODO check it its called multiple times
@@ -220,7 +304,14 @@ function getVertexBuffer(gpuDevice, cube::Cube)
 	(vertexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
-		vcat([cube.vertexData, cube.colorData, cube.normalData]...), 
+		vcat(
+			[
+				cube.vertexData, 
+				cube.colorData, 
+				cube.normalData,
+				cube.uvData
+			][cube.textureData != nothing ? (1:end) : (1:end-1)]...
+		), 
 		["Vertex", "CopySrc"]
 	)
 	vertexBuffer
@@ -237,7 +328,7 @@ function getIndexBuffer(gpuDevice, cube::Cube)
 end
 
 # TODO remove kwargs offset
-function getVertexBufferLayout(::Type{Cube}; offset = 0)
+function getVertexBufferLayout(cube::Cube; offset = 0)
 	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => 12*4,
 		:stepMode => "Vertex",
@@ -256,25 +347,42 @@ function getVertexBufferLayout(::Type{Cube}; offset = 0)
 				:format => "Float32x4",
 				:offset => 8*4,
 				:shaderLocation => offset + 2
+			],
+			:attribute => [
+				:format => "Float32x2",
+				:offset => 12*4,
+				:shaderLocation => offset + 3
 			]
-		]
+		][cube.textureData != nothing ? (1:end) : (1:end-1)]
 	]
 end
 
 
-function getBindingLayouts(::Type{Cube}; binding=0)
+function getBindingLayouts(cube::Cube; binding=0)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
+		],
+		WGPUCore.WGPUTextureEntry => [
+			:binding => binding + 1,
+			:visibility => "Fragment",
+			:sampleType => "Float",
+			:viewDimension => "2D",
+			:multisampled => false
+		],
+		WGPUCore.WGPUSamplerEntry => [
+			:binding => binding + 2,
+			:visibility => "Fragment",
+			:type => "Filtering"
 		]
-	]
+	][cube.textureData != nothing ? (1:end) : (1:1)]
 	return bindingLayouts
 end
 
 
-function getBindings(::Type{Cube}, uniformBuffer; binding=0)
+function getBindings(cube::Cube, uniformBuffer; binding=0)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,
@@ -282,22 +390,30 @@ function getBindings(::Type{Cube}, uniformBuffer; binding=0)
 			:offset => 0,
 			:size => uniformBuffer.size
 		],
-	]
+		WGPUCore.GPUTextureView => [
+			:binding => binding + 1,
+			:textureView => cube.textureView
+		],
+		WGPUCore.GPUSampler => [
+			:binding => binding + 2,
+			:sampler => cube.sampler
+		]
+	][cube.textureData != nothing ? (1:end) : (1:1)]
 end
 
 function getRenderPipelineOptions(scene, cube::Cube)
 	renderpipelineOptions = [
 		WGPUCore.GPUVertexState => [
-			:_module => scene.cshader,						# SET THIS (AUTOMATICALLY)
+			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
-					getVertexBufferLayout(typeof(cube))
+					getVertexBufferLayout(cube)
 				]
 		],
 		WGPUCore.GPUPrimitiveState => [
 			:topology => "TriangleList",
 			:frontFace => "CCW",
-			:cullMode => "Front",
+			:cullMode => "Back",
 			:stripIndexFormat => "Undefined"
 		],
 		WGPUCore.GPUDepthStencilState => [
@@ -311,7 +427,7 @@ function getRenderPipelineOptions(scene, cube::Cube)
 			:alphaToCoverageEnabled=>false,
 		],
 		WGPUCore.GPUFragmentState => [
-			:_module => scene.cshader,						# SET THIS
+			:_module => scene.cshader.internal[],						# SET THIS
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPUCore.GPUColorTargetState =>	[
@@ -337,11 +453,11 @@ function render(renderPass, renderPassOptions, cube::Cube)
 	WGPUCore.setPipeline(renderPass, cube.renderPipeline)
 	WGPUCore.setIndexBuffer(renderPass, cube.indexBuffer, "Uint32")
 	WGPUCore.setVertexBuffer(renderPass, 0, cube.vertexBuffer)
-	WGPUCore.setBindGroup(renderPass, 0, cube.bindGroup, UInt32[], 0, 99)
+	WGPUCore.setBindGroup(renderPass, 0, cube.pipelineLayout.bindGroup, UInt32[], 0, 99)
 	WGPUCore.drawIndexed(renderPass, Int32(cube.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 end
 
 
-function toMesh(::Type{Cube})
+function toMesh(cube::Cube)
 	
 end
