@@ -11,7 +11,6 @@ export Scene, composeShader, defaultCamera, defaultVision, Vision, Camera, defau
 	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting,
 	defaultWGPUMesh, addObject!
 
-
 mutable struct Scene
 	gpuDevice
 	canvas	
@@ -25,6 +24,17 @@ mutable struct Scene
 	renderTextureFormat
 	cshader
 end
+
+
+# TODO not sure if this is right approach
+# function Base.setproperty!(scene::Scene, s::Symbol, v)
+	# if s==:depthView
+		# if scene.depthView != nothing
+			# WGPUCore.destroy(scene.depthView)
+			# WGPUCore.destroy(scene.depthView.texture[])
+		# end
+	# end
+# end
 
 
 # TODO viewport dependent addObject
@@ -99,10 +109,9 @@ end
 setup(scene) = setup(scene.gpuDevice, scene)
 
 function setup(gpuDevice, scene)
-
 	scene.renderTextureFormat = WGPUCore.getPreferredFormat(scene.canvas)
 	presentContext = WGPUCore.getContext(scene.canvas)
-	WGPUCore.determineSize(presentContext[])
+	WGPUCore.determineSize(presentContext)
 	WGPUCore.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
 	scene.presentContext = presentContext
 	
@@ -115,19 +124,19 @@ function setup(gpuDevice, scene)
 		@info cshader.src
 		if idx == 1
 			prepareObject(gpuDevice, scene.camera)
+			scene.camera.up = [0, 1, 0] .|> Float32
+			scene.camera.eye = ([0.0, 0, 4.0] .|> Float32)
+			(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 		end
-		scene.camera.eye = ([0.0, 0.0, -4.0] .|> Float32)
-		(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
 		prepareObject(gpuDevice, object)
 		preparePipeline(gpuDevice, scene, object; isVision=isVision, binding=binding)
 	end
-	
 end
 
 runApp(scene) = runApp(scene.gpuDevice, scene)
 
 function runApp(gpuDevice, scene)
-	currentTextureView = WGPUCore.getCurrentTexture(scene.presentContext[]);
+	currentTextureView = WGPUCore.getCurrentTexture(scene.presentContext);
 	cmdEncoder = WGPUCore.createCommandEncoder(gpuDevice, "CMD ENCODER")
 
 	scene.depthTexture = WGPUCore.createTexture(
@@ -171,10 +180,12 @@ function runApp(gpuDevice, scene)
 
 	renderPass = WGPUCore.beginRenderPass(cmdEncoder, renderPassOptions |> Ref; label= "BEGIN RENDER PASS")
 
+	# TODO idea default viewport 0
 	for object in scene.objects
 		render(renderPass, renderPassOptions, object)
 	end
 
+	# TODO and support multiple viewports
 	# WGPUCore.setViewport(renderPass, 150, 150, 300, 300, 0, 1)
 	# for object in scene.objects
 		# render(renderPass, renderPassOptions, object)
@@ -182,6 +193,23 @@ function runApp(gpuDevice, scene)
 	
 	WGPUCore.endEncoder(renderPass)
 	WGPUCore.submit(gpuDevice.queue, [WGPUCore.finish(cmdEncoder),])
-	WGPUCore.present(scene.presentContext[])
+	WGPUCore.present(scene.presentContext)
+
+	# for object in scene.objects
+		# # WGPUCore.destroy(object.renderPipeline)
+		# # for prop in propertynames(object)
+			# # @info typeof(object) prop
+			# # if prop in [:uniformBuffer, :vertexBuffer, :indexBuffer, :renderPipeline]
+				# # continue
+			# # elseif WGPUCore.isDestroyable(getfield(object, prop))
+				# # @warn typeof(object) prop "Destroying"
+				# # WGPUCore.destroy(getfield(object, prop))
+			# # end
+		# # end
+	# end
+
+	WGPUCore.destroy(scene.depthView)
+	WGPUCore.destroy(scene.depthView.texture[])
+
 end
 
