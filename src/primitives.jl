@@ -9,6 +9,8 @@ flatten(x) = reshape(x, (:,))
 using WGPUNative
 using WGPUCore
 
+include("renderable.jl")
+
 for (root, dirs, files) in walkdir(joinpath(@__DIR__,"primitives"))
 	for file in files
 		include(joinpath(root, file))
