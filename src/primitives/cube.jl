@@ -6,6 +6,7 @@ export defaultCube, Cube
 
 mutable struct Cube <: Renderable
 	gpuDevice
+	topology
 	vertexData
 	colorData
 	indexData
@@ -81,6 +82,7 @@ function defaultCube()
 
 	cube = Cube(
 		nothing, 		# gpuDevice
+		"TriangleList",
 		vertexData, 
 		colorData, 
 		indexData, 

@@ -75,7 +75,7 @@ end
 
 mutable struct WGPUMesh <: MeshSurface
 	gpuDevice
-	topology::WGPUPrimitiveTopology
+	topology
 	vertexData
 	colorData
 	indexData
@@ -93,7 +93,7 @@ mutable struct WGPUMesh <: MeshSurface
 	renderPipeline
 end
 
-function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology=WGPUPrimitiveTopology_TriangleList)
+function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology="TriangleList")
 	meshdata = readObj(path) # TODO hardcoding Obj format
 	vIndices = reduce(hcat, map((x)->broadcast(first, x), meshdata.indices)) .|> UInt32
 	nIndices = reduce(hcat, map((x)->getindex.(x, 3), meshdata.indices))

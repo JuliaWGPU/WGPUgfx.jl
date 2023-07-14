@@ -5,6 +5,7 @@ export Triangle3D, defaultTriangle3D
 
 mutable struct Triangle3D <: Renderable
 	gpuDevice
+	topology
 	vertexData
 	colorData
 	indexData
@@ -48,6 +49,7 @@ function defaultTriangle3D()
 	
 	triangle = Triangle3D(
 		nothing,
+		"TriangleList",
 		vertexData, 
 		colorData, 
 		indexData, 

@@ -9,6 +9,7 @@ mutable struct Plane <: Renderable
 	wSegments
 	hSegments
 	gpuDevice
+	topology
 	vertexData
 	colorData
 	indexData
@@ -63,7 +64,8 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 		height, 
 		wSegments, 
 		hSegments, 
-		nothing, #gpuDevice, 
+		nothing, #gpuDevice,
+		"TriangleList", 
 		vertexData,
 		colorData,
 		indexData,
