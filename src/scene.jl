@@ -46,7 +46,7 @@ end
 function composeShader(gpuDevice, scene, object; binding=3)
 	src = quote end
 
-	islight = (scene.light != nothing)
+	islight = (scene.light != nothing) && isdefined(object, :normalData)
 
 	isVision = typeof(scene.camera) != Camera
 	
@@ -54,7 +54,11 @@ function composeShader(gpuDevice, scene, object; binding=3)
 
 	islight && push!(src.args, getShaderCode(scene.light; isVision=isVision, islight=islight, binding= isVision ? 2 : 1))
 
-	isTexture = object.textureData != nothing
+	isTexture = false
+
+	if isdefined(object, :textureData)
+		isTexture = object.textureData != nothing
+	end
 	
 	defaultSource = quote
 		struct VertexInput
@@ -116,17 +120,25 @@ function setup(gpuDevice, scene)
 	scene.presentContext = presentContext
 	
 	isVision = typeof(scene.camera) == Vision
+	preparedCamera = false
+	preparedLight = false
 
 	for (idx, object) in enumerate(scene.objects)
 		binding = idx + (isVision ? 2 : 1)
 		cshader = composeShader(gpuDevice, scene, object; binding=binding)
 		scene.cshader = cshader
 		@info cshader.src
-		if idx == 1
+		if !preparedCamera
 			prepareObject(gpuDevice, scene.camera)
 			scene.camera.up = [0, 1, 0] .|> Float32
 			scene.camera.eye = ([0.0, 0, 4.0] .|> Float32)
-			(scene.light != nothing) && prepareObject(gpuDevice, scene.light)
+			preparedCamera = true
+		end
+		if !preparedLight
+			if (scene.light != nothing) && isLightRequired(object)
+				prepareObject(gpuDevice, scene.light)
+				preparedLight = true
+			end
 		end
 		prepareObject(gpuDevice, object)
 		preparePipeline(gpuDevice, scene, object; isVision=isVision, binding=binding)

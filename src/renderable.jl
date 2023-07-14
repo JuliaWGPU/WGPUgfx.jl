@@ -4,11 +4,14 @@ abstract type WGPUPrimitive <: Renderable end
 
 abstract type MeshSurface <: Renderable end
 abstract type MeshWireFrame <: Renderable end
+abstract type MeshAxis <: Renderable end
 
 @enum RenderType begin
 	SURFACE
 	WIREFRAME
 end
+
+isLightRequired(mesh::Renderable) = isdefined(mesh, :normalData)
 
 function prepareObject(gpuDevice, mesh::Renderable)
 	uniformData = computeUniformData(mesh)
@@ -92,7 +95,12 @@ function preparePipeline(gpuDevice, scene, mesh::Renderable; isVision=false, bin
 		getBindings(scene.light, lightUniform; binding = (isVision ? 2 : 1)), 
 		getBindings(mesh, uniformBuffer; binding=binding)
 	)
-	pipelineLayout = WGPUCore.createPipelineLayout(gpuDevice, "PipeLineLayout", bindingLayouts, bindings)
+	pipelineLayout = WGPUCore.createPipelineLayout(
+		gpuDevice, 
+		"PipeLineLayout", 
+		bindingLayouts, 
+		bindings
+	)
 	mesh.pipelineLayout = pipelineLayout
 	renderPipelineOptions = getRenderPipelineOptions(
 		scene,
