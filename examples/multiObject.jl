@@ -25,8 +25,10 @@ scene = Scene(
 	repeat([nothing], 6)...,
 )
 
+grid = defaultGrid()
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"))
 mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "torus.obj"))
+addObject!(scene, grid)
 addObject!(scene, mesh2)
 addObject!(scene, mesh1)
 
