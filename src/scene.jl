@@ -46,25 +46,39 @@ end
 function composeShader(gpuDevice, scene, object; binding=3)
 	src = quote end
 
-	islight = (scene.light != nothing) && isdefined(object, :normalData)
+	isLight = (scene.light != nothing) && isdefined(object, :normalData)
 
 	isVision = typeof(scene.camera) != Camera
 	
-	push!(src.args, getShaderCode(scene.camera; isVision=isVision, islight=islight, binding=0))
+	push!(src.args, getShaderCode(scene.camera; isVision=isVision, islight=isLight, binding=0))
 
-	islight && push!(src.args, getShaderCode(scene.light; isVision=isVision, islight=islight, binding= isVision ? 2 : 1))
+	isLight && push!(src.args, getShaderCode(scene.light; isVision=isVision, islight=isLight, binding= isVision ? 2 : 1))
 
 	isTexture = false
 
 	if isdefined(object, :textureData)
 		isTexture = object.textureData != nothing
 	end
+
+	VertexInputName = Symbol(
+		:VertexInput, 
+		isLight ? (:LL) : (:NL),
+		isTexture ? (:TT) : (:NT),
+		isVision ? (:VV) : (:NV)
+	)
 	
+	VertexOutputName = Symbol(
+		:VertexOutput, 
+		isLight ? (:LL) : (:NL),
+		isTexture ? (:TT) : (:NT),
+		isVision ? (:VV) : (:NV)
+	)
+
 	defaultSource = quote
-		struct VertexInput
+		struct $VertexInputName
 			@location 0 pos::Vec4{Float32}
 			@location 1 vColor::Vec4{Float32}
-			if $islight
+			if $isLight
 				@location 2 vNormal::Vec4{Float32}
 			end
 			if $isTexture
@@ -72,7 +86,7 @@ function composeShader(gpuDevice, scene, object; binding=3)
 			end
 		end
 
-		struct VertexOutput
+		struct $VertexOutputName
 			@location 0 vColor::Vec4{Float32}
 			@builtin position pos::Vec4{Float32}
 
@@ -81,7 +95,7 @@ function composeShader(gpuDevice, scene, object; binding=3)
 				@location 2 vPosRight::Vec4{Float32}
 			end
 
-			if $islight
+			if $isLight
 				if $isVision
 					@location 3 vNormalLeft::Vec4{Float32}
 					@location 4 vNormalRight::Vec4{Float32}
@@ -100,7 +114,7 @@ function composeShader(gpuDevice, scene, object; binding=3)
 	end
 	
 	push!(src.args, defaultSource)
-	push!(src.args, getShaderCode(object; isVision=isVision, islight=islight, binding = binding))
+	push!(src.args, getShaderCode(object; isVision=isVision, islight=isLight, binding = binding))
 	try
 		createShaderObj(gpuDevice, src; savefile=false)
 	catch(e)
