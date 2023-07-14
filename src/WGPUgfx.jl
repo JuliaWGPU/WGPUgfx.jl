@@ -21,9 +21,8 @@ export @builtin, @location, wgslType, @var, @letvar,
 	Location, LocationDataType, Vec2, Vec3, Vec4, Mat2, Mat3, Mat4, SMatrix, SVector,
 	getVertexBuffer, getUniformBuffer, getTextureView, getIndexBuffer, writeTexture,
 	getUniformData, defaultUniformData, defaultCube, getVertexBufferLayout,
-	composeShader, Scene, getShaderCode, defaultCamera, Camera, defaultVision, Vision, defaultCube, Cube,
+	composeShader, Scene, getShaderCode, defaultCamera, Camera, defaultCube, Cube,
 	setup, runApp, getBindingLayouts, getBindings, defaultPlane, Plane, defaultTriangle3D,
 	Triangle3D, defaultCircle, Circle, defaultLighting, Lighting, defaultWGPUMesh,
 	addObject!, attachEventSystem
-
 end

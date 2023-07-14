@@ -6,7 +6,7 @@ using LinearAlgebra
 using StaticArrays
 using GeometryBasics: Mat4
 
-export Scene, composeShader, defaultCamera, defaultVision, Vision, Camera, defaultCube,
+export Scene, composeShader, defaultCamera, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
 	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting,
 	defaultWGPUMesh, addObject!
@@ -48,11 +48,9 @@ function composeShader(gpuDevice, scene, object; binding=3)
 
 	isLight = (scene.light != nothing) && isdefined(object, :normalData)
 
-	isVision = typeof(scene.camera) != Camera
-	
-	push!(src.args, getShaderCode(scene.camera; isVision=isVision, islight=isLight, binding=0))
+	push!(src.args, getShaderCode(scene.camera; islight=isLight, binding=0))
 
-	isLight && push!(src.args, getShaderCode(scene.light; isVision=isVision, islight=isLight, binding= isVision ? 2 : 1))
+	isLight && push!(src.args, getShaderCode(scene.light; islight=isLight, binding= 1))
 
 	isTexture = false
 
@@ -64,14 +62,12 @@ function composeShader(gpuDevice, scene, object; binding=3)
 		:VertexInput, 
 		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),
-		isVision ? (:VV) : (:NV)
 	)
 	
 	VertexOutputName = Symbol(
 		:VertexOutput, 
 		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),
-		isVision ? (:VV) : (:NV)
 	)
 
 	defaultSource = quote
@@ -90,31 +86,17 @@ function composeShader(gpuDevice, scene, object; binding=3)
 			@location 0 vColor::Vec4{Float32}
 			@builtin position pos::Vec4{Float32}
 
-			if $isVision
-				@location 1 vPosLeft::Vec4{Float32}
-				@location 2 vPosRight::Vec4{Float32}
-			end
-
 			if $isLight
-				if $isVision
-					@location 3 vNormalLeft::Vec4{Float32}
-					@location 4 vNormalRight::Vec4{Float32}
-				else
-					@location 1 vNormal::Vec4{Float32}
-				end
+				@location 1 vNormal::Vec4{Float32}
 			end
 			if $isTexture
-				if $isVision
-					@location 5 vTexCoords::Vec2{Float32}
-				else
-					@location 2 vTexCoords::Vec2{Float32}
-				end	
+				@location 2 vTexCoords::Vec2{Float32}
 			end
 		end
 	end
 	
 	push!(src.args, defaultSource)
-	push!(src.args, getShaderCode(object; isVision=isVision, islight=isLight, binding = binding))
+	push!(src.args, getShaderCode(object; islight=isLight, binding = binding))
 	try
 		createShaderObj(gpuDevice, src; savefile=false)
 	catch(e)
@@ -133,12 +115,11 @@ function setup(gpuDevice, scene)
 	WGPUCore.config(presentContext, device=gpuDevice, format = scene.renderTextureFormat)
 	scene.presentContext = presentContext
 	
-	isVision = typeof(scene.camera) == Vision
 	preparedCamera = false
 	preparedLight = false
 
 	for (idx, object) in enumerate(scene.objects)
-		binding = idx + (isVision ? 2 : 1)
+		binding = idx + 1
 		cshader = composeShader(gpuDevice, scene, object; binding=binding)
 		scene.cshader = cshader
 		@info cshader.src
@@ -155,7 +136,7 @@ function setup(gpuDevice, scene)
 			end
 		end
 		prepareObject(gpuDevice, object)
-		preparePipeline(gpuDevice, scene, object; isVision=isVision, binding=binding)
+		preparePipeline(gpuDevice, scene, object; binding=binding)
 	end
 end
 

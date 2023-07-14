@@ -94,48 +94,6 @@ function attachCursorPosCallback(canvas, camera::Camera)
 end
 
 
-function attachScrollCallback(canvas, vision::Vision)
-	WGPUCore.setScrollCallback(
-		canvas,
-		(_, xoff, yoff) -> begin
-			@info "MouseScroll" xoff, yoff
-			vision.scale = vision.scale .+ yoff.*maximum(mouseState.speed)
-		end
-	)
-end
-
-
-function attachCursorPosCallback(canvas, vision::Vision)
-	WGPUCore.setCursorPosCallback(
-		canvas, 
-		(_, x, y) -> begin
-			@info "Mouse Position" x, y
-			if all(((x, y) .- canvas.size) .< 0)
-				if mouseState.leftClick
-					delta = (mouseState.prevPosition .- (y, x)).*mouseState.speed
-					@info delta
-					rot = RotXY(delta...)
-					mat = MMatrix{4, 4, Float32}(I)
-					mat[1:3, 1:3] = rot
-					vision.transform = vision.transform*mat
-					mouseState.prevPosition = (x, y)
-				elseif mouseState.rightClick
-					delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
-					mat = MMatrix{4, 4, Float32}(I)
-					mat[1:3, 3] .= [delta..., 0]
-					vision.transform = vision.transform*mat
-					mouseState.prevPosition = (x, y)
-				elseif mouseState.middleClick
-					mat = MMatrix{4, 4, Float32}(I)
-					vision.transform = mat
-				else
-					mouseState.prevPosition = (x, y)
-				end
-			end
-		end
-	)
-end
-
 
 function attachEventSystem(scene)
 

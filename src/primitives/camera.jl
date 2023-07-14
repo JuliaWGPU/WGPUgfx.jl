@@ -425,7 +425,7 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(camera::Camera; isVision=false, islight=false, binding=1)
+function getShaderCode(camera::Camera; islight=false, binding=1)
 	shaderSource = quote
 		struct CameraUniform
 			eye::Vec3{Float32}
