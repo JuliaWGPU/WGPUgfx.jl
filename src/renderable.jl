@@ -13,6 +13,12 @@ end
 
 isLightRequired(mesh::Renderable) = isdefined(mesh, :normalData)
 
+function AABB(mesh::Renderable)
+	minCoords = minimum(mesh.vertexData, dims=2)
+	maxCoords = maximum(mesh.vertexData, dims=2)
+	return hcat([minCoords, maxCoords]...)
+end
+
 function prepareObject(gpuDevice, mesh::Renderable)
 	uniformData = computeUniformData(mesh)
 	if isdefined(mesh, :textureData) && mesh.textureData != nothing
