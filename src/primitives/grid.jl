@@ -29,8 +29,8 @@ function defaultGrid(; origin=[0, 0, 0], len=4.0, segments = 10)
 	) .|> Float32 
 
 	unitColor = cat([
-		[0.6, 0.6, 0.6, 1.0],
-		[0.6, 0.6, 0.6, 1.0],
+		[0.3, 0.3, 0.3, 3.0],
+		[0.3, 0.3, 0.3, 3.0],
 	]..., dims=2) .|> Float32
 
 	colorData = repeat(unitColor, inner=(1, 2), outer=(1, segments+1))
