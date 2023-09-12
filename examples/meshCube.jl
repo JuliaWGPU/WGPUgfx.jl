@@ -20,7 +20,7 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
 
 mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))

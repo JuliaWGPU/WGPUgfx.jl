@@ -14,7 +14,7 @@ gpuDevice = WGPUCore.getDefaultDevice();
 camera = defaultCamera()
 light = defaultLighting()
 
-scene = Scene(gpuDevice, canvas, camera, light, [], repeat([nothing], 6)...)
+scene = Scene(gpuDevice, canvas, camera, light, [], repeat([nothing], 4)...)
 
 triangle = defaultTriangle3D()
 

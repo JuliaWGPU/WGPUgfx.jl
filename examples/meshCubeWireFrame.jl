@@ -1,5 +1,6 @@
 using Debugger
 using WGPUgfx
+using WGPUgfx: RenderType
 using WGPUCore
 using WGPUNative
 using GLFW
@@ -7,43 +8,43 @@ using GLFW: WindowShouldClose, PollEvents, DestroyWindow
 using LinearAlgebra
 using Rotations
 using StaticArrays
-using CoordinateTransformations
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas; size=(500, 500));
+canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
 gpuDevice = WGPUCore.getDefaultDevice();
 
 camera = defaultCamera()
 light = defaultLighting()
-
 scene = Scene(
-	gpuDevice,
+	gpuDevice, 
 	canvas, 
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 4)...,
+	repeat([nothing], 4)...
 )
 
-grid = defaultGrid()
-mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"))
-mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "torus.obj"))
-addObject!(scene, grid)
-addObject!(scene, mesh2)
-addObject!(scene, mesh1)
+mesh = WGPUgfx.defaultCube()# (joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"))
+wo = WorldObject{Cube}(
+	mesh, 
+	RenderType(VISIBLE | SURFACE | WIREFRAME | AXIS), 
+	nothing, 
+	nothing, 
+	nothing, 
+	nothing
+)
+
+addObject!(scene, wo)
 
 attachEventSystem(scene)
 
-# @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-
-			rot = RotXY(0.3, time())
-			mat = MMatrix{4, 4}(mesh1.uniformData)
-			mat[1:3, 1:3] .= rot
-			mesh1.uniformData = mat
-			
+			tz = translate([sin(time()), 0, 0]).linear
+			mat = MMatrix{4, 4}(wo.uniformData)
+			mat .= tz
+			wo.uniformData = mat
 			runApp(gpuDevice, scene)
 			PollEvents()
 		end

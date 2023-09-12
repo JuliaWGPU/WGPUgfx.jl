@@ -40,53 +40,52 @@ function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 end
 
 
-function attachMouseButtonCallback(canvas, camera)
+function attachMouseButtonCallback(scene, camera)
 	WGPUCore.setMouseButtonCallback(
-		canvas, 
+		scene.canvas, 
 		(_, button, action, a) -> begin
-			@info GLFW.MouseButton button action a mouseState
+			# @info GLFW.MouseButton button action a mouseState
 			setMouseState(mouseState, Val(button), action)
 		end
 	)
 end
 
-function attachScrollCallback(canvas, camera::Camera)
+function attachScrollCallback(scene, camera::Camera)
 	WGPUCore.setScrollCallback(
-		canvas,
+		scene.canvas,
 		(_, xoff, yoff) -> begin
-			@info "MouseScroll" xoff, yoff
-			eye = camera.eye
+			# @info "MouseScroll" xoff, yoff
 			camera.scale = camera.scale .+ yoff.*maximum(mouseState.speed)
-			camera.eye = eye
 		end
 	)
 end
 
-function attachCursorPosCallback(canvas, camera::Camera)
+function attachCursorPosCallback(scene, camera::Camera)
 	WGPUCore.setCursorPosCallback(
-		canvas, 
+		scene.canvas, 
 		(_, x, y) -> begin
-			@info "Mouse Position" x, y
-			if all(((x, y) .- canvas.size) .< 0)
+			# @info "Mouse Position" x, y
+			if all(((x, y) .- scene.canvas.size) .< 0)
 				if mouseState.leftClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
-					@info delta
+					# @info delta
 					rot = RotXY(delta...)
 					mat = MMatrix{4, 4, Float32}(I)
 					mat[1:3, 1:3] = rot
-					camera.transform = camera.transform*mat 
+					camera.transform = camera.transform*mat
 					mouseState.prevPosition = (y, x)
 				elseif mouseState.rightClick
-					delta = (mouseState.prevPosition .- (x, y)).*mouseState.speed
+					delta = (mouseState.prevPosition .- (y, x)).*mouseState.speed
 					mat = MMatrix{4, 4, Float32}(I)
 					mat[1:3, 3] .= [delta..., 0]
 					camera.transform = camera.transform*mat
-					mouseState.prevPosition = (x, y)
+					mouseState.prevPosition = (y, x)
 				elseif mouseState.middleClick
 					mat = MMatrix{4, 4, Float32}(I)
 					camera.transform = mat
+					mouseState.prevPosition = (y, x)
 				else
-					mouseState.prevPosition = (x, y)
+					mouseState.prevPosition = (y, x)
 				end
 			end
 		end
@@ -96,12 +95,8 @@ end
 
 
 function attachEventSystem(scene)
-
-	canvas = scene.canvas
 	camera = scene.camera
-
-	attachMouseButtonCallback(canvas, camera)
-	attachScrollCallback(canvas, camera)
-	attachCursorPosCallback(canvas, camera)
-
+	attachMouseButtonCallback(scene, camera)
+	attachScrollCallback(scene, camera)
+	attachCursorPosCallback(scene, camera)
 end

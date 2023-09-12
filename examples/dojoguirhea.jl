@@ -40,11 +40,6 @@ function get_input_idx(mechanism::Mechanism, x::Symbol)
 	@error "Could not find the symbol"
 end
 
-function get_state_idxs(mechanism)
-	for joint in mechanism.joints
-	end	
-end
-
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas)
@@ -67,36 +62,41 @@ scene = Scene(
 addObject!(scene, grid)
 addObject!(scene, axis)
 
-mechanism = get_mechanism(:cartpole3D)
+mechanism = get_mechanism(:rhea)
 
 bodies = mechanism.bodies
 origin = mechanism.origin
 
 # ### Controller
-stateIdxs = [[4:6..., 10:16...]]
-x0 = zeros(16)
-u0 = zeros(8)
+stateIdxs = [4:6..., 10:16...]
+
+x0 = get_minimal_state(mechanism)
+u0 = zeros(12)
 
 A, B = get_minimal_gradients!(mechanism, x0, u0)
 # Q = [1.0, 1.0, 1.0, 0.2, 0.2, 0.8, 0.002, 0.002, 0.002, 0.002] |> diagm
 Q = [0.00001, 0.00001, 0.00001, 0.099, 0.099, 0.099, 0.0001, 0.0001, 0.00004, 0.00004] |> diagm
 
-x_goal = get_minimal_state(mechanism)[stateIdxs...]
+x_goal = get_minimal_state(mechanism)[stateIdxs]
 
-actuators = [:left_wheel, :right_wheel]
+actuators = [:left_wheel, :right_wheel, :left_hip, :right_hip]
 
 R = I(length(actuators))
 idxs = [get_input_idx(mechanism, actuator) for actuator in actuators]
 
 function controller!(mechanism, k)
-	x = get_minimal_state(mechanism)[stateIdxs...]
-	K = lqr(Discrete,A[stateIdxs..., stateIdxs...],B[stateIdxs..., [idxs...]],Q,R)
+	x = get_minimal_state(mechanism)[stateIdxs]
+	K = lqr(Discrete,A[stateIdxs, stateIdxs],B[stateIdxs, idxs],Q,R)
     u = K * (x - x_goal)
     @show u
     leftWheel = get_joint(mechanism, :left_wheel)
     rightWheel = get_joint(mechanism, :right_wheel)
+    leftHip = get_joint(mechanism, :left_hip)
+    rightHip = get_joint(mechanism, :right_hip)
     set_input!(leftWheel, [u[1]])
     set_input!(rightWheel, [u[2]])
+    set_input!(leftHip, [u[3]])
+    set_input!(rightHip, [u[4]])
 end
 
 initialize!(mechanism, :rhea; body_position=[0.0, 0.0, 0.0])
@@ -186,7 +186,7 @@ end
 
 main = () -> begin
 	initTransform!(scene, mechanism)
-	initialize!(mechanism, :rhea; body_position=[0.0, 0.0, 0.00])
+	initialize!(mechanism, :rhea; body_position=[0.0, 0.0, 0.0])
 	try
 		while !WindowShouldClose(canvas.windowRef[])
 			stepController!(mechanism)

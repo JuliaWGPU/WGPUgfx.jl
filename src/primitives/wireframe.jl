@@ -15,6 +15,7 @@ mutable struct WGPUWireFrame <: Renderable
 	vertexBuffer
 	pipelineLayout
 	renderPipeline
+	cshader
 end
 
 function defaultWireFrame(object::Renderable; color=[1.0, 1.0, 1.0, 1.0])
@@ -23,7 +24,7 @@ function defaultWireFrame(object::Renderable; color=[1.0, 1.0, 1.0, 1.0])
 	indexData = object.indexData
 	box = WGPUBBox(
 		nothing, 		# gpuDevice
-		"LineStrip",
+		"LineList",
 		vertexData, 
 		colorData, 
 		indexData, 
@@ -32,7 +33,8 @@ function defaultWireFrame(object::Renderable; color=[1.0, 1.0, 1.0, 1.0])
 		nothing, 		# indexBuffer
 		nothing,	 	# vertexBuffer
 		nothing,		# pipelineLayout
-		nothing			# renderPipeline
+		nothing,		# renderPipeline
+		nothing,		# cshader
 	)
 	box
 end

@@ -190,7 +190,7 @@ end
 
 function updateUniformBuffer(lighting::Lighting)
 	data = getfield(lighting, :uniformData).data
-	@info :UniformBuffer lighting.uniformData
+	# @info :UniformBuffer lighting.uniformData
 	WGPUCore.writeBuffer(
 		lighting.gpuDevice.queue, 
 		getfield(lighting, :uniformBuffer),
@@ -208,7 +208,7 @@ function readUniformBuffer(lighting::Lighting)
 		getfield(lighting, :uniformBuffer).size
 	)
 	datareinterpret = reinterpret(UniformType, data)[1]
-	@info "Received Buffer" datareinterpret
+	# @info "Received Buffer" datareinterpret
 end
 
 
@@ -217,7 +217,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(lighting::Lighting; islight=true, binding=0)
+function getShaderCode(lighting::Lighting; binding=0)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}
@@ -260,6 +260,4 @@ function getBindings(lighting::Lighting, uniformBuffer; binding=0)
 		],
 	]
 end
-
-
 

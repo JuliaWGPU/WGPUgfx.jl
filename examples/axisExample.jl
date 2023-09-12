@@ -1,4 +1,4 @@
-
+using Revise
 using WGPUgfx
 using WGPUCore
 using GLFW
@@ -23,7 +23,7 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
 
 addObject!(scene, axis)

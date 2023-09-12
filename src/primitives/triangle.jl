@@ -21,8 +21,8 @@ mutable struct Triangle3D <: Renderable
 	sampler
 	pipelineLayout
 	renderPipeline
+	cshader
 end
-
 
 function defaultTriangle3D()
 	vertexData =  cat([
@@ -65,7 +65,7 @@ function defaultTriangle3D()
 		nothing,
 		nothing,
 		nothing,
+		nothing,
 	)
 	triangle
 end
-

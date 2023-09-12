@@ -22,7 +22,7 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...,
+	repeat([nothing], 4)...,
 )
 
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "plane.obj"); image="/Users/arhik/Pictures/OIP.jpeg")
@@ -45,7 +45,6 @@ main = () -> begin
 				end
 			end
 		end
-		WGPUCore.destroy(scene.cshader.internal[])
 		# WGPUCore.destroy(gpuDevice.adapter)
 		WGPUCore.destroy(gpuDevice)
 		WGPUCore.destroyWindow(canvas)

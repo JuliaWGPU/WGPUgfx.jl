@@ -5,15 +5,12 @@ using Rotations
 using CoordinateTransformations
 using Quaternions
 
-
 export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, rotateTransform, scaleTransform,
-	getUniformBuffer, getUniformData, getShaderCode
-
+	getUniformBuffer, getUniformData, getShaderCode, updateUniformBuffer
 
 coordinateTransform = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32
 invCoordinateTransform = inv(coordinateTransform)
-
 
 mutable struct Camera
 	gpuDevice
@@ -28,7 +25,6 @@ mutable struct Camera
 	uniformData
 	uniformBuffer
 end
-
 
 function prepareObject(gpuDevice, camera::Camera)
 	scale = [1, 1, 1] .|> Float32
@@ -83,8 +79,8 @@ function defaultCamera()
 	scale = [1, 1, 1] .|> Float32
 	fov = (75/180)*pi |> Float32
 	aspectRatio = 1.0 |> Float32
-	nearPlane = 1.0 |> Float32
-	farPlane = 1000.0 |> Float32
+	nearPlane = 0.1 |> Float32
+	farPlane = 100.0 |> Float32
 	return Camera(
 		nothing,
 		eye,
@@ -252,8 +248,7 @@ end
 
 function rotateTransform(q::Quaternion)
 	rotMat = coordinateTransform[1:3, 1:3]*rotmatrix_from_quat(q)
-	mat = Matrix{Float32}(undef, (4, 4))
-	mat[4, :] .= [0, 0, 0, 1]
+	mat = Matrix{Float32}(I, (4, 4))
 	mat[1:3, 1:3] .= rotMat
 	return LinearMap(
 		SMatrix{4, 4}(
@@ -399,7 +394,7 @@ end
 
 function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData).data
-	@info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
+	# @info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
 	WGPUCore.writeBuffer(
 		camera.gpuDevice.queue, 
 		getfield(camera, :uniformBuffer),
@@ -416,7 +411,7 @@ function readUniformBuffer(camera::Camera)
 		getfield(camera, :uniformBuffer).size
 	)
 	datareinterpret = reinterpret(SMatrix{4, 4, Float32, 16}, data)[1]
-	@info "Received Buffer" datareinterpret
+	# @info "Received Buffer" datareinterpret
 end
 
 
@@ -425,7 +420,7 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(camera::Camera; islight=false, binding=1)
+function getShaderCode(camera::Camera; binding=1)
 	shaderSource = quote
 		struct CameraUniform
 			eye::Vec3{Float32}

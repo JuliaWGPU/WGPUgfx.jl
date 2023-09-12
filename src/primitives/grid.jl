@@ -12,10 +12,22 @@ mutable struct MainGrid <: Renderable
 	vertexBuffer
 	pipelineLayout
 	renderPipeline
+	cshader
 end
 
-function defaultGrid(; origin=[0, 0, 0], len=4.0, segments = 10)
-	segLen = len/segments
+function defaultGrid(; origin=[0, 0, 0], scale::Union{Vector{Float32}, Float32}=1.0f0, len=4.0, segments = 10)
+	# if typeof(len) == Float64
+		# len = [len, len]
+	# end
+	# if typeof(segments) == Float64
+		# segments = [segments, segments]
+	# end
+	if typeof(scale) <: Number
+		scale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm
+	else
+		scale = scale |> diagm
+	end
+	segLen = len./segments
 	vertexData = ((len/2.0) |> Float32) .- cat(
 		cat(
 			[[
@@ -27,6 +39,8 @@ function defaultGrid(; origin=[0, 0, 0], len=4.0, segments = 10)
 			..., 
 		dims=2)..., dims=2
 	) .|> Float32 
+
+	vertexData = scale*vertexData
 
 	unitColor = cat([
 		[0.3, 0.3, 0.3, 3.0],
@@ -43,6 +57,7 @@ function defaultGrid(; origin=[0, 0, 0], len=4.0, segments = 10)
 		vertexData,
 		colorData,
 		indexData,
+		nothing,
 		nothing,
 		nothing,
 		nothing,

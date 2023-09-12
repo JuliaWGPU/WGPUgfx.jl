@@ -1,18 +1,6 @@
 using CEnum
 
-export WorldObject, render, RenderType
-
-@cenum RenderType begin
-	VISIBLE = 1
-	SURFACE = 2
-	WIREFRAME = 4
-	BBOX = 8
-	AXIS = 16
-	SELECT = 32
-end
-
-isRenderType(rtype::RenderType, vtype::RenderType) = (rtype & vtype) == vtype
-
+export WorldNode, render
 
 mutable struct WorldObject{T<:Renderable} <: Renderable
 	renderObj::T
@@ -22,11 +10,6 @@ mutable struct WorldObject{T<:Renderable} <: Renderable
 	axis::Union{Nothing, Renderable}
 	select::Union{Nothing, Renderable}
 end
-
-isTextureDefined(wo::WorldObject{T}) where T<:Renderable = isTextureDefined(T)
-isTextureDefined(::Type{WorldObject{T}}) where T<:Renderable = isTextureDefined(T)
-isNormalDefined(wo::WorldObject{T}) where T<:Renderable = isNormalDefined(T)
-isNormalDefined(::Type{WorldObject{T}}) where T<:Renderable = isNormalDefined(T)
 
 function renderableCount(mesh::WorldObject{T}) where T<:Renderable
 	meshType = typeof(mesh)

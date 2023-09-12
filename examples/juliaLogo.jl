@@ -22,7 +22,7 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...,
+	repeat([nothing], 4)...,
 )
 
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); color=[0.6, 0.4, 0.5, 1.0])

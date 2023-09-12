@@ -15,6 +15,7 @@ mutable struct WGPUBBox <: Renderable
 	vertexBuffer
 	pipelineLayout
 	renderPipeline
+	cshader
 end
 
 function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
@@ -51,7 +52,7 @@ function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
 	
 	box = WGPUBBox(
 		nothing, 		# gpuDevice
-		"LineStrip",
+		"LineList",
 		vertexData, 
 		colorData, 
 		indexData, 
@@ -60,7 +61,8 @@ function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
 		nothing, 		# indexBuffer
 		nothing,	 	# vertexBuffer
 		nothing,		# pipelineLayout
-		nothing			# renderPipeline
+		nothing,		# renderPipeline
+		nothing,		# cshader
 	)
 	box
 end

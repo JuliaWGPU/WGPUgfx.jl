@@ -73,15 +73,15 @@ bodies = mechanism.bodies
 origin = mechanism.origin
 
 # ### Controller
-stateIdxs = [[4:6..., 10:16...]]
+stateIdxs = [4, 10:16...]
 x0 = zeros(16)
 u0 = zeros(8)
 
 A, B = get_minimal_gradients!(mechanism, x0, u0)
 # Q = [1.0, 1.0, 1.0, 0.2, 0.2, 0.8, 0.002, 0.002, 0.002, 0.002] |> diagm
-Q = [0.00001, 0.00001, 0.00001, 0.099, 0.099, 0.099, 0.0001, 0.0001, 0.00004, 0.00004] |> diagm
+Q = [0.00001, 0.099, 0.099, 0.099, 0.0001, 0.0001, 0.00004, 0.00004] |> diagm
 
-x_goal = get_minimal_state(mechanism)[stateIdxs...]
+x_goal = get_minimal_state(mechanism)[stateIdxs]
 
 actuators = [:left_wheel, :right_wheel]
 
@@ -89,8 +89,8 @@ R = I(length(actuators))
 idxs = [get_input_idx(mechanism, actuator) for actuator in actuators]
 
 function controller!(mechanism, k)
-	x = get_minimal_state(mechanism)[stateIdxs...]
-	K = lqr(Discrete,A[stateIdxs..., stateIdxs...],B[stateIdxs..., [idxs...]],Q,R)
+	x = get_minimal_state(mechanism)[stateIdxs]
+	K = lqr(Discrete,A[stateIdxs, stateIdxs],B[stateIdxs, [idxs...]],Q,R)
     u = K * (x - x_goal)
     @show u
     leftWheel = get_joint(mechanism, :left_wheel)
@@ -185,6 +185,7 @@ function stepController!(mechanism)
 end
 
 main = () -> begin
+	camera.eye = [1.0, 1.0, 0.5]
 	initTransform!(scene, mechanism)
 	initialize!(mechanism, :rhea; body_position=[0.0, 0.0, 0.00])
 	try

@@ -25,8 +25,8 @@ mutable struct Plane <: Renderable
 	sampler
 	pipelineLayout
 	renderPipeline
+	cshader
 end
-
 
 function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0.2, 0.5, 1.0])
 
@@ -81,6 +81,6 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 		nothing, #sampler,
 		nothing, #pipelineLayout,
 		nothing, #renderPipeline
+		nothing, #cshader
 	)
 end
-

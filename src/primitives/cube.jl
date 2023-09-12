@@ -3,7 +3,6 @@ using WGPUCore
 
 export defaultCube, Cube
 
-
 mutable struct Cube <: Renderable
 	gpuDevice
 	topology
@@ -22,6 +21,7 @@ mutable struct Cube <: Renderable
 	sampler
 	pipelineLayout
 	renderPipeline
+	cshader
 end
 
 function defaultCube()
@@ -97,7 +97,8 @@ function defaultCube()
 		nothing,	 	# textureView
 		nothing,	 	# sampler
 		nothing,		# pipelineLayout
-		nothing			# renderPipeline
+		nothing,		# renderPipeline
+		nothing,		# cshader
 	)
 	cube
 end

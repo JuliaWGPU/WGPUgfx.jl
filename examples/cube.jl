@@ -20,12 +20,16 @@ scene = Scene(
 	camera,
 	light,
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
 
-cube = defaultCube()
-
-addObject!(scene, cube)
+cube = defaultWGPUMesh("$(pkgdir(WGPUgfx))/assets/monkey.obj")
+grid = defaultGrid()
+axis = defaultAxis(; len=2)
+wo = WorldObject(cube, RenderType(VISIBLE | SURFACE | WIREFRAME | BBOX | AXIS ), nothing, nothing, nothing, nothing)
+addObject!(scene, wo)
+addObject!(scene, grid)
+addObject!(scene, axis)
 
 attachEventSystem(scene)
 

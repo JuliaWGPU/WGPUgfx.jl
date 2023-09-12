@@ -6,11 +6,9 @@ using Rotations
 using CoordinateTransformations
 using Images
 
-
 export defaultWGPUMesh, WGPUMesh, lookAtRightHanded, perspectiveMatrix, orthographicMatrix,
 	windowingTransform, translateWGPUMesh, openglToWGSL, translate, scaleTransform,
 	getUniformBuffer, getUniformData
-
 
 export WGPUMesh
 
@@ -91,27 +89,33 @@ mutable struct WGPUMesh <: MeshSurface
 	sampler
 	pipelineLayout
 	renderPipeline
+	cshader
 end
 
-function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology="TriangleList")
+function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 1.0f0, color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology="TriangleList")
 	meshdata = readObj(path) # TODO hardcoding Obj format
 	vIndices = reduce(hcat, map((x)->broadcast(first, x), meshdata.indices)) .|> UInt32
 	nIndices = reduce(hcat, map((x)->getindex.(x, 3), meshdata.indices))
 	uIndices = reduce(hcat, map((x)->getindex.(x, 2), meshdata.indices))
 	vertexData = reduce(hcat, meshdata.positions[vIndices[:]]) .|> Float32
 
+	if typeof(scale) == Float32
+		scale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm
+	else
+		scale = scale |> diagm
+	end
 	# TODO blender conversion 
 	swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
 	# swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
 	
-	vertexData = swapMat*vertexData
+	vertexData = scale*swapMat*vertexData
 	uvData = nothing
 	textureData = nothing
 	texture = nothing
 	textureView = nothing
 	
 	if image != ""
-		uvData = reduce(hcat, meshdata.uvs[uIndices[:]]) .|> Float32
+		uvData = scale*reduce(hcat, meshdata.uvs[uIndices[:]]) .|> Float32
 		textureData = begin
 			img = load(image)
 			img = imresize(img, (256, 256)) # TODO hardcoded size
@@ -127,7 +131,7 @@ function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.
 	
 	colorData = repeat(unitColor, inner=(1, length(vIndices)))
 	
-	normalData = swapMat*reduce(hcat, meshdata.normals[nIndices[:]]) .|> Float32
+	normalData = scale*swapMat*reduce(hcat, meshdata.normals[nIndices[:]]) .|> Float32
 	
 	mesh = WGPUMesh(
 		nothing, 
@@ -143,6 +147,7 @@ function defaultWGPUMesh(path::String; color::Vector{Float64}=[0.5, 0.6, 0.7, 1.
 		nothing,
 		textureData,
 		nothing, 
+		nothing,
 		nothing,
 		nothing,
 		nothing,

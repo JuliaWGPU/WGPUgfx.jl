@@ -20,12 +20,16 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
 
 mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"))
 
+bb = defaultBBox(mesh)
+wf = defaultWireFrame(mesh)
 addObject!(scene, mesh)
+addObject!(scene, bb)
+addObject!(scene, wf)
 
 attachEventSystem(scene)
 

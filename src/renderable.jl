@@ -1,17 +1,11 @@
+export isNormalDefined, isTextureDefined
+
 abstract type Renderable end
 
 abstract type WGPUPrimitive <: Renderable end
-
 abstract type MeshSurface <: Renderable end
 abstract type MeshWireFrame <: Renderable end
 abstract type MeshAxis <: Renderable end
-
-@enum RenderType begin
-	SURFACE
-	WIREFRAME
-end
-
-isLightRequired(mesh::Renderable) = isdefined(mesh, :normalData)
 
 function AABB(mesh::Renderable)
 	minCoords = minimum(mesh.vertexData, dims=2)
@@ -19,9 +13,15 @@ function AABB(mesh::Renderable)
 	return hcat([minCoords, maxCoords]...)
 end
 
+renderableCount(mesh::Renderable) = 1
+
+isNormalDefined(renderObj::Renderable) = isdefined(renderObj, :normalData)
+isNormalDefined(T::Type{<:Renderable}) = :normalData in fieldnames(T)
+isTextureDefined(renderObj::Renderable) = isdefined(renderObj, :textureData)
+
 function prepareObject(gpuDevice, mesh::Renderable)
 	uniformData = computeUniformData(mesh)
-	if isdefined(mesh, :textureData) && mesh.textureData != nothing
+	if isTextureDefined(mesh) && mesh.textureData != nothing
 		textureSize = (size(mesh.textureData)[2:3]..., 1)
 		texture = WGPUCore.createTexture(
 			gpuDevice,
@@ -92,7 +92,7 @@ function preparePipeline(gpuDevice, scene, mesh::Renderable; binding=2)
 	bindingLayouts = []
 
 	append!(bindingLayouts, getBindingLayouts(scene.camera; binding = 0))
-	if isdefined(mesh, :normalData)
+	if isNormalDefined(mesh)
 		append!(bindingLayouts, getBindingLayouts(scene.light; binding = 1))
 	end
 	append!(bindingLayouts, getBindingLayouts(mesh; binding=binding))
@@ -100,7 +100,7 @@ function preparePipeline(gpuDevice, scene, mesh::Renderable; binding=2)
 	# Bindings
 	bindings = []
 	append!(bindings, getBindings(scene.camera, cameraUniform; binding = 0))
-	if isdefined(mesh, :normalData)
+	if isNormalDefined(mesh)
 		append!(bindings, getBindings(scene.light, lightUniform; binding = 1))
 	end
 	append!(bindings, getBindings(mesh, uniformBuffer; binding=binding))
@@ -126,7 +126,7 @@ function preparePipeline(gpuDevice, scene, mesh::Renderable; binding=2)
 end
 
 function defaultUniformData(::Type{<:Renderable}) 
-	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
+	uniformData = ones(Float32, (4,)) |> diagm
 	return uniformData
 end
 
@@ -143,13 +143,16 @@ Base.setproperty!(mesh::Renderable, f::Symbol, v) = begin
 	updateUniformBuffer(mesh)
 end
 
+
 Base.getproperty(mesh::Renderable, f::Symbol) = begin
 	getfield(mesh, f)
 end
 
+
 function getUniformData(mesh::Renderable)
 	return mesh.uniformData
 end
+
 
 function updateUniformBuffer(mesh::Renderable)
 	data = SMatrix{4, 4}(mesh.uniformData[:])
@@ -176,25 +179,48 @@ function getUniformBuffer(mesh::Renderable)
 	getfield(mesh, :uniformBuffer)
 end
 
-function getShaderCode(mesh::Renderable; islight=false, binding=0)
-	name = Symbol(:mesh, binding)
+function getShaderCode(mesh::Renderable; binding=2)
+	name = Symbol(typeof(mesh), binding)
 	meshType = typeof(mesh)
 	meshUniform = Symbol(meshType, :Uniform)
-	isTexture = isdefined(mesh, :textureData) && mesh.textureData != nothing
-
+	isTexture = isTextureDefined(mesh) && mesh.textureData != nothing
+	isLight = isNormalDefined(mesh)
 	vertexInputName = Symbol(
 		:VertexInput,
-		islight ? (:LL) : (:NL),
+		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),
 	)
 
 	vertexOutputName = Symbol(
 		:VertexOutput,
-		islight ? (:LL) : (:NL),
+		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),
 	)
 
 	shaderSource = quote
+		struct $vertexInputName
+			@location 0 pos::Vec4{Float32}
+			@location 1 vColor::Vec4{Float32}
+			if $isLight
+				@location 2 vNormal::Vec4{Float32}
+			end
+			if $isTexture
+				@location 3 vTexCoords::Vec2{Float32}
+			end
+		end
+
+		struct $vertexOutputName
+			@location 0 vColor::Vec4{Float32}
+			@builtin position pos::Vec4{Float32}
+
+			if $isLight
+				@location 1 vNormal::Vec4{Float32}
+			end
+			if $isTexture
+				@location 2 vTexCoords::Vec2{Float32}
+			end
+		end
+
 		struct $meshUniform
 			transform::Mat4{Float32}
 		end
@@ -214,7 +240,7 @@ function getShaderCode(mesh::Renderable; islight=false, binding=0)
 			if $isTexture
 				out.vTexCoords = vertexIn.vTexCoords
 			end
-			if $islight
+			if $isLight
 				out.vNormal = $(name).transform*vertexIn.vNormal
 				out.vNormal = camera.transform*out.vNormal
 			end
@@ -227,7 +253,7 @@ function getShaderCode(mesh::Renderable; islight=false, binding=0)
 			else
 				@var color::Vec4{Float32} = fragmentIn.vColor
 			end
-			if $islight
+			if $isLight
 				@let N::Vec3{Float32} = normalize(fragmentIn.vNormal.xyz)
 				@let L::Vec3{Float32} = normalize(lighting.position.xyz - fragmentIn.pos.xyz)
 				@let V::Vec3{Float32} = normalize(camera.eye.xyz - fragmentIn.pos.xyz)
@@ -254,13 +280,13 @@ function getVertexBuffer(gpuDevice, mesh::Renderable)
 		mesh.colorData
 	]
 	
-	if isdefined(mesh, :normalData)
+	if isNormalDefined(mesh)
 		push!(data, mesh.normalData)
 	else
 		push!(data, zeros(size(mesh.vertexData)))
 	end
 
-	if isdefined(mesh, :textureData) && mesh.textureData != nothing
+	if isTextureDefined(mesh) && mesh.textureData != nothing
 		push!(data, mesh.uvData)
 	end
 	
@@ -287,7 +313,7 @@ end
 
 function getVertexBufferLayout(mesh::Renderable; offset=0)
 	WGPUCore.GPUVertexBufferLayout => [
-		:arrayStride => (isdefined(mesh, :textureData) && mesh.textureData != nothing) ? 14*4 : 12*4,
+		:arrayStride => (isTextureDefined(mesh) && mesh.textureData != nothing) ? 14*4 : 12*4,
 		:stepMode => "Vertex",
 		:attributes => [
 			:attribute => [
@@ -310,7 +336,7 @@ function getVertexBufferLayout(mesh::Renderable; offset=0)
 				:offset => 12*4,
 				:shaderLocation => offset + 3
 			]
-		][(isdefined(mesh, :textureData) && mesh.textureData != nothing) ? (1:end) : (1:end-1)]
+		][(isTextureDefined(mesh) && mesh.textureData != nothing) ? (1:end) : (1:end-1)]
 	]
 end
 
@@ -323,7 +349,7 @@ function getBindingLayouts(mesh::Renderable; binding=4)
 			:type => "Uniform"
 		]
 	]
-	if isdefined(mesh, :textureData) && mesh.textureData != nothing
+	if isTextureDefined(mesh) && mesh.textureData != nothing
 		append!(
 			bindingLayouts, 
 			[			
@@ -355,7 +381,7 @@ function getBindings(mesh::Renderable, uniformBuffer; binding=4)
 			:size => uniformBuffer.size
 		],
 	]
-	if (isdefined(mesh, :textureData) && mesh.textureData != nothing) 
+	if (isTextureDefined(mesh) && mesh.textureData != nothing) 
 		append!(
 			bindings, 	
 			[				
@@ -376,7 +402,7 @@ end
 function getRenderPipelineOptions(scene, mesh::Renderable)
 	renderpipelineOptions = [
 		WGPUCore.GPUVertexState => [
-			:_module => scene.cshader.internal[],						# SET THIS (AUTOMATICALLY)
+			:_module => mesh.cshader.internal[],				# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
 					getVertexBufferLayout(mesh)
@@ -399,7 +425,7 @@ function getRenderPipelineOptions(scene, mesh::Renderable)
 			:alphaToCoverageEnabled=>false,
 		],
 		WGPUCore.GPUFragmentState => [
-			:_module => scene.cshader.internal[],						# SET THIS
+			:_module => mesh.cshader.internal[],						# SET THIS
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPUCore.GPUColorTargetState =>	[
