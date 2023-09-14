@@ -24,6 +24,7 @@ mutable struct Camera
 	farPlane
 	uniformData
 	uniformBuffer
+	id
 end
 
 function prepareObject(gpuDevice, camera::Camera)
@@ -61,7 +62,7 @@ end
 
 
 function computeUniformData(camera::Camera)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
 	uniformData = Ref{UniformType}() # TODO only first is necessary
 	io = getfield(camera, :uniformData)
 	unsafe_write(io, uniformData, sizeof(uniformData))
@@ -72,7 +73,7 @@ function computeUniformData(camera::Camera)
 end
 
 
-function defaultCamera()
+function defaultCamera(;id=0)
 	eye = [0.0, 0.0, -4.0] .|> Float32
 	lookat = [0, 0, 0] .|> Float32
 	up = [0, 1, 0] .|> Float32
@@ -92,13 +93,14 @@ function defaultCamera()
 		nearPlane,
 		farPlane,
 		IOBuffer(),
-		nothing
+		nothing,
+		id
 	)
 end
 
 
 function setVal!(camera::Camera, ::Val{:transform}, v)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :transform))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
@@ -109,7 +111,7 @@ end
 
 function setVal!(camera::Camera, ::Val{:eye}, v)
 	setfield!(camera, :eye, v)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :eye))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
@@ -161,7 +163,7 @@ end
 
 
 function setVal!(camera::Camera, ::Val{:uniformData}, v)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
@@ -190,7 +192,7 @@ end
 
 
 function getVal(camera::Camera, ::Val{:uniformData})
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
+	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
@@ -421,12 +423,13 @@ end
 
 
 function getShaderCode(camera::Camera; binding=1)
+	cameraUniform = Symbol(:CameraUniform, camera.id)
 	shaderSource = quote
-		struct CameraUniform
+		struct $cameraUniform
 			eye::Vec3{Float32}
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding camera::@user CameraUniform
+		@var Uniform 0 $binding camera::@user $cameraUniform
 	end
 	return shaderSource
 end
