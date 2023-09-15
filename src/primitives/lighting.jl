@@ -20,23 +20,41 @@ mutable struct Lighting
 	specularShininess
 	uniformData
 	uniformBuffer
+
+	function Lighting(
+		position,
+		specularColor,
+		ambientIntensity,
+		diffuseIntensity,
+		specularIntensity,
+		specularShininess,
+	)
+		lighting = new(
+			nothing,
+			position,
+			specularColor,
+			ambientIntensity,
+			diffuseIntensity,
+			specularIntensity,
+			specularShininess,
+			nothing, 
+			nothing
+		)
+		uniformData = computeUniformData(lighting)
+	end
 end
 
 
 function prepareObject(gpuDevice, lighting::Lighting)
-	io = computeUniformData(lighting)
-	uniformDataBytes = io |> read
-	seek(io, 0) # TODO not necessary maybe
+	uniformDataBytes = toByteArray(lighting.uniformData)
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"LightingBuffer",
 		uniformDataBytes,
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
-	setfield!(lighting, :uniformData, io)
 	setfield!(lighting, :uniformBuffer, uniformBuffer)
 	setfield!(lighting, :gpuDevice, gpuDevice)
-	seek(io, 0)
 	return lighting
 end
 
@@ -48,27 +66,16 @@ function preparePipeline(gpuDevice, scene, light::Lighting; binding=1)
 end
 
 
-# TODO not used
-function defaultUniformData(::Lighting) 
-	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
-	return uniformData
-end
-
-
 function computeUniformData(lighting::Lighting)
 	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	uniformData = Ref{UniformType}()
-	io = getfield(lighting, :uniformData)
-	unsafe_write(io, uniformData, sizeof(UniformType))
-	seek(io, 0)
-	setVal!(lighting, Val(:position), lighting.position)
-	setVal!(lighting, Val(:specularColor), lighting.specularColor)
-	setVal!(lighting, Val(:diffuseIntensity), lighting.diffuseIntensity)
-	setVal!(lighting, Val(:ambientIntensity), lighting.ambientIntensity)
-	setVal!(lighting, Val(:specularIntensity), lighting.specularIntensity)
-	setVal!(lighting, Val(:specularShininess), lighting.specularShininess)
-	seek(io, 0)
-	return io
+	uniformData = cStruct(UniformType)
+	uniformData.position = lighting.position
+	uniformData.specularColor = lighting.specularColor
+	uniformData.diffuseIntensity = lighting.diffuseIntensity
+	uniformData.ambientIntensity = lighting.ambientIntensity
+	uniformData.specularIntensity = lighting.specularIntensity
+	uniformData.specularShininess = lighting.specularShininess
+	return uniformData
 end
 
 
@@ -80,15 +87,12 @@ function defaultLighting()
 	specularIntensity = 1.0 |> Float32
 	specularShininess = 1.0 |> Float32
 	return Lighting(
-		nothing,
 		position,
 		specularColor,
 		ambientIntensity,
 		diffuseIntensity,
 		specularIntensity,
 		specularShininess,
-		IOBuffer(),
-		nothing
 	)
 end
 

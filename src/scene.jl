@@ -13,33 +13,45 @@ export Scene, composeShader, defaultCamera, Camera, defaultCube,
 
 mutable struct Scene
 	gpuDevice
-	canvas	
-	camera						# TODO cameras
+	canvas
+	cameraSystem::CameraSystem
+	cameraId::Int					# TODO cameras
 	light						# TODO lights
 	objects 					# ::Union{WorldObject, ObjectGroup}
 	presentContext
 	depthTexture				# Not sure if this should be part of scene
 	depthView					# same here
 	renderTextureFormat
+
+	function Scene()
+		canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas)
+		gpuDevice = WGPUCore.getDefaultDevice();
+		camera = defaultCamera()
+		light = defaultLighting()
+		cameraSystem = CameraSystem([])
+		addCamera!(cameraSystem, camera)
+		return new(gpuDevice, canvas, cameraSystem, 1, light, [], repeat([nothing,], 4)...)
+	end
 end
 
-
-# TODO not sure if this is right approach
-# function Base.setproperty!(scene::Scene, s::Symbol, v)
-	# if s==:depthView
-		# if scene.depthView != nothing
-			# WGPUCore.destroy(scene.depthView)
-			# WGPUCore.destroy(scene.depthView.texture[])
-		# end
-	# end
-# end
-
+function Base.getproperty(scene::Scene, x::Symbol)
+	if x == :camera
+		return scene.cameraSystem[scene.cameraId]
+	end
+	getfield(scene, x)
+end
 
 # TODO viewport dependent addObject
 function addObject!(scene, obj)
 	push!(scene.objects, obj)
+	# for camera in scene.cameraSystem
+		# push!(scene.objects[Symbol(:camera, camera.id)], copy(obj)) # TODO just id is enough
+	# end
 	setup(scene)
 end
+
+addCamera!(scene, camera::Camera) = addCamera!(scene.cameraSystem, camera)
+# addLight!(scene, light::Light) = addLight!(scene.lightSystem, light)
 
 function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 	src = quote end
@@ -60,7 +72,7 @@ function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=3)
 	try
 		cshader = createShaderObj(gpuDevice, src; savefile=false)
 		setfield!(object, :cshader, cshader)
-		# @info "Renderable" cshader.src
+		@info  cshader.src "Renderable"
 	catch(e)
 		@info "Caught exception in Renderable :compileShaders!" e
 		rethrow(e)
@@ -101,7 +113,7 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=3
 			try
 				cshader = createShaderObj(gpuDevice, src; savefile=false)
 				setfield!(obj, :cshader, cshader)
-				# @info "WorldObject" cshader.src
+				@info  cshader.src "WorldObject"
 			catch(e)
 				@info "Caught Exception in WorldObject :compileShaders!" e
 				rethrow(e)

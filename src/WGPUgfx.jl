@@ -10,6 +10,7 @@ using Reexport
 include("shaders.jl")
 include("primitives.jl")
 include("object.jl")
+include("system.jl")
 include("scene.jl")
 include("events.jl")
 

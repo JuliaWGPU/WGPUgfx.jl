@@ -1,14 +1,13 @@
-struct System <: Renderable end
+export CameraSystem, addCamera!
 
-struct CameraSystem <: System
-	primary
-	secondary
+struct CameraSystem <: ArraySystem
+	cameraArray::Array{Camera}
 end
 
-struct LightSystem <: System
-	primary
-	secondary
+function addCamera!(camSys::CameraSystem, camera::Camera)
+	push!(camSys.cameraArray, camera)
+	setfield!(camera, :id, length(camSys.cameraArray))
 end
 
+@forward  CameraSystem.cameraArray Base.iterate, Base.length, Base.getindex
 
-# 
