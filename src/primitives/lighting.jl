@@ -22,14 +22,12 @@ mutable struct Lighting
 	uniformBuffer
 
 	function Lighting(
-		position
-		specularColor
-		ambientIntensity
-		diffuseIntensity
-		specularIntensity
-		specularShininess
-		uniformData
-		uniformBuffer	
+		position,
+		specularColor,
+		ambientIntensity,
+		diffuseIntensity,
+		specularIntensity,
+		specularShininess,
 	)
 		lighting = new(
 			nothing,
@@ -89,15 +87,12 @@ function defaultLighting()
 	specularIntensity = 1.0 |> Float32
 	specularShininess = 1.0 |> Float32
 	return Lighting(
-		nothing,
 		position,
 		specularColor,
 		ambientIntensity,
 		diffuseIntensity,
 		specularIntensity,
 		specularShininess,
-		computeUniformData(),
-		nothing
 	)
 end
 
