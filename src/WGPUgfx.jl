@@ -12,6 +12,7 @@ include("primitives.jl")
 include("object.jl")
 include("system.jl")
 include("scene.jl")
+include("renderer.jl")
 include("events.jl")
 
 using GeometryBasics
