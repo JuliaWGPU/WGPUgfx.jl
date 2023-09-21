@@ -34,7 +34,7 @@ function prepareObject(gpuDevice, camera::Camera)
 	seek(io, 0)
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
-		" CAMERA BUFFER ",
+		" CAMERA $(camera.id-1) BUFFER ",
 		uniformDataBytes, 
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
@@ -48,8 +48,8 @@ end
 
 function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
 	uniformBuffer = getfield(camera, :uniformBuffer)
-	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=binding)...)
-	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=binding)...)
+	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=camera.id-1)...)
+	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=camera.id-1)...)
 end
 
 
@@ -62,7 +62,7 @@ end
 
 
 function computeUniformData(camera::Camera)
-	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	uniformData = Ref{UniformType}() # TODO only first is necessary
 	io = getfield(camera, :uniformData)
 	unsafe_write(io, uniformData, sizeof(uniformData))
@@ -100,7 +100,7 @@ end
 
 
 function setVal!(camera::Camera, ::Val{:transform}, v)
-	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :transform))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
@@ -111,7 +111,7 @@ end
 
 function setVal!(camera::Camera, ::Val{:eye}, v)
 	setfield!(camera, :eye, v)
-	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :eye))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
@@ -163,7 +163,7 @@ end
 
 
 function setVal!(camera::Camera, ::Val{:uniformData}, v)
-	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
@@ -192,7 +192,7 @@ end
 
 
 function getVal(camera::Camera, ::Val{:uniformData})
-	UniformType = getproperty(WGSLTypes, Symbol(:CameraUniform, camera.id))
+	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
@@ -422,14 +422,14 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(camera::Camera; binding=1)
-	cameraUniform = Symbol(:CameraUniform, camera.id)
+function getShaderCode(camera::Camera; binding=camera.id-1)
+	cameraUniform = :CameraUniform
 	shaderSource = quote
 		struct $cameraUniform
 			eye::Vec3{Float32}
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding camera::@user $cameraUniform
+		@var Uniform 0 $(binding) camera::@user $cameraUniform
 	end
 	return shaderSource
 end
@@ -443,7 +443,7 @@ end
 function getBindingLayouts(camera::Camera; binding=1)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
-			:binding => binding,
+			:binding => camera.id-1,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -455,7 +455,7 @@ end
 function getBindings(camera::Camera, uniformBuffer; binding=1)
 	bindings = [
 		WGPUCore.GPUBuffer => [
-			:binding => binding,
+			:binding => camera.id-1,
 			:buffer  => uniformBuffer,
 			:offset  => 0,
 			:size    => uniformBuffer.size

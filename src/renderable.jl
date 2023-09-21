@@ -81,8 +81,8 @@ function prepareObject(gpuDevice, mesh::Renderable)
 end
 
 
-function preparePipeline(gpuDevice, scene, mesh::Renderable; binding=2)
-	cameraUniform = getfield(scene.camera, :uniformBuffer)
+function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=2)
+	scene = renderer.scene
 	lightUniform = getfield(scene.light, :uniformBuffer)
 	vertexBuffer = getfield(mesh, :vertexBuffer)
 	uniformBuffer = getfield(mesh, :uniformBuffer)
@@ -90,8 +90,7 @@ function preparePipeline(gpuDevice, scene, mesh::Renderable; binding=2)
 
 	# BindingLayouts
 	bindingLayouts = []
-
-	append!(bindingLayouts, getBindingLayouts(scene.camera; binding = 0))
+	append!(bindingLayouts, getBindingLayouts(camera; binding = 0))
 	if isNormalDefined(mesh)
 		append!(bindingLayouts, getBindingLayouts(scene.light; binding = 1))
 	end
@@ -99,7 +98,58 @@ function preparePipeline(gpuDevice, scene, mesh::Renderable; binding=2)
 
 	# Bindings
 	bindings = []
-	append!(bindings, getBindings(scene.camera, cameraUniform; binding = 0))
+	cameraUniform = getfield(camera, :uniformBuffer)
+	append!(bindings, getBindings(camera, cameraUniform; binding = 0))
+
+	if isNormalDefined(mesh)
+		append!(bindings, getBindings(scene.light, lightUniform; binding = 1))
+	end
+	append!(bindings, getBindings(mesh, uniformBuffer; binding=binding))
+	
+	pipelineLayout = WGPUCore.createPipelineLayout(
+		gpuDevice, 
+		"PipeLineLayout", 
+		bindingLayouts, 
+		bindings
+	)
+	mesh.pipelineLayout = pipelineLayout
+	renderPipelineOptions = getRenderPipelineOptions(
+		renderer,
+		mesh,
+	)
+	renderPipeline = WGPUCore.createRenderPipeline(
+		gpuDevice, 
+		pipelineLayout, 
+		renderPipelineOptions; 
+		label=" MESH RENDER PIPELINE "
+	)
+	mesh.renderPipeline = renderPipeline
+end
+
+function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=2)
+	scene = renderer.scene
+	lightUniform = getfield(scene.light, :uniformBuffer)
+	vertexBuffer = getfield(mesh, :vertexBuffer)
+	uniformBuffer = getfield(mesh, :uniformBuffer)
+	indexBuffer = getfield(mesh, :indexBuffer)
+
+	# BindingLayouts
+	bindingLayouts = []
+	for camera in scene.cameraSystem
+		append!(bindingLayouts, getBindingLayouts(camera; binding = 0))
+	end
+	if isNormalDefined(mesh)
+		append!(bindingLayouts, getBindingLayouts(scene.light; binding = 1))
+	end
+	append!(bindingLayouts, getBindingLayouts(mesh; binding=binding))
+
+	# Bindings
+	bindings = []
+	for camera in scene.cameraSystem
+		cameraUniform = getfield(camera, :uniformBuffer)
+		append!(bindings, getBindings(camera, cameraUniform; binding = 0))
+	end
+
 	if isNormalDefined(mesh)
 		append!(bindings, getBindings(scene.light, lightUniform; binding = 1))
 	end
@@ -179,7 +229,7 @@ function getUniformBuffer(mesh::Renderable)
 	getfield(mesh, :uniformBuffer)
 end
 
-function getShaderCode(mesh::Renderable; binding=2)
+function getShaderCode(mesh::Renderable, cameraId::Int; binding=2)
 	name = Symbol(typeof(mesh), binding)
 	meshType = typeof(mesh)
 	meshUniform = Symbol(meshType, :Uniform)
@@ -399,7 +449,7 @@ function getBindings(mesh::Renderable, uniformBuffer; binding=4)
 	return bindings
 end
 
-function getRenderPipelineOptions(scene, mesh::Renderable)
+function getRenderPipelineOptions(renderer, mesh::Renderable)
 	renderpipelineOptions = [
 		WGPUCore.GPUVertexState => [
 			:_module => mesh.cshader.internal[],				# SET THIS (AUTOMATICALLY)
@@ -429,7 +479,7 @@ function getRenderPipelineOptions(scene, mesh::Renderable)
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPUCore.GPUColorTargetState =>	[
-					:format => scene.renderTextureFormat,				# SET THIS
+					:format => renderer.renderTextureFormat,				# SET THIS
 					:color => [
 						:srcFactor => "One",
 						:dstFactor => "Zero",

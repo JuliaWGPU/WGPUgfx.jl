@@ -94,7 +94,8 @@ end
 
 
 
-function attachEventSystem(scene)
+function attachEventSystem(renderer)
+	scene = renderer.scene
 	camera = scene.camera
 	attachMouseButtonCallback(scene, camera)
 	attachScrollCallback(scene, camera)

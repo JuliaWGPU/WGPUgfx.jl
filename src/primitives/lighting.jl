@@ -40,7 +40,7 @@ mutable struct Lighting
 			nothing, 
 			nothing
 		)
-		uniformData = computeUniformData(lighting)
+		return lighting
 	end
 end
 

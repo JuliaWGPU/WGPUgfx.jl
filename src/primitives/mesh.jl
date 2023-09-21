@@ -19,19 +19,6 @@ struct MeshData
 	indices
 end
 
-struct Index
-	position
-	uv
-	normal
-end
-
-# TODO not used yet
-# TODO think about conversion from blender export
-function readMesh(path::String)
-	extension = split(path, ".") |> last |> Symbol
-	readMesh(path::String, Val(extension))
-end
-
 function readObj(path::String)
 	(positions, normals, uvs, indices) = ([], [], [], [])
     f = open(path)
