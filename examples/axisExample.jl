@@ -26,13 +26,8 @@ setfield!(camera2, :id, 2)
 
 scene.cameraSystem = CameraSystem([camera1, camera2])
 
-function WGPUgfx.addObject!(scene, object, camera)
-	push!(scene.objects, object)
-	setup(renderer, object, camera)
-end
-
-addObject!(scene, axis1, camera1)
-addObject!(scene, axis2, camera2)
+addObject!(renderer, axis1, camera1)
+addObject!(renderer, axis2, camera2)
 
 
 attachEventSystem(renderer)

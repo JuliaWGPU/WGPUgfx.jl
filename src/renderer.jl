@@ -43,6 +43,21 @@ function getRenderPassOptions(currentTextureView, depthView)
 end
 
 
+function addObject!(renderer::Renderer, object::Renderable, camera::Camera)
+    scene = renderer.scene
+	push!(scene.objects, object)
+	setup(renderer, object, camera)
+end
+
+function addObject!(renderer::Renderer, object::Renderable)
+    scene = renderer.scene
+	for camera in scene.cameraSystem
+		push!(scene.objects, object)
+		setup(renderer, object, camera)
+	end
+end
+
+
 function getRenderer(scene::Scene)
 	renderTextureFormat = WGPUCore.getPreferredFormat(scene.canvas)
 	presentContext = WGPUCore.getContext(scene.canvas)
@@ -66,12 +81,12 @@ end
 
 
 function setup(renderer::Renderer, object::Renderable, camera::Camera)
-	binding = 2 # Binding slot for objects starts from this index.
+	binding = 0 # MAX_CAMERAS + MAX_LIGHTS + 1 # Binding slot for objects starts from this index.
 	scene = renderer.scene
 	gpuDevice = scene.gpuDevice
 	scene.cameraId = camera.id
 	preparedLight=false
-	compileShaders!(gpuDevice, scene, object; binding=binding)
+	compileShaders!(gpuDevice, scene, object; binding=MAX_CAMERAS + MAX_LIGHTS + 1)
 	if camera.uniformBuffer === nothing
 		prepareObject(gpuDevice, camera)
 		camera.up = [0, 1, 0] .|> Float32
@@ -91,13 +106,13 @@ end
 function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 	src = quote end
 
-	push!(src.args, getShaderCode(scene.cameraSystem; binding=scene.cameraId-1))
-	isLight && push!(src.args, getShaderCode(scene.light; binding= 1))
+	push!(src.args, getShaderCode(scene.cameraSystem; binding=scene.cameraId - 1 + CAMERA_BINDING_START))
+	isLight && push!(src.args, getShaderCode(scene.light; binding = LIGHT_BINDING_START))
 	
 	return src
 end
 
-function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=3)
+function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = isNormalDefined(object) && scene.light != nothing 
 	
 	isTexture =  isTextureDefined(object) && object.textureData != nothing
@@ -116,7 +131,7 @@ function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=3)
 end
 
 
-function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=3)
+function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=MAX_CAMERAS+MAX_LIGHTS+1)
 	objType = typeof(object)
 	for fieldIdx in 1:fieldcount(WorldObject)
 		fName = fieldname(objType, fieldIdx)
@@ -142,7 +157,7 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=3
 			isLight = isNormalDefined(obj) && scene.light != nothing 
 			isTexture = isTextureDefined(obj) && obj.textureData != nothing
 			src = getDefaultSrc(scene, isLight, isTexture)
-			push!(src.args, getShaderCode(obj; binding = binding))
+			push!(src.args, getShaderCode(obj, scene.cameraId; binding = binding))
 			try
 				cshader = createShaderObj(gpuDevice, src; savefile=false)
 				setfield!(obj, :cshader, cshader)
@@ -198,11 +213,23 @@ end
 
 
 function render(renderer::Renderer; dims=nothing)
+    scene = renderer.scene
 	if dims !== nothing
 		WGPUCore.setViewport(renderer.renderPass[], dims..., 0, 1)
 	end
 	for object in scene.objects
 		WGPUgfx.render(renderer.renderPass[], renderer.renderPassOptions, object)
+	end
+end
+
+function render(renderer::Renderer, viewportDims::Dict)
+	scene = renderer.scene
+	for idx in 1:length(scene.cameraSystem):length(scene.objects)
+		for camera in scene.cameraSystem
+			dims = get(viewportDims, camera.id, nothing)
+			objIdx = idx + camera.id - 1
+			render(renderer, scene.objects[objIdx]; dims=dims)
+		end
 	end
 end
 
@@ -213,3 +240,16 @@ function render(renderer::Renderer, object; dims=nothing)
 	WGPUgfx.render(renderer.renderPass[], renderer.renderPassOptions, object)
 end
 
+
+function preparePipeline(gpuDevice, renderer::Renderer, mesh::WorldObject{T}, camera::Camera; binding=0) where T<:Renderable
+	isRenderType(mesh.rType, SURFACE) && mesh.renderObj !== nothing && 
+		preparePipeline(gpuDevice, renderer, mesh.renderObj, camera; binding = binding)
+	isRenderType(mesh.rType, WIREFRAME) && mesh.wireFrame !== nothing &&
+		preparePipeline(gpuDevice, renderer, mesh.wireFrame, camera; binding = binding)
+	isRenderType(mesh.rType, BBOX) && mesh.bbox !==nothing &&
+		preparePipeline(gpuDevice, renderer, mesh.bbox, camera; binding = binding)
+	isRenderType(mesh.rType, AXIS) && mesh.axis !==nothing &&
+		preparePipeline(gpuDevice, renderer, mesh.axis, camera; binding = binding)
+	isRenderType(mesh.rType, SELECT) && mesh.select !== nothing &&
+		preparePipeline(gpuDevice, renderer, mesh.select, camera; binding=binding)
+end

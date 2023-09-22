@@ -36,14 +36,15 @@ function Base.getproperty(scene::Scene, x::Symbol)
 	getfield(scene, x)
 end
 
-# TODO viewport dependent addObject
-function addObject!(scene, obj)
-	push!(scene.objects, obj)
-	# for camera in scene.cameraSystem
-	# 	push!(scene.objects, deepcopy(obj)) # TODO just id is enough
-	# end
-	# setup(scene)
-end
+
+# # TODO viewport dependent addObject
+# function addObject!(scene, obj)
+# 	push!(scene.objects, obj)
+# 	# for camera in scene.cameraSystem
+# 	# 	push!(scene.objects, deepcopy(obj)) # TODO just id is enough
+# 	# end
+# 	# setup(scene)
+# end
 
 addCamera!(scene, camera::Camera) = addCamera!(scene.cameraSystem, camera)
 # addLight!(scene, light::Light) = addLight!(scene.lightSystem, light)

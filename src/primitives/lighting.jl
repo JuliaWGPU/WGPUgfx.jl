@@ -5,6 +5,9 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 
+const LIGHT_BINDING_START = MAX_CAMERAS + 1
+const MAX_LIGHTS = 4
+
 export defaultLighting, Lighting, lookAtRightHanded, 
 	translateLighting, translate, scaleTransform,
 	getUniformBuffer, getUniformData
@@ -20,62 +23,53 @@ mutable struct Lighting
 	specularShininess
 	uniformData
 	uniformBuffer
-
-	function Lighting(
-		position,
-		specularColor,
-		ambientIntensity,
-		diffuseIntensity,
-		specularIntensity,
-		specularShininess,
-	)
-		lighting = new(
-			nothing,
-			position,
-			specularColor,
-			ambientIntensity,
-			diffuseIntensity,
-			specularIntensity,
-			specularShininess,
-			nothing, 
-			nothing
-		)
-		return lighting
-	end
 end
 
 
 function prepareObject(gpuDevice, lighting::Lighting)
-	uniformDataBytes = toByteArray(lighting.uniformData)
+	io = computeUniformData(lighting)
+	uniformDataBytes = io |> read
+	seek(io, 0) # TODO not necessary maybe
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"LightingBuffer",
 		uniformDataBytes,
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
+	setfield!(lighting, :uniformData, io)
 	setfield!(lighting, :uniformBuffer, uniformBuffer)
 	setfield!(lighting, :gpuDevice, gpuDevice)
+	seek(io, 0)
 	return lighting
 end
 
-
-function preparePipeline(gpuDevice, scene, light::Lighting; binding=1)
+function preparePipeline(gpuDevice, scene, light::Lighting; binding=LIGHT_BINDING_START)
 	uniformBuffer = getfield(light, :uniformBuffer)
 	push!(scene.bindingLayouts, getBindingLayouts(light; binding=binding)...)
 	push!(scene.bindings, getBindings(light, uniformBuffer; binding=binding)...)
 end
 
+# TODO not used
+function defaultUniformData(::Lighting) 
+	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
+	return uniformData
+end
+
 
 function computeUniformData(lighting::Lighting)
 	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	uniformData = cStruct(UniformType)
-	uniformData.position = lighting.position
-	uniformData.specularColor = lighting.specularColor
-	uniformData.diffuseIntensity = lighting.diffuseIntensity
-	uniformData.ambientIntensity = lighting.ambientIntensity
-	uniformData.specularIntensity = lighting.specularIntensity
-	uniformData.specularShininess = lighting.specularShininess
-	return uniformData
+	uniformData = Ref{UniformType}()
+	io = getfield(lighting, :uniformData)
+	unsafe_write(io, uniformData, sizeof(UniformType))
+	seek(io, 0)
+	setVal!(lighting, Val(:position), lighting.position)
+	setVal!(lighting, Val(:specularColor), lighting.specularColor)
+	setVal!(lighting, Val(:diffuseIntensity), lighting.diffuseIntensity)
+	setVal!(lighting, Val(:ambientIntensity), lighting.ambientIntensity)
+	setVal!(lighting, Val(:specularIntensity), lighting.specularIntensity)
+	setVal!(lighting, Val(:specularShininess), lighting.specularShininess)
+	seek(io, 0)
+	return io
 end
 
 
@@ -87,12 +81,15 @@ function defaultLighting()
 	specularIntensity = 1.0 |> Float32
 	specularShininess = 1.0 |> Float32
 	return Lighting(
+		nothing,
 		position,
 		specularColor,
 		ambientIntensity,
 		diffuseIntensity,
 		specularIntensity,
 		specularShininess,
+		IOBuffer(),
+		nothing
 	)
 end
 
@@ -221,7 +218,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(lighting::Lighting; binding=0)
+function getShaderCode(lighting::Lighting; binding=LIGHT_BINDING_START)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}
@@ -242,7 +239,7 @@ function getVertexBufferLayout(lighting::Lighting; offset=0)
 end
 
 
-function getBindingLayouts(lighting::Lighting; binding=0)
+function getBindingLayouts(lighting::Lighting; binding=LIGHT_BINDING_START)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
@@ -254,7 +251,7 @@ function getBindingLayouts(lighting::Lighting; binding=0)
 end
 
 
-function getBindings(lighting::Lighting, uniformBuffer; binding=0)
+function getBindings(lighting::Lighting, uniformBuffer; binding=LIGHT_BINDING_START)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,

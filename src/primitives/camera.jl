@@ -5,6 +5,9 @@ using Rotations
 using CoordinateTransformations
 using Quaternions
 
+const MAX_CAMERAS = 4
+const CAMERA_BINDING_START = 0
+
 export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, rotateTransform, scaleTransform,
 	getUniformBuffer, getUniformData, getShaderCode, updateUniformBuffer
@@ -46,10 +49,10 @@ function prepareObject(gpuDevice, camera::Camera)
 end
 
 
-function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
+function preparePipeline(gpuDevice, scene, camera::Camera; binding=0)
 	uniformBuffer = getfield(camera, :uniformBuffer)
-	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=camera.id-1)...)
-	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=camera.id-1)...)
+	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=binding)...)
+	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=binding)...)
 end
 
 
@@ -422,7 +425,7 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(camera::Camera; binding=camera.id-1)
+function getShaderCode(camera::Camera; binding=CAMERA_BINDING_START)
 	cameraUniform = :CameraUniform
 	shaderSource = quote
 		struct $cameraUniform
@@ -440,10 +443,10 @@ function getVertexBufferLayout(camera::Camera; offset = 0)
 end
 
 
-function getBindingLayouts(camera::Camera; binding=1)
+function getBindingLayouts(camera::Camera; binding=CAMERA_BINDING_START)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
-			:binding => camera.id-1,
+			:binding => binding,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
@@ -452,10 +455,10 @@ function getBindingLayouts(camera::Camera; binding=1)
 end
 
 
-function getBindings(camera::Camera, uniformBuffer; binding=1)
+function getBindings(camera::Camera, uniformBuffer; binding=CAMERA_BINDING_START)
 	bindings = [
 		WGPUCore.GPUBuffer => [
-			:binding => camera.id-1,
+			:binding => binding,
 			:buffer  => uniformBuffer,
 			:offset  => 0,
 			:size    => uniformBuffer.size

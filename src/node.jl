@@ -62,7 +62,7 @@ function prepareObject(gpuDevice, mesh::WorldObject{T}) where T<:Renderable
 		prepareObject(gpuDevice, mesh.select)
 end
 
-function preparePipeline(gpuDevice, scene, mesh::WorldObject{T}; binding=2) where T<:Renderable
+function preparePipeline(gpuDevice, scene, mesh::WorldObject{T}; binding=0) where T<:Renderable
 	isRenderType(mesh.rType, SURFACE) && mesh.renderObj != nothing && 
 		preparePipeline(gpuDevice, scene, mesh.renderObj; binding = binding)
 	isRenderType(mesh.rType, WIREFRAME) && mesh.wireFrame != nothing &&

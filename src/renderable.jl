@@ -81,7 +81,7 @@ function prepareObject(gpuDevice, mesh::Renderable)
 end
 
 
-function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=2)
+function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=MAX_LIGHTS + LIGHT_BINDING_START)
 	scene = renderer.scene
 	lightUniform = getfield(scene.light, :uniformBuffer)
 	vertexBuffer = getfield(mesh, :vertexBuffer)
@@ -90,21 +90,21 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=
 
 	# BindingLayouts
 	bindingLayouts = []
-	append!(bindingLayouts, getBindingLayouts(camera; binding = 0))
+	append!(bindingLayouts, getBindingLayouts(camera; binding = camera.id-1))
 	if isNormalDefined(mesh)
-		append!(bindingLayouts, getBindingLayouts(scene.light; binding = 1))
+		append!(bindingLayouts, getBindingLayouts(scene.light; binding = LIGHT_BINDING_START))
 	end
-	append!(bindingLayouts, getBindingLayouts(mesh; binding=binding))
+	append!(bindingLayouts, getBindingLayouts(mesh; binding= LIGHT_BINDING_START+MAX_LIGHTS))
 
 	# Bindings
 	bindings = []
 	cameraUniform = getfield(camera, :uniformBuffer)
-	append!(bindings, getBindings(camera, cameraUniform; binding = 0))
+	append!(bindings, getBindings(camera, cameraUniform; binding = camera.id-1))
 
 	if isNormalDefined(mesh)
-		append!(bindings, getBindings(scene.light, lightUniform; binding = 1))
+		append!(bindings, getBindings(scene.light, lightUniform; binding = LIGHT_BINDING_START))
 	end
-	append!(bindings, getBindings(mesh, uniformBuffer; binding=binding))
+	append!(bindings, getBindings(mesh, uniformBuffer; binding= LIGHT_BINDING_START + MAX_LIGHTS))
 	
 	pipelineLayout = WGPUCore.createPipelineLayout(
 		gpuDevice, 
@@ -126,7 +126,7 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=
 	mesh.renderPipeline = renderPipeline
 end
 
-function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=2)
+function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=MAX_LIGHTS + LIGHT_BINDING_START)
 	scene = renderer.scene
 	lightUniform = getfield(scene.light, :uniformBuffer)
 	vertexBuffer = getfield(mesh, :vertexBuffer)
@@ -136,24 +136,24 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=2)
 	# BindingLayouts
 	bindingLayouts = []
 	for camera in scene.cameraSystem
-		append!(bindingLayouts, getBindingLayouts(camera; binding = 0))
+		append!(bindingLayouts, getBindingLayouts(camera; binding = camera.id-1))
 	end
 	if isNormalDefined(mesh)
-		append!(bindingLayouts, getBindingLayouts(scene.light; binding = 1))
+		append!(bindingLayouts, getBindingLayouts(scene.light; binding = LIGHT_BINDING_START))
 	end
-	append!(bindingLayouts, getBindingLayouts(mesh; binding=binding))
+	append!(bindingLayouts, getBindingLayouts(mesh; binding=LIGHT_BINDING_START + MAX_LIGHTS))
 
 	# Bindings
 	bindings = []
 	for camera in scene.cameraSystem
 		cameraUniform = getfield(camera, :uniformBuffer)
-		append!(bindings, getBindings(camera, cameraUniform; binding = 0))
+		append!(bindings, getBindings(camera, cameraUniform; binding = camera.id - 1))
 	end
 
 	if isNormalDefined(mesh)
-		append!(bindings, getBindings(scene.light, lightUniform; binding = 1))
+		append!(bindings, getBindings(scene.light, lightUniform; binding = LIGHT_BINDING_START))
 	end
-	append!(bindings, getBindings(mesh, uniformBuffer; binding=binding))
+	append!(bindings, getBindings(mesh, uniformBuffer; binding=LIGHT_BINDING_START + MAX_LIGHTS))
 	
 	pipelineLayout = WGPUCore.createPipelineLayout(
 		gpuDevice, 
@@ -229,7 +229,7 @@ function getUniformBuffer(mesh::Renderable)
 	getfield(mesh, :uniformBuffer)
 end
 
-function getShaderCode(mesh::Renderable, cameraId::Int; binding=2)
+function getShaderCode(mesh::Renderable, cameraId::Int; binding=0)
 	name = Symbol(typeof(mesh), binding)
 	meshType = typeof(mesh)
 	meshUniform = Symbol(meshType, :Uniform)
@@ -391,7 +391,7 @@ function getVertexBufferLayout(mesh::Renderable; offset=0)
 end
 
 
-function getBindingLayouts(mesh::Renderable; binding=4)
+function getBindingLayouts(mesh::Renderable; binding=0)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
@@ -422,7 +422,7 @@ function getBindingLayouts(mesh::Renderable; binding=4)
 end
 
 
-function getBindings(mesh::Renderable, uniformBuffer; binding=4)
+function getBindings(mesh::Renderable, uniformBuffer; binding=0)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,
@@ -431,7 +431,7 @@ function getBindings(mesh::Renderable, uniformBuffer; binding=4)
 			:size => uniformBuffer.size
 		],
 	]
-	if (isTextureDefined(mesh) && mesh.textureData != nothing) 
+	if (isTextureDefined(mesh) && mesh.textureData !== nothing) 
 		append!(
 			bindings, 	
 			[				
