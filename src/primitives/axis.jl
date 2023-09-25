@@ -10,9 +10,9 @@ mutable struct Axis <: Renderable
 	uniformBuffer
 	indexBuffer
 	vertexBuffer
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 
@@ -50,9 +50,9 @@ function defaultAxis(; origin=[0, 0, 0], len=4.0)
 		nothing,
 		nothing,
 		nothing,
-		nothing,
-		nothing,
-		nothing,
+		Dict(),
+		Dict(),
+		Dict(),
 	)
 end
 

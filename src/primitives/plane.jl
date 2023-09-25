@@ -23,9 +23,9 @@ mutable struct Plane <: Renderable
 	texture
 	textureView
 	sampler
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0.2, 0.5, 1.0])
@@ -79,8 +79,8 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 		nothing, #texture,
 		nothing, #textureView,
 		nothing, #sampler,
-		nothing, #pipelineLayout,
-		nothing, #renderPipeline
-		nothing, #cshader
+		Dict(), #pipelineLayout,
+		Dict(), #renderPipeline
+		Dict(), #cshader
 	)
 end

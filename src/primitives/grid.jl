@@ -10,9 +10,9 @@ mutable struct MainGrid <: Renderable
 	uniformBuffer
 	indexBuffer
 	vertexBuffer
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultGrid(; origin=[0, 0, 0], scale::Union{Vector{Float32}, Float32}=1.0f0, len=4.0, segments = 10)
@@ -61,8 +61,8 @@ function defaultGrid(; origin=[0, 0, 0], scale::Union{Vector{Float32}, Float32}=
 		nothing,
 		nothing,
 		nothing,
-		nothing,
-		nothing,
-		nothing,
+		Dict(),
+		Dict(),
+		Dict(),
 	)
 end

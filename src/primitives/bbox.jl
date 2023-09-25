@@ -13,9 +13,9 @@ mutable struct WGPUBBox <: Renderable
 	uniformBuffer
 	indexBuffer
 	vertexBuffer
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
@@ -60,9 +60,9 @@ function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
 		nothing, 		# uniformBuffer
 		nothing, 		# indexBuffer
 		nothing,	 	# vertexBuffer
-		nothing,		# pipelineLayout
-		nothing,		# renderPipeline
-		nothing,		# cshader
+		Dict(),		# pipelineLayout
+		Dict(),		# renderPipeline
+		Dict(),		# cshader
 	)
 	box
 end

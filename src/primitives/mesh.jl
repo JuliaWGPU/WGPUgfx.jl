@@ -74,9 +74,9 @@ mutable struct WGPUMesh <: MeshSurface
 	texture
 	textureView
 	sampler
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 1.0f0, color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology="TriangleList")
@@ -136,9 +136,9 @@ function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 
 		nothing, 
 		nothing,
 		nothing,
-		nothing,
-		nothing,
-		nothing
+		Dict(),
+		Dict(),
+		Dict()
 	)
 	mesh
 end

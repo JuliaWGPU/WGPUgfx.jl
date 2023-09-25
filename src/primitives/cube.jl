@@ -19,9 +19,9 @@ mutable struct Cube <: Renderable
 	texture
 	textureView
 	sampler
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultCube()
@@ -96,9 +96,9 @@ function defaultCube()
 		nothing,	 	# texture
 		nothing,	 	# textureView
 		nothing,	 	# sampler
-		nothing,		# pipelineLayout
-		nothing,		# renderPipeline
-		nothing,		# cshader
+		Dict(),		# pipelineLayout
+		Dict(),		# renderPipeline
+		Dict(),		# cshader
 	)
 	cube
 end

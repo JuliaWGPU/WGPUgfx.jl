@@ -96,18 +96,18 @@ end
 
 
 
-function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, wo::WorldObject)
+function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, wo::WorldObject, camId::Int)
 	if isRenderType(wo.rType, VISIBLE)
 		isRenderType(wo.rType, SURFACE) && wo.renderObj !== nothing &&
-			render(renderPass, renderPassOptions, wo.renderObj)
+			render(renderPass, renderPassOptions, wo.renderObj, camId)
 		isRenderType(wo.rType, WIREFRAME) && wo.wireFrame !== nothing &&
-			render(renderPass, renderPassOptions, wo.wireFrame)
+			render(renderPass, renderPassOptions, wo.wireFrame, camId)
 		isRenderType(wo.rType, BBOX) && wo.bbox !== nothing &&
-			render(renderPass, renderPassOptions, wo.bbox)
+			render(renderPass, renderPassOptions, wo.bbox, camId)
 		isRenderType(wo.rType, AXIS) && wo.axis !== nothing &&
-			render(renderPass, renderPassOptions, wo.axis)
+			render(renderPass, renderPassOptions, wo.axis, camId)
 		isRenderType(wo.rType, SELECT) && wo.select !== nothing &&
-			render(renderPass, renderPassOptions, wo.select)
+			render(renderPass, renderPassOptions, wo.select, camId)
 	end
 end
 

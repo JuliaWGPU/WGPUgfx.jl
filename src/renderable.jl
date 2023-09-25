@@ -112,7 +112,7 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=
 		bindingLayouts, 
 		bindings
 	)
-	mesh.pipelineLayout = pipelineLayout
+	mesh.pipelineLayouts[camera.id] = pipelineLayout
 	renderPipelineOptions = getRenderPipelineOptions(
 		renderer,
 		mesh,
@@ -123,7 +123,7 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable, camera; binding=
 		renderPipelineOptions; 
 		label=" MESH RENDER PIPELINE "
 	)
-	mesh.renderPipeline = renderPipeline
+	mesh.renderPipelines[camera.id] = renderPipeline
 end
 
 function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=MAX_LIGHTS + LIGHT_BINDING_START)
@@ -161,7 +161,7 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=MAX_LIGH
 		bindingLayouts, 
 		bindings
 	)
-	mesh.pipelineLayout = pipelineLayout
+	mesh.pipelineLayouts = pipelineLayout
 	renderPipelineOptions = getRenderPipelineOptions(
 		scene,
 		mesh,
@@ -172,7 +172,7 @@ function preparePipeline(gpuDevice, renderer, mesh::Renderable; binding=MAX_LIGH
 		renderPipelineOptions; 
 		label=" MESH RENDER PIPELINE "
 	)
-	mesh.renderPipeline = renderPipeline
+	mesh.renderPipelines = renderPipeline
 end
 
 function defaultUniformData(::Type{<:Renderable}) 
@@ -450,9 +450,11 @@ function getBindings(mesh::Renderable, uniformBuffer; binding=0)
 end
 
 function getRenderPipelineOptions(renderer, mesh::Renderable)
+	scene = renderer.scene
+	camIdx = scene.cameraId
 	renderpipelineOptions = [
 		WGPUCore.GPUVertexState => [
-			:_module => mesh.cshader.internal[],				# SET THIS (AUTOMATICALLY)
+			:_module => mesh.cshaders[camIdx].internal[],				# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
 					getVertexBufferLayout(mesh)
@@ -475,7 +477,7 @@ function getRenderPipelineOptions(renderer, mesh::Renderable)
 			:alphaToCoverageEnabled=>false,
 		],
 		WGPUCore.GPUFragmentState => [
-			:_module => mesh.cshader.internal[],						# SET THIS
+			:_module => mesh.cshaders[camIdx].internal[],						# SET THIS
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPUCore.GPUColorTargetState =>	[
@@ -497,10 +499,10 @@ function getRenderPipelineOptions(renderer, mesh::Renderable)
 	renderpipelineOptions
 end
 
-function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, mesh::Renderable)
-	WGPUCore.setPipeline(renderPass, mesh.renderPipeline)
+function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, mesh::Renderable, camIdx::Int)
+	WGPUCore.setPipeline(renderPass, mesh.renderPipelines[camIdx])
 	WGPUCore.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
 	WGPUCore.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
-	WGPUCore.setBindGroup(renderPass, 0, mesh.pipelineLayout.bindGroup, UInt32[], 0, 99)
+	WGPUCore.setBindGroup(renderPass, 0, mesh.pipelineLayouts[camIdx].bindGroup, UInt32[], 0, 99)
 	WGPUCore.drawIndexed(renderPass, Int32(mesh.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 end

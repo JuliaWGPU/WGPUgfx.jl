@@ -19,9 +19,9 @@ mutable struct Triangle3D <: Renderable
 	texture
 	textureView
 	sampler
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultTriangle3D()
@@ -63,9 +63,9 @@ function defaultTriangle3D()
 		nothing,
 		nothing,
 		nothing,
-		nothing,
-		nothing,
-		nothing,
+		Dict(),
+		Dict(),
+		Dict(),
 	)
 	triangle
 end

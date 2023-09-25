@@ -13,7 +13,8 @@ mutable struct Renderer
 	renderTextureFormat
 end
 
-function getRenderPassOptions(currentTextureView, depthView)
+
+function getRenderPassOptions(currentTextureView, depthView; depthClearValue=1.0f0)
 	renderPassOptions = [
 		WGPUCore.GPUColorAttachments => [
 			:attachments => [
@@ -30,7 +31,7 @@ function getRenderPassOptions(currentTextureView, depthView)
 			:attachments => [
 				WGPUCore.GPUDepthStencilAttachment => [
 					:view => depthView,
-					:depthClearValue => 1.0f0,
+					:depthClearValue => 2.0f0,
 					:depthLoadOp => WGPULoadOp_Clear,
 					:depthStoreOp => WGPUStoreOp_Store,
 					:stencilLoadOp => WGPULoadOp_Clear,
@@ -45,16 +46,16 @@ end
 
 function addObject!(renderer::Renderer, object::Renderable, camera::Camera)
     scene = renderer.scene
-	push!(scene.objects, object)
 	setup(renderer, object, camera)
+	push!(scene.objects, object)
 end
 
 function addObject!(renderer::Renderer, object::Renderable)
     scene = renderer.scene
 	for camera in scene.cameraSystem
-		push!(scene.objects, object)
 		setup(renderer, object, camera)
 	end
+	push!(scene.objects, object)
 end
 
 
@@ -121,7 +122,9 @@ function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MA
 	push!(src.args, getShaderCode(object, scene.cameraId; binding = binding))
 	try
 		cshader = createShaderObj(gpuDevice, src; savefile=false)
-		setfield!(object, :cshader, cshader)
+		cshaders =  getfield(object, :cshaders)
+		cshaders[scene.cameraId] = cshader
+		# setfield!(object, :cshader, cshader)
 		@info  cshader.src "Renderable"
 	catch(e)
 		@info "Caught exception in Renderable :compileShaders!" e
@@ -160,7 +163,9 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=M
 			push!(src.args, getShaderCode(obj, scene.cameraId; binding = binding))
 			try
 				cshader = createShaderObj(gpuDevice, src; savefile=false)
-				setfield!(obj, :cshader, cshader)
+				cshaders = getfield(obj, :cshaders)
+				cshaders[scene.cameraId] = cshader
+				# setfield!(obj, :cshader, cshader)
 				@info  cshader.src "WorldObject"
 			catch(e)
 				@info "Caught Exception in WorldObject :compileShaders!" e
@@ -177,7 +182,7 @@ end
 function init(renderer::Renderer)
 	scene = renderer.scene
 	renderSize = scene.canvas.size
-	renderer.currentTextureView = WGPUCore.getCurrentTexture(renderer.presentContext) |> Ref;
+	renderer.currentTextureView = WGPUCore.getCurrentTexture(renderer.presentContext);
 
 	renderer.depthTexture = WGPUCore.createTexture(
 		scene.gpuDevice,
@@ -188,26 +193,26 @@ function init(renderer::Renderer)
 		WGPUTextureDimension_2D,
 		WGPUTextureFormat_Depth24Plus,
 		WGPUCore.getEnum(WGPUCore.WGPUTextureUsage, "RenderAttachment")
-	) |> Ref
+	)
 	
-	renderer.depthView = WGPUCore.createView(renderer.depthTexture[]) |> Ref
+	renderer.depthView = WGPUCore.createView(renderer.depthTexture)
 
-	renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView[], renderer.depthView[])
+	renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView, renderer.depthView)
 
-	renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER") |> Ref
+	renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER")
 	renderer.renderPass = WGPUCore.beginRenderPass(
-		renderer.cmdEncoder[], 
+		renderer.cmdEncoder, 
 		renderer.renderPassOptions |> Ref; 
 		label= "BEGIN RENDER PASS"
-	) |> Ref
+	)
 end
 
 function deinit(renderer::Renderer)
-	WGPUCore.endEncoder(renderer.renderPass[])
-	WGPUCore.submit(renderer.scene.gpuDevice.queue, [WGPUCore.finish(renderer.cmdEncoder[]),])
+	WGPUCore.endEncoder(renderer.renderPass)
+	WGPUCore.submit(renderer.scene.gpuDevice.queue, [WGPUCore.finish(renderer.cmdEncoder),])
 	WGPUCore.present(renderer.presentContext)
-	WGPUCore.destroy(renderer.depthView[])
-	WGPUCore.destroy(renderer.depthView[].texture[])
+	WGPUCore.destroy(renderer.depthView)
+	WGPUCore.destroy(renderer.depthView.texture[])
 	# WGPUCore.destroy(renderer.depthTexture[])
 end
 
@@ -215,29 +220,47 @@ end
 function render(renderer::Renderer; dims=nothing)
     scene = renderer.scene
 	if dims !== nothing
-		WGPUCore.setViewport(renderer.renderPass[], dims..., 0, 1)
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1)
+		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 	end
 	for object in scene.objects
-		WGPUgfx.render(renderer.renderPass[], renderer.renderPassOptions, object)
+		WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, scene.cameraId)
 	end
 end
 
 function render(renderer::Renderer, viewportDims::Dict)
 	scene = renderer.scene
-	for idx in 1:length(scene.cameraSystem):length(scene.objects)
+	for idx in 1:length(scene.objects)
 		for camera in scene.cameraSystem
 			dims = get(viewportDims, camera.id, nothing)
-			objIdx = idx + camera.id - 1
-			render(renderer, scene.objects[objIdx]; dims=dims)
+			object = scene.objects[idx]
+			if dims !== nothing
+				WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1.0)
+				# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
+			end
+			WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, camera.id)
 		end
 	end
 end
 
-function render(renderer::Renderer, object; dims=nothing)
-	if dims!==nothing
-		WGPUCore.setViewport(renderer.renderPass[], dims..., 0, 1)
+
+function render(renderer::Renderer, object::Renderable, viewportDims::Dict)
+	for camId in keys(viewportDims)
+		dims = viewportDims[camId]
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1.0)
+		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
+		WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, camId)
 	end
-	WGPUgfx.render(renderer.renderPass[], renderer.renderPassOptions, object)
+end
+
+
+function render(renderer::Renderer, object::Renderable; dims=nothing)
+	scene = renderer.scene
+	if dims!==nothing
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1)
+		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
+	end
+	WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, scene.cameraId)
 end
 
 

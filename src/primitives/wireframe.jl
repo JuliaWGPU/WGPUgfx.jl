@@ -13,9 +13,9 @@ mutable struct WGPUWireFrame <: Renderable
 	uniformBuffer
 	indexBuffer
 	vertexBuffer
-	pipelineLayout
-	renderPipeline
-	cshader
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function defaultWireFrame(object::Renderable; color=[1.0, 1.0, 1.0, 1.0])
@@ -32,9 +32,9 @@ function defaultWireFrame(object::Renderable; color=[1.0, 1.0, 1.0, 1.0])
 		nothing, 		# uniformBuffer
 		nothing, 		# indexBuffer
 		nothing,	 	# vertexBuffer
-		nothing,		# pipelineLayout
-		nothing,		# renderPipeline
-		nothing,		# cshader
+		Dict(),			# pipelineLayout
+		Dict(),			# renderPipeline
+		Dict(),			# cshader
 	)
 	box
 end

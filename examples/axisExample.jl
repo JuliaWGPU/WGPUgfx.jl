@@ -26,8 +26,8 @@ setfield!(camera2, :id, 2)
 
 scene.cameraSystem = CameraSystem([camera1, camera2])
 
-addObject!(renderer, axis1, camera1)
-addObject!(renderer, axis2, camera2)
+addObject!(renderer, axis1)
+addObject!(renderer, axis2)
 
 
 attachEventSystem(renderer)
@@ -35,9 +35,10 @@ attachEventSystem(renderer)
 
 function runApp(renderer)
 	init(renderer)
-	# render(renderer)
-	render(renderer, renderer.scene.objects[1]; dims=(50, 50, 300, 300))
-	render(renderer, renderer.scene.objects[2]; dims=(150, 150, 400, 400))
+	render(renderer, axis1, Dict(1=>(50, 50, 300, 300)))
+	render(renderer, axis2, Dict(2=>(250, 250, 50, 50)))
+	# render(renderer, renderer.scene.objects; dims=(50, 50, 300, 300))
+	# render(renderer, renderer.scene.objects[2]; dims=(150, 150, 400, 400))
 	deinit(renderer)
 end
 
@@ -47,11 +48,6 @@ main = () -> begin
 		count = 0
 		camera1 = scene.cameraSystem[1]
 		while !WindowShouldClose(scene.canvas.windowRef[])
-			# count  += 1
-			# if count > 1000
-			# 	count = 0
-			# 	scene.cameraId = scene.cameraId % length(scene.cameraSystem)
-			# end
 			rot = RotXY(0.01, 0.02)
 			mat = MMatrix{4, 4, Float32}(I)
 			mat[1:3, 1:3] = rot
