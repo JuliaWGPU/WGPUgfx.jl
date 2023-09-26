@@ -1,4 +1,6 @@
-mutable struct Quad <: Renderable
+export defaultQuad, Quad
+
+mutable struct Quad <: RenderableUI
 	gpuDevice
     topology
     vertexData
@@ -13,27 +15,29 @@ mutable struct Quad <: Renderable
     cshaders
 end
 
-function defaultQuad(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
-    coordinates = [
-        [0, 0],
-        [1, 0],
-        [0, 1],
-        [1, 1],
-    ]
-
-	vertexData = cat(coordinates..., dims=2) .|> Float32
+function defaultQuad(; color=[0.2, 0.4, 0.8, 0.7])
+	vertexData = cat([
+		[0, 0, 0, 1],
+		[1, 0, 0, 1],
+		[1, 1, 0, 1],
+		[1, 1, 0, 1],
+		[0, 1, 0, 1],
+		[0, 0, 0, 1],
+	]..., dims=2) .|> Float32
 
 	unitColor = cat([
 		color,
 	]..., dims=2) .|> Float32
 
-	colorData = repeat(unitColor, inner=(1, 4))
+	colorData = repeat(unitColor, inner=(1, 6))
 
-	indexData =   cat([[0, 1, 2], [0, 2, 3]]..., dims=2) .|> UInt32
-	
+	indexData = cat([
+		[0, 1, 2, 3, 4, 5],
+	]..., dims=2) .|> UInt32
+
 	box = Quad(
 		nothing, 		# gpuDevice
-		"LineList",
+		"TriangleList",
 		vertexData, 
 		colorData, 
 		indexData, 
@@ -47,17 +51,3 @@ function defaultQuad(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
 	)
 	box
 end
-
-function defaultUniformData(::Quad)
-	uniformData = ones(Float32, (4,)) |> diagm
-	return uniformData
-end
-
-function computeUniformData(quad::Quad)
-	return defaultUniformData(quad)
-end
-
-function prepareObject(gpuDevice, quad::Quad)
-	
-end
-

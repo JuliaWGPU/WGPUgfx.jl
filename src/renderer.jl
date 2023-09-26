@@ -31,7 +31,7 @@ function getRenderPassOptions(currentTextureView, depthView; depthClearValue=1.0
 			:attachments => [
 				WGPUCore.GPUDepthStencilAttachment => [
 					:view => depthView,
-					:depthClearValue => 2.0f0,
+					:depthClearValue => 1.0f0,
 					:depthLoadOp => WGPULoadOp_Clear,
 					:depthStoreOp => WGPUStoreOp_Store,
 					:stencilLoadOp => WGPULoadOp_Clear,
@@ -48,6 +48,12 @@ function addObject!(renderer::Renderer, object::Renderable, camera::Camera)
     scene = renderer.scene
 	setup(renderer, object, camera)
 	push!(scene.objects, object)
+end
+
+function addObject!(renderer::Renderer, quad::RenderableUI, camera::Camera)
+	scene = renderer.scene
+	setup(renderer, quad, camera)
+	push!(scene.objects, quad)
 end
 
 function addObject!(renderer::Renderer, object::Renderable)
@@ -103,6 +109,15 @@ function setup(renderer::Renderer, object::Renderable, camera::Camera)
 	preparePipeline(gpuDevice, renderer, object, camera; binding=binding)
 end
 
+function setup(renderer::Renderer, quad::RenderableUI, camera::Camera)
+	binding = 0
+	scene = renderer.scene
+	gpuDevice = scene.gpuDevice
+	scene.cameraId = camera.id
+	compileShaders!(gpuDevice, scene, quad; binding=0)
+	prepareObject(gpuDevice, quad)
+	preparePipeline(gpuDevice, renderer, quad, camera; binding=0)
+end
 
 function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 	src = quote end
@@ -128,6 +143,26 @@ function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MA
 		@info  cshader.src "Renderable"
 	catch(e)
 		@info "Caught exception in Renderable :compileShaders!" e
+		rethrow(e)
+	end
+	return nothing
+end
+
+
+function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MAX_CAMERAS + MAX_LIGHTS+1)
+	isLight = false
+	isTexture =  isTextureDefined(quad) && quad.textureData !== nothing
+
+	src = quote end
+	push!(src.args, getShaderCode(quad, scene.cameraId; binding = binding))
+	try
+		cshader = createShaderObj(gpuDevice, src; savefile=false)
+		cshaders =  getfield(quad, :cshaders)
+		cshaders[scene.cameraId] = cshader
+		# setfield!(object, :cshader, cshader)
+		@info  cshader.src "RenderableUI"
+	catch(e)
+		@info "Caught exception in RenderableUI :compileShaders!" e
 		rethrow(e)
 	end
 	return nothing
@@ -220,7 +255,7 @@ end
 function render(renderer::Renderer; dims=nothing)
     scene = renderer.scene
 	if dims !== nothing
-		WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1)
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1)
 		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 	end
 	for object in scene.objects
@@ -235,7 +270,7 @@ function render(renderer::Renderer, viewportDims::Dict)
 			dims = get(viewportDims, camera.id, nothing)
 			object = scene.objects[idx]
 			if dims !== nothing
-				WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1.0)
+				WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1.0)
 				# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 			end
 			WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, camera.id)
@@ -247,9 +282,18 @@ end
 function render(renderer::Renderer, object::Renderable, viewportDims::Dict)
 	for camId in keys(viewportDims)
 		dims = viewportDims[camId]
-		WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1.0)
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1.0)
 		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 		WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, camId)
+	end
+end
+
+function render(renderer::Renderer, quad::RenderableUI, viewportDims::Dict)
+	for camId in keys(viewportDims)
+		dims = viewportDims[camId]
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1.0)
+		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
+		WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, quad, camId)
 	end
 end
 
@@ -257,7 +301,7 @@ end
 function render(renderer::Renderer, object::Renderable; dims=nothing)
 	scene = renderer.scene
 	if dims!==nothing
-		WGPUCore.setViewport(renderer.renderPass, dims..., 0.9, 1)
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1)
 		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 	end
 	WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, scene.cameraId)

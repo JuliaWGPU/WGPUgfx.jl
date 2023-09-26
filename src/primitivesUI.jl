@@ -1,7 +1,7 @@
 using WGPUNative
 using WGPUCore
 
-include("renderable.jl")
+include("renderableUI.jl")
 
 for (root, dirs, files) in walkdir(joinpath(@__DIR__,"ui"))
 	for file in files
