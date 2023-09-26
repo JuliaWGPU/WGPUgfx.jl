@@ -1,6 +1,6 @@
-export defaultAxis, Axis
+export defaultAxis, WGPUAxis
 
-mutable struct Axis <: Renderable
+mutable struct WGPUAxis <: Renderable
 	gpuDevice
 	topology
 	vertexData
@@ -40,7 +40,7 @@ function defaultAxis(; origin=[0, 0, 0], len=4.0)
 		[4, 5]
 	]..., dims=2) .|> UInt32
 
-	Axis(
+	WGPUAxis(
 		nothing,
 		"LineList",
 		vertexData,
