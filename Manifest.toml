@@ -1154,7 +1154,7 @@ version = "0.21.64"
 
 [[deps.WGPUCore]]
 deps = ["CEnum", "GLFW", "GLFW_jll", "Libdl", "Pkg", "Reexport", "WGPUNative"]
-path = "/Users/arhik/.julia/dev/WGPUCore"
+git-tree-sha1 = "8a551ada76d4507716c92aae4b093aa7d8ac3968"
 uuid = "53d714bf-0d76-4802-84b4-6cb75cca55f5"
 version = "0.1.2"
 
