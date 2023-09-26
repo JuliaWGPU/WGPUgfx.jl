@@ -21,9 +21,8 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
-
 
 mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "orangebot.obj"))
 

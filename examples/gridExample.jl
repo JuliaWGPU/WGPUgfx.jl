@@ -15,7 +15,7 @@ gpuDevice = WGPUCore.getDefaultDevice();
 camera = defaultCamera()
 light = defaultLighting()
 
-plane = defaultPlane()
+grid = defaultGrid()
 
 scene = Scene(
 	gpuDevice, 
@@ -26,7 +26,7 @@ scene = Scene(
 	repeat([nothing], 4)...
 )
 
-addObject!(scene, plane)
+addObject!(scene, grid)
 attachEventSystem(scene)
 
 main = () -> begin

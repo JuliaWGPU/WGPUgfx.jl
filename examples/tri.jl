@@ -1,4 +1,3 @@
-
 using WGPUgfx
 using WGPUCore
 using GLFW
@@ -9,26 +8,24 @@ using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
-canvas = WGPUCore.defaultInit(WGPUCore.WGPUCanvas);
+canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
 gpuDevice = WGPUCore.getDefaultDevice();
 
-scene = Scene(canvas, [], repeat([nothing], 9)...)
 camera = defaultCamera()
-push!(scene.objects, camera)
-triangle = defaultTriangle3D()
-push!(scene.objects, triangle)
+light = defaultLighting()
 
-(renderPipeline, _) = setup(scene, gpuDevice);
+scene = Scene(gpuDevice, canvas, camera, light, [], repeat([nothing], 4)...)
+
+triangle = defaultTriangle3D()
+
+addObject!(scene, triangle)
+
+attachEventSystem(scene)
 
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			camera = scene.camera
-			rotxy = RotXY(pi/3, time())
-			camera.scale = [1, 1, 1] .|> Float32
-			camera.eye = rotxy*([0.0, 0.0, -4.0] .|> Float32)
-
-			runApp(scene, gpuDevice, renderPipeline)
+			runApp(scene)
 			PollEvents()
 		end
 	finally
@@ -36,6 +33,8 @@ main = () -> begin
 	end
 end
 
-task = Task(main)
-
-schedule(task)
+if abspath(PROGRAM_FILE)==@__FILE__
+	main()
+else
+	main()
+end

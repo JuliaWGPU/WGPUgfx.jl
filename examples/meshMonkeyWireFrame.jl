@@ -1,4 +1,3 @@
-using Revise
 using Debugger
 using WGPUgfx
 using WGPUCore
@@ -13,27 +12,32 @@ WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
 canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
 gpuDevice = WGPUCore.getDefaultDevice();
 
-camera = defaultVision()
+camera = defaultCamera()
 light = defaultLighting()
-
 scene = Scene(
 	gpuDevice, 
 	canvas, 
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
 
-mesh = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"))
 
+wf = defaultWireFrame(mesh)
 addObject!(scene, mesh)
+addObject!(scene, wf)
 
 attachEventSystem(scene)
 
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
+			tz = translate([sin(time()), 0, 0]).linear
+			mat = MMatrix{4, 4}(mesh.uniformData)
+			mat .= tz
+			mesh.uniformData = mat
 			runApp(gpuDevice, scene)
 			PollEvents()
 		end

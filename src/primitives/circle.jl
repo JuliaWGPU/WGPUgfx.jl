@@ -1,25 +1,25 @@
 using WGPUNative
 using WGPUCore
 
-export defaultCircle, Circle
+export defaultCircle, WGPUCircle
 
-mutable struct Circle
+mutable struct WGPUCircle <: Renderable
 	vertexData
 	colorData
 	indexData
 end
 
-function defaultUniformData(::Type{Circle}) 
+function defaultUniformData(::Type{WGPUCircle}) 
 	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
 	return uniformData
 end
 
-function getUniformData(circle::Circle)
-	return defaultUniformData(Circle)
+function getUniformData(circle::WGPUCircle)
+	return defaultUniformData(WGPUCircle)
 end
 
-function getUniformBuffer(gpuDevice, circle::Circle)
-	uniformData = defaultUniformData(Circle)
+function getUniformBuffer(gpuDevice, circle::WGPUCircle)
+	uniformData = defaultUniformData(WGPUCircle)
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"uniformBuffer", 
@@ -59,7 +59,7 @@ function defaultCircle(nDivs=100, radius=1, color=[0.4, 0.3, 0.5, 1.0])
 end
 
 
-function getVertexBuffer(gpuDevice, circle::Circle)
+function getVertexBuffer(gpuDevice, circle::WGPUCircle)
 	(vertexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"vertexBuffer", 
@@ -70,7 +70,7 @@ function getVertexBuffer(gpuDevice, circle::Circle)
 end
 
 
-function getIndexBuffer(gpuDevice, circle::Circle)
+function getIndexBuffer(gpuDevice, circle::WGPUCircle)
 	(indexBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		"indexBuffer", 
@@ -81,7 +81,7 @@ function getIndexBuffer(gpuDevice, circle::Circle)
 end
 
 
-function getVertexBufferLayout(::Type{Circle}; offset = 0)
+function getVertexBufferLayout(::Type{WGPUCircle}; offset = 0)
 	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => 8*4,
 		:stepMode => "Vertex",
@@ -101,7 +101,7 @@ function getVertexBufferLayout(::Type{Circle}; offset = 0)
 end
 
 
-function getBindingLayouts(::Type{Circle}; binding=0)
+function getBindingLayouts(::Type{WGPUCircle}; binding=0)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
@@ -113,7 +113,7 @@ function getBindingLayouts(::Type{Circle}; binding=0)
 end
 
 
-function getBindings(::Type{Circle}, uniformBuffer; binding=0)
+function getBindings(::Type{WGPUCircle}, uniformBuffer; binding=0)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,
@@ -125,17 +125,17 @@ function getBindings(::Type{Circle}, uniformBuffer; binding=0)
 end
 
 
-function getShaderCode(::Type{Circle}; binding=0)
+function getShaderCode(::Type{WGPUCircle}; binding=0)
 	shaderSource = quote
-		struct CircleUniform
+		struct WGPUCircleUniform
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding rLocals::@user CircleUniform
+		@var Uniform 0 $binding rLocals::@user WGPUCircleUniform
  	end
  	
 	return shaderSource
 end
 
-function toMesh(::Type{Circle})
+function toMesh(::Type{WGPUCircle})
 	
 end

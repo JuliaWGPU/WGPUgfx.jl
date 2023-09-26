@@ -3,11 +3,17 @@ using LinearAlgebra
 using StaticArrays
 using Rotations
 using CoordinateTransformations
+using Quaternions
 
-export defaultCamera, Camera, lookAtRightHanded, perspectiveMatrix, orthographicMatrix, 
-	windowingTransform, translateCamera, openglToWGSL, translate, scaleTransform,
-	getUniformBuffer, getUniformData, getShaderCode
+const MAX_CAMERAS = 4
+const CAMERA_BINDING_START = 0
 
+export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicMatrix, 
+	windowingTransform, translateCamera, openglToWGSL, translate, rotateTransform, scaleTransform,
+	getUniformBuffer, getUniformData, getShaderCode, updateUniformBuffer
+
+coordinateTransform = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32
+invCoordinateTransform = inv(coordinateTransform)
 
 mutable struct Camera
 	gpuDevice
@@ -21,8 +27,8 @@ mutable struct Camera
 	farPlane
 	uniformData
 	uniformBuffer
+	id
 end
-
 
 function prepareObject(gpuDevice, camera::Camera)
 	scale = [1, 1, 1] .|> Float32
@@ -31,7 +37,7 @@ function prepareObject(gpuDevice, camera::Camera)
 	seek(io, 0)
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
-		" CAMERA BUFFER ",
+		" CAMERA $(camera.id-1) BUFFER ",
 		uniformDataBytes, 
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
@@ -43,7 +49,7 @@ function prepareObject(gpuDevice, camera::Camera)
 end
 
 
-function preparePipeline(gpuDevice, scene, camera::Camera; binding=1)
+function preparePipeline(gpuDevice, scene, camera::Camera; binding=0)
 	uniformBuffer = getfield(camera, :uniformBuffer)
 	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=binding)...)
 	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=binding)...)
@@ -51,7 +57,7 @@ end
 
 
 function computeTransform(camera::Camera)
-	viewMatrix = lookAtRightHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
+	viewMatrix = lookAtLeftHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
 	projectionMatrix = perspectiveMatrix(camera)
 	viewProject = projectionMatrix ∘ viewMatrix
 	return viewProject.linear
@@ -70,15 +76,15 @@ function computeUniformData(camera::Camera)
 end
 
 
-function defaultCamera()
-	eye = [1.0, 1.0, 1.0] .|> Float32
+function defaultCamera(;id=0)
+	eye = [0.0, 0.0, -4.0] .|> Float32
 	lookat = [0, 0, 0] .|> Float32
 	up = [0, 1, 0] .|> Float32
 	scale = [1, 1, 1] .|> Float32
-	fov = pi/2 |> Float32
+	fov = (75/180)*pi |> Float32
 	aspectRatio = 1.0 |> Float32
-	nearPlane = -1.0 |> Float32
-	farPlane = -100.0 |> Float32
+	nearPlane = 0.1 |> Float32
+	farPlane = 100.0 |> Float32
 	return Camera(
 		nothing,
 		eye,
@@ -90,7 +96,8 @@ function defaultCamera()
 		nearPlane,
 		farPlane,
 		IOBuffer(),
-		nothing
+		nothing,
+		id
 	)
 end
 
@@ -100,9 +107,10 @@ function setVal!(camera::Camera, ::Val{:transform}, v)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :transform))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
-	write(io, v)
+	write(io, coordinateTransform*v)
 	seek(io, 0)
 end
+
 
 function setVal!(camera::Camera, ::Val{:eye}, v)
 	setfield!(camera, :eye, v)
@@ -110,53 +118,62 @@ function setVal!(camera::Camera, ::Val{:eye}, v)
 	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :eye))
 	io = getfield(camera, :uniformData)
 	seek(io, offset)
-	write(io, v)
+	write(io, coordinateTransform[1:3, 1:3]*v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 	seek(io, 0)
 end
 
+
 function setVal!(camera::Camera, ::Val{:scale}, v)
-	setfield!(camera, :scale, v)
+	setfield!(camera, :scale, coordinateTransform[1:3, 1:3]*v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 end
 
+
 function setVal!(camera::Camera, ::Val{:lookat}, v)
-	setfield!(camera, :lookat, v)
+	setfield!(camera, :lookat, coordinateTransform[1:3, 1:3]*v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 end
+
 
 function setVal!(camera::Camera, ::Val{:farPlane}, v)
 	setfield!(camera, :farPlane, v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 end
 
+
 function setVal!(camera::Camera, ::Val{:fov}, v)
 	setfield!(camera, :fov, v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 end
+
 
 function setVal!(camera::Camera, ::Val{:aspectRatio}, v)
 	setfield!(camera, :aspectRatio, v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 end
 
+
 function setVal!(camera::Camera, ::Val{:nearPlane}, v)
 	setfield!(camera, :nearPlane, v)
 	setVal!(camera, Val(:transform), computeTransform(camera))
 end
 
+
 function setVal!(camera::Camera, ::Val{N}, v) where N
 	setfield!(camera, N, v)
 end
+
 
 function setVal!(camera::Camera, ::Val{:uniformData}, v)
 	UniformType = getproperty(WGSLTypes, :CameraUniform)
 	t = Ref{UniformType}()
 	io = getfield(camera, :uniformData)
 	seek(io, 0)
-	unsafe_write(io, t, sizeof(t)) # TODO BUG v should be passed instead of t.
+	unsafe_write(io, coordinateTransform*v, sizeof(v)) # TODO BUG v should be passed instead of t.
 	seek(io, 0)
 end
+
 
 Base.setproperty!(camera::Camera, f::Symbol, v) = begin
 	# setfield!(camera, f, v)
@@ -164,15 +181,18 @@ Base.setproperty!(camera::Camera, f::Symbol, v) = begin
 	updateUniformBuffer(camera)
 end
 
+
 # TODO not working
 function getVal(camera::Camera, ::Val{:unifomBuffer})
 	return readUniformBuffer(camera)
 end
 
+
 function getVal(camera::Camera, ::Val{:transform})
 	uniformData = getVal(camera, Val(:uniformData))
 	return getfield(uniformData, :transform)
 end
+
 
 function getVal(camera::Camera, ::Val{:uniformData})
 	UniformType = getproperty(WGSLTypes, :CameraUniform)
@@ -184,9 +204,11 @@ function getVal(camera::Camera, ::Val{:uniformData})
 	t[]
 end
 
+
 function getVal(camera::Camera, ::Val{N}) where N
 	return getfield(camera, N)
 end
+
 
 Base.getproperty(camera::Camera, f::Symbol) = begin
 	return getVal(camera, Val(f))
@@ -196,27 +218,53 @@ end
 xCoords(bb) = bb[1:2:end]
 yCoords(bb) = bb[2:2:end]
 
+
 lowerCoords(bb) = bb[1:2]
 upperCoords(bb) = bb[3:4]
 
 
+function rotmatrix_from_quat(q::Quaternion)
+    sx, sy, sz = 2q.s * q.v1, 2q.s * q.v2, 2q.s * q.v3
+    xx, xy, xz = 2q.v1^2, 2q.v1 * q.v2, 2q.v1 * q.v3
+    yy, yz, zz = 2q.v2^2, 2q.v2 * q.v3, 2q.v3^2
+    r = [1 - (yy + zz)     xy - sz     xz + sy;
+            xy + sz   1 - (xx + zz)    yz - sx;
+            xz - sy      yz + sx  1 - (xx + yy)]
+    return r
+end
+
+
 function translate(loc)
 	(x, y, z) = loc
+	mat = coordinateTransform*[
+		1 	0 	0 	x;
+		0 	1 	0 	y;
+		0 	0 	1 	z;
+		0 	0 	0 	1;
+	]
+
 	return LinearMap(
-		@SMatrix(
-			[
-				1 	0 	0 	x;
-				0 	1 	0 	y;
-				0 	0 	1 	z;
-				0 	0 	0 	1;
-			]
+		SMatrix{4, 4}(
+			mat
 		) .|> Float32
 	)
 end
 
 
+function rotateTransform(q::Quaternion)
+	rotMat = coordinateTransform[1:3, 1:3]*rotmatrix_from_quat(q)
+	mat = Matrix{Float32}(I, (4, 4))
+	mat[1:3, 1:3] .= rotMat
+	return LinearMap(
+		SMatrix{4, 4}(
+			mat
+		)
+	)
+end
+
+
 function scaleTransform(loc)
-	(x, y, z) = loc
+	(x, y, z) = coordinateTransform[1:3, 1:3]*loc
 	return LinearMap(
 		@SMatrix(
 			[
@@ -231,7 +279,7 @@ end
 
 
 function translateCamera(camera::Camera)
-	(x, y, z) = (camera.eye...,)
+	(x, y, z) = coordinateTransform[1:3, 1:3]*camera.eye
 	return LinearMap(
 		@SMatrix(
 			[
@@ -274,15 +322,15 @@ transform([upperCoords(bb1)..., 0, 0])
 """
 
 
-function lookAtRightHanded(camera::Camera)
+function lookAtLeftHanded(camera::Camera)
 	eye = camera.eye
 	lookat = camera.lookat
 	up = camera.up
-	w = -(eye .- lookat) |> normalize
+	w = -(lookat .- eye) |> normalize
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
 	m = MMatrix{4, 4, Float32}(I)
-	m[1:3, 1:3] .= (cat([u, v, w]..., dims=2) |> adjoint .|> Float32 |> collect)
+	m[1:3, 1:3] .= coordinateTransform[1:3, 1:3]*(cat([u, v, w]..., dims=2) |> adjoint .|> Float32 |> collect)
 	m = SMatrix(m)
 	return LinearMap(m) ∘ translateCamera(camera)
 end
@@ -293,7 +341,7 @@ function perspectiveMatrix(camera::Camera)
 	ar = camera.aspectRatio
 	n = camera.nearPlane
 	f = camera.farPlane
-	t = n*tan(fov/2)
+	t = abs(n)*tan(fov/2)
 	b = -t
 	r = ar*t
 	l = -r
@@ -302,22 +350,24 @@ end
 
 
 function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, t::Float32, b::Float32)
-	n = near
-	f = far
-	xS = -2*n/(r-l)
-	yS = -2*n/(t-b)
-	xR = -(r+l)/(r-l)
-	yR = -(t+b)/(t-b)
-	zR = -(f+n)/(n-f)
-	oR = -2*f*n/(n-f)
+	n = abs(near)
+	f = far |> abs
+	xS = 2*n/(r-l)
+	yS = 2*n/(t-b)
+	xR = (r+l)/(r-l)
+	yR = (t+b)/(t-b)
+	zR = -(f)/(f-n)
+	oR = -2*f*n/(f-n)
+	pmat = coordinateTransform * [
+		xS		0		xR		0	;
+		0		yS		yR		0	;
+		0		0		zR		oR	;
+		0		0		-1		0	;
+	]
+
 	return LinearMap(
-		@SMatrix(
-			[
-				xS		0		xR		0	;
-				0		yS		yR		0	;
-				0		0		zR		oR	;
-				0		0		1		0	;
-			]
+		SMatrix{4, 4}(
+			pmat
 		) .|> Float32
 	)
 end
@@ -349,7 +399,7 @@ end
 
 function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData).data
-	@info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
+	# @info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
 	WGPUCore.writeBuffer(
 		camera.gpuDevice.queue, 
 		getfield(camera, :uniformBuffer),
@@ -366,7 +416,7 @@ function readUniformBuffer(camera::Camera)
 		getfield(camera, :uniformBuffer).size
 	)
 	datareinterpret = reinterpret(SMatrix{4, 4, Float32, 16}, data)[1]
-	@info "Received Buffer" datareinterpret
+	# @info "Received Buffer" datareinterpret
 end
 
 
@@ -375,13 +425,14 @@ function getUniformBuffer(camera::Camera)
 end
 
 
-function getShaderCode(camera::Camera; isVision=false, islight=false, binding=1)
+function getShaderCode(camera::Camera; binding=CAMERA_BINDING_START)
+	cameraUniform = :CameraUniform
 	shaderSource = quote
-		struct CameraUniform
+		struct $cameraUniform
 			eye::Vec3{Float32}
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $binding camera::@user CameraUniform
+		@var Uniform 0 $(binding) camera::@user $cameraUniform
 	end
 	return shaderSource
 end
@@ -392,7 +443,7 @@ function getVertexBufferLayout(camera::Camera; offset = 0)
 end
 
 
-function getBindingLayouts(camera::Camera; binding=1)
+function getBindingLayouts(camera::Camera; binding=CAMERA_BINDING_START)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
@@ -404,7 +455,7 @@ function getBindingLayouts(camera::Camera; binding=1)
 end
 
 
-function getBindings(camera::Camera, uniformBuffer; binding=1)
+function getBindings(camera::Camera, uniformBuffer; binding=CAMERA_BINDING_START)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,

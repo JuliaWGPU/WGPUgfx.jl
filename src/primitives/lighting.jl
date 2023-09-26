@@ -5,6 +5,9 @@ using StaticArrays
 using Rotations
 using CoordinateTransformations
 
+const LIGHT_BINDING_START = MAX_CAMERAS + 1
+const MAX_LIGHTS = 4
+
 export defaultLighting, Lighting, lookAtRightHanded, 
 	translateLighting, translate, scaleTransform,
 	getUniformBuffer, getUniformData
@@ -40,13 +43,11 @@ function prepareObject(gpuDevice, lighting::Lighting)
 	return lighting
 end
 
-
-function preparePipeline(gpuDevice, scene, light::Lighting; binding=1)
+function preparePipeline(gpuDevice, scene, light::Lighting; binding=LIGHT_BINDING_START)
 	uniformBuffer = getfield(light, :uniformBuffer)
 	push!(scene.bindingLayouts, getBindingLayouts(light; binding=binding)...)
 	push!(scene.bindings, getBindings(light, uniformBuffer; binding=binding)...)
 end
-
 
 # TODO not used
 function defaultUniformData(::Lighting) 
@@ -190,7 +191,7 @@ end
 
 function updateUniformBuffer(lighting::Lighting)
 	data = getfield(lighting, :uniformData).data
-	@info :UniformBuffer lighting.uniformData
+	# @info :UniformBuffer lighting.uniformData
 	WGPUCore.writeBuffer(
 		lighting.gpuDevice.queue, 
 		getfield(lighting, :uniformBuffer),
@@ -208,7 +209,7 @@ function readUniformBuffer(lighting::Lighting)
 		getfield(lighting, :uniformBuffer).size
 	)
 	datareinterpret = reinterpret(UniformType, data)[1]
-	@info "Received Buffer" datareinterpret
+	# @info "Received Buffer" datareinterpret
 end
 
 
@@ -217,7 +218,7 @@ function getUniformBuffer(lighting::Lighting)
 end
 
 
-function getShaderCode(lighting::Lighting; isVision = false, islight=true, binding=0)
+function getShaderCode(lighting::Lighting; binding=LIGHT_BINDING_START)
 	shaderSource = quote
 		struct LightingUniform
 			position::Vec4{Float32}
@@ -238,7 +239,7 @@ function getVertexBufferLayout(lighting::Lighting; offset=0)
 end
 
 
-function getBindingLayouts(lighting::Lighting; binding=0)
+function getBindingLayouts(lighting::Lighting; binding=LIGHT_BINDING_START)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
@@ -250,7 +251,7 @@ function getBindingLayouts(lighting::Lighting; binding=0)
 end
 
 
-function getBindings(lighting::Lighting, uniformBuffer; binding=0)
+function getBindings(lighting::Lighting, uniformBuffer; binding=LIGHT_BINDING_START)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,
@@ -260,6 +261,4 @@ function getBindings(lighting::Lighting, uniformBuffer; binding=0)
 		],
 	]
 end
-
-
 

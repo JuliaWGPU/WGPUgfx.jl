@@ -21,10 +21,10 @@ scene = Scene(
 	camera, 
 	light, 
 	[], 
-	repeat([nothing], 6)...
+	repeat([nothing], 4)...
 )
 
-cube = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+cube = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"); image= "/Users/arhik/Pictures/OIP.jpeg")
 
 addObject!(scene, cube)
 
