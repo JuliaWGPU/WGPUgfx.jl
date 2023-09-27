@@ -105,7 +105,12 @@ function setup(renderer::Renderer, object::Renderable, camera::Camera)
 			preparedLight = true
 		end
 	end
-	prepareObject(gpuDevice, object)
+	# Checking camera.id here to share object uniforms to cameraSystem 
+	# TODO we need to make a more disciplined way to handle this
+	# For now we are sharing objects across cameras 
+	if camera.id == 1
+		prepareObject(gpuDevice, object)
+	end
 	preparePipeline(gpuDevice, renderer, object, camera; binding=binding)
 end
 
