@@ -1,3 +1,5 @@
+# This example doesn't work yet. Circle Primitive needs to be finished for this work.
+# TODO git issue link here [( )]
 
 using WGPUgfx
 using WGPUCore
@@ -9,17 +11,22 @@ using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
 
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
 
-scene = Scene(canvas, [], repeat([nothing], 9)...)
-camera = defaultCamera()
-push!(scene.objects, camera)
+scene = Scene()
+canvas = scene.canvas
 
-circle = defaultCircle(12)
-push!(scene.objects, circle)
+renderer = getRenderer(scene)
 
-(renderPipeline, _) = setup(scene, gpuDevice);
+# TODO circle is not defined yet.
+
+circle = defaultCircle()
+addObject!(renderer, circle)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 main = () -> begin
 	try

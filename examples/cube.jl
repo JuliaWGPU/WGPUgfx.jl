@@ -1,3 +1,7 @@
+# This example should simple display CUBE mesh primitive
+# TODO show two different ways to render them. 
+# One version grouped together version with axis, bbox
+
 using Debugger
 using WGPUgfx
 using WGPUCore
@@ -9,34 +13,31 @@ using Rotations
 using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
-
-camera = defaultCamera()
-light = defaultLighting()
-scene = Scene(
-	gpuDevice, 
-	canvas, 
-	camera,
-	light,
-	[], 
-	repeat([nothing], 4)...
-)
+scene = Scene()
+canvas = scene.canvas 
+renderer = getRenderer(scene)
 
 cube = defaultWGPUMesh("$(pkgdir(WGPUgfx))/assets/monkey.obj")
 grid = defaultGrid()
 axis = defaultAxis(; len=2)
 wo = WorldObject(cube, RenderType(VISIBLE | SURFACE | WIREFRAME | BBOX | AXIS ), nothing, nothing, nothing, nothing)
-addObject!(scene, wo)
-addObject!(scene, grid)
-addObject!(scene, axis)
 
-attachEventSystem(scene)
+addObject!(renderer, wo)
+addObject!(renderer, grid)
+addObject!(renderer, axis)
+
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			runApp(scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

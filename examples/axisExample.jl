@@ -1,3 +1,14 @@
+# This example showcases wireframe primitive. Nothing else.
+# There is an example that used Dojo for robot wireframe. 
+# Because that needs Dojo dependeny it is currently left for future.
+# Since we are still in very beginning stages of development this example of drawing ... 
+## Axis should should suffice.
+
+# [Update] 
+# Though original intention is to draw an axis. This example  In addition to drawing axis, this example also showcase viewport based rendering.
+# Also Event system is attached to only viewport.
+# TODO Make a seperate example maybe for viewports and event listening showcasing purposes.
+
 using Revise
 using WGPUgfx
 using WGPUCore

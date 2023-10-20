@@ -1,3 +1,11 @@
+# WIP
+# This example showcases a 2D quad rendering on top of 3D render scene.
+# This will allow GUI interaction with GUI elements like textboxes etc ...
+# Currently it draws only the Quad with transparency since we need transparency for Text only fields.
+# Fully function example should render text and stay at a place with interaction possibilty. 
+# TODOMore dynamic 3D environment will be more evident for showcasing purposes.
+
+
 using Revise
 using WGPUgfx
 using WGPUCore
@@ -10,33 +18,8 @@ using WGPUNative
 using Debugger
 using Images
 
-# using FreeTypeAbstraction
 
-# # load a font
-# face = FTFont("$(ENV["HOMEPATH"])/JuliaMono-Light.ttf")
-
-# # render a character
-# img, metric = renderface(face, 'C', 10)
-
-# # render a string into an existing matrix
-# myarray = zeros(N0f8, 100, 100)
-# pixelsize = 10
-# x0, y0 = 90, 10
-
-# helloString = (renderstring!(myarray, "hello", face, pixelsize, x0, y0, halign=:hright))
-
-# imageF = ones(RGBA, size(helloString))
-
-# imageF[:, :, :, 1] = RGB.(helloString)
-
-# resize(imageF, (256, 256))
-
-# textureData = begin
-# 	img = RGBA.(imageF) |> adjoint
-# 	imgview = channelview(img) |> collect 
-# end
-
-WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
+WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
 # axis = defaultAxis()
 
@@ -71,7 +54,7 @@ function runApp(renderer)
 	deinit(renderer)
 end
 
-main = () -> begin
+run = () -> begin
 	try
 		count = 0
 		camera1 = scene.cameraSystem[1]
@@ -80,6 +63,13 @@ main = () -> begin
 			mat = MMatrix{4, 4, Float32}(I)
 			mat[1:3, 1:3] = rot
 			camera1.transform = camera1.transform*mat
+			theta = time()
+			quad.uniformData = translate((				
+				1.0*(sin(theta)), 
+				1.0*(cos(theta)), 
+				0, 
+				1
+			)).linear
 			runApp(renderer)
 			PollEvents()
 		end
@@ -89,7 +79,7 @@ main = () -> begin
 end
 
 if abspath(PROGRAM_FILE)==@__FILE__
-	main()
+	run()
 else
-	main()
+	run()
 end
