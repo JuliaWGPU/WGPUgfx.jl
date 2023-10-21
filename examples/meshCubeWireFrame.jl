@@ -19,20 +19,31 @@ gpuDevice = scene.gpuDevice
 
 renderer = getRenderer(scene)
 
-mesh = WGPUgfx.defaultCube(
-	joinpath(pkgdir(WGPUgfx), "assets", "cube.obj")
-)
 
-wo = WorldObject{Cube}(
-	mesh, 
-	RenderType(VISIBLE | WIREFRAME | AXIS), 
+mesh = WorldObject(
+	WGPUgfx.defaultWGPUMesh(
+		joinpath(pkgdir(WGPUgfx), "assets", "cube.obj")
+	), 
+	RenderType(VISIBLE | SURFACE | BBOX ), 
 	nothing, 
 	nothing, 
 	nothing, 
 	nothing
 )
 
-addObject!(renderer, wo)
+wireFrame = WorldObject(
+	WGPUgfx.defaultWGPUMesh(
+		joinpath(pkgdir(WGPUgfx), "assets", "cube.obj")
+	), 
+	RenderType(VISIBLE | WIREFRAME ), 
+	nothing, 
+	nothing, 
+	nothing, 
+	nothing
+)
+
+addObject!(renderer, mesh)
+addObject!(renderer, wireFrame)
 
 attachEventSystem(renderer)
 
@@ -45,11 +56,11 @@ end
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			tz = translate([sin(time()), 0, 0]).linear
-			mat = MMatrix{4, 4}(wo.uniformData)
-			mat .= tz
-			wo.uniformData = mat
 			runApp(renderer)
+			tz = translate([sin(time()), 0, 0]).linear
+			mat = MMatrix{4, 4}(mesh.uniformData)
+			mat .= tz
+			mesh.uniformData = mat
 			PollEvents()
 		end
 	finally
