@@ -11,7 +11,6 @@ using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
 
-
 scene = Scene()
 canvas = scene.canvas
 

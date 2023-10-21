@@ -10,20 +10,12 @@ using StaticArrays
 using CoordinateTransformations
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas; size=(500, 500));
-gpuDevice = WGPUCore.getDefaultDevice();
 
-camera = defaultCamera()
-light = defaultLighting()
+scene = Scene()
+renderer = getRenderer(scene)
 
-scene = Scene(
-	gpuDevice,
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...,
-)
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
 
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); color=[0.6, 0.4, 0.5, 1.0])
 mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); color=[0.8, 0.4, 0.3, 0.5])
@@ -31,13 +23,19 @@ mesh3 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); color
 mesh4 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); color = [0.4, 0.3, 0.5, 0.3])
 # mesh5 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"); color = [0.4, 0.3, 0.5, 0.3])
 
-addObject!(scene, mesh1)
-addObject!(scene, mesh2)
-addObject!(scene, mesh3)
-addObject!(scene, mesh4)
+addObject!(renderer, mesh1)
+addObject!(renderer, mesh2)
+addObject!(renderer, mesh3)
+addObject!(renderer, mesh4)
 # addObject!(scene, mesh5)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 # @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
@@ -69,7 +67,7 @@ main = () -> begin
 			mat = MMatrix{4, 4}(mesh2.uniformData)
 			mat[1:3, 1:3] .= rot
 			mesh3.uniformData = mat*mesh3Translation*mat
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

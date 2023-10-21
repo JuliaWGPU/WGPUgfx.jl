@@ -9,25 +9,22 @@ using Rotations
 using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
-
-camera = defaultCamera()
-light = defaultLighting()
-scene = Scene(
-	gpuDevice, 
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...
-)
+scene = Scene()
+renderer = getRenderer(scene)
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
 
 mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
 
-addObject!(scene, mesh)
+addObject!(renderer, mesh)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 # @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
@@ -36,7 +33,7 @@ main = () -> begin
 			# camera = scene.camera
 			# rotxy = RotXY(pi/3, time())
 			# camera.scale = [1, 1, 1] .|> Float32
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

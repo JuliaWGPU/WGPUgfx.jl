@@ -1,9 +1,9 @@
 using WGPUNative
 using WGPUCore
 
-export defaultPlane, Plane
+export defaultPlane, WGPUPlane
 
-mutable struct Plane <: Renderable
+mutable struct WGPUPlane <: Renderable
 	width
 	height
 	wSegments
@@ -59,7 +59,7 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 	normalData = repeat(faceNormal, inner=(1, 3))
 
 	
-	Plane(
+	WGPUPlane(
 		width, 
 		height, 
 		wSegments, 

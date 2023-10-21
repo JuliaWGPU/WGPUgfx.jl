@@ -102,7 +102,7 @@ function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 
 	textureView = nothing
 	
 	if image != ""
-		uvData = scale*reduce(hcat, meshdata.uvs[uIndices[:]]) .|> Float32
+		uvData = reduce(hcat, meshdata.uvs[uIndices[:]]) .|> Float32
 		textureData = begin
 			img = load(image)
 			img = imresize(img, (256, 256)) # TODO hardcoded size

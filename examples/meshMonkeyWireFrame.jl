@@ -9,27 +9,25 @@ using Rotations
 using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
+scene = Scene()
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
 
-camera = defaultCamera()
-light = defaultLighting()
-scene = Scene(
-	gpuDevice, 
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...
-)
+renderer = getRenderer(scene)
 
 mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"))
 
 wf = defaultWireFrame(mesh)
-addObject!(scene, mesh)
-addObject!(scene, wf)
+addObject!(renderer, mesh)
+addObject!(renderer, wf)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 main = () -> begin
 	try
@@ -38,7 +36,7 @@ main = () -> begin
 			mat = MMatrix{4, 4}(mesh.uniformData)
 			mat .= tz
 			mesh.uniformData = mat
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

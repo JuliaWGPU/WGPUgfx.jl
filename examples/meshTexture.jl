@@ -8,28 +8,28 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 using CoordinateTransformations
+
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas; size=(500, 500));
-gpuDevice = WGPUCore.getDefaultDevice();
 
-camera = defaultCamera()
-light = defaultLighting()
+scene = Scene()
+canvas = scene.canvas
+gpuDevice = scene.canvas
 
-scene = Scene(
-	gpuDevice,
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...,
+renderer = getRenderer(scene)
+
+mesh1 = defaultWGPUMesh(
+			joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); 
+			image="$(pkgdir(WGPUgfx))/assets/R.png"
+)
+mesh2 = defaultWGPUMesh(
+	joinpath(pkgdir(WGPUgfx), "assets", "torus.obj"); 
+	image="$(pkgdir(WGPUgfx))/assets/R.png"
 )
 
-mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"); image="/Users/arhik/Pictures/rainbow.jpeg")
-mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "torus.obj"); image="/Users/arhik/Pictures/people.jpeg")
-addObject!(scene, mesh1)
-addObject!(scene, mesh2)
+addObject!(renderer, mesh1)
+addObject!(renderer, mesh2)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
 
 main = () -> begin
 	try
@@ -40,7 +40,7 @@ main = () -> begin
 			mat[1:3, 1:3] .= rot
 			mesh1.uniformData = mat
 			
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

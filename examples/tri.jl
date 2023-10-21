@@ -8,24 +8,27 @@ using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
+scene = Scene()
+canvas = scene.canvas
 
-camera = defaultCamera()
-light = defaultLighting()
-
-scene = Scene(gpuDevice, canvas, camera, light, [], repeat([nothing], 4)...)
+renderer = getRenderer(scene)
 
 triangle = defaultTriangle3D()
 
-addObject!(scene, triangle)
+addObject!(renderer, triangle)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			runApp(scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

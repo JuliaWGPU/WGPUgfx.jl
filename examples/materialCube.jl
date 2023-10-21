@@ -9,31 +9,33 @@ using Rotations
 using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
-camera = defaultCamera()
 
-light = defaultLighting()
+scene = Scene()
+renderer = getRenderer(scene)
 
-scene = Scene(
-	gpuDevice, 
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
+
+
+cube = defaultWGPUMesh(
+	joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"); 
+	image= "$(pkgdir(WGPUgfx))/assets/R.png"
 )
 
-cube = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"); image= "/Users/arhik/Pictures/OIP.jpeg")
+addObject!(renderer, cube)
 
-addObject!(scene, cube)
+attachEventSystem(renderer)
 
-attachEventSystem(scene)
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			runApp(scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

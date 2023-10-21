@@ -10,30 +10,32 @@ using StaticArrays
 using CoordinateTransformations
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas; size=(500, 500));
-gpuDevice = WGPUCore.getDefaultDevice();
+scene = Scene()
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
 
-camera = defaultCamera()
-light = defaultLighting()
+renderer = getRenderer(scene)
 
-scene = Scene(
-	gpuDevice,
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...,
+plane = defaultWGPUMesh(
+	joinpath(pkgdir(WGPUgfx), "assets", "plane.obj");
+	image = joinpath(pkgdir(WGPUgfx), "assets", "R.png")
 )
 
-mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "plane.obj"); image="/Users/arhik/Pictures/OIP.jpeg")
-addObject!(scene, mesh1)
+addObject!(renderer, plane)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end	
+
 
 main = () -> begin
 	try
 		while !WindowShouldClose(canvas.windowRef[])
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

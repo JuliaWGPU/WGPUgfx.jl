@@ -4,29 +4,26 @@ using WGPUCore
 export defaultCircle, WGPUCircle
 
 mutable struct WGPUCircle <: Renderable
+	radius
+	nSectors
+	gpuDevice
+	topology
 	vertexData
 	colorData
 	indexData
-end
-
-function defaultUniformData(::Type{WGPUCircle}) 
-	uniformData = ones(Float32, (4, 4)) |> Diagonal |> Matrix
-	return uniformData
-end
-
-function getUniformData(circle::WGPUCircle)
-	return defaultUniformData(WGPUCircle)
-end
-
-function getUniformBuffer(gpuDevice, circle::WGPUCircle)
-	uniformData = defaultUniformData(WGPUCircle)
-	(uniformBuffer, _) = WGPUCore.createBufferWithData(
-		gpuDevice, 
-		"uniformBuffer", 
-		uniformData, 
-		["Uniform", "CopyDst"]
-	)
+	normalData
+	uvData
+	uniformData
 	uniformBuffer
+	indexBuffer
+	vertexBuffer
+	textureData
+	texture
+	textureView
+	sampler
+	pipelineLayouts
+	renderPipelines
+	cshaders
 end
 
 function generateCircle(nDivs, radius=1)
@@ -45,8 +42,8 @@ function generateCircle(nDivs, radius=1)
 	return (vertexData, indexData)
 end
 
-function defaultCircle(nDivs=100, radius=1, color=[0.4, 0.3, 0.5, 1.0])
-	(vertexData, indexData) = generateCircle(nDivs, radius)
+function defaultCircle(nSectors=100, radius=1, color=[0.4, 0.3, 0.5, 1.0])
+	(vertexData, indexData) = generateCircle(nSectors, radius)
 
 	unitColor = cat([
 		color
@@ -54,88 +51,40 @@ function defaultCircle(nDivs=100, radius=1, color=[0.4, 0.3, 0.5, 1.0])
 
 	colorData = repeat(unitColor, inner=(1, size(vertexData, 2)))
 
-	circle = Circle(vertexData, colorData, indexData)
+	indexData = cat([
+		1:size(vertexData, 1) |> collect
+	]..., dims=2) .|> UInt32
+
+	faceNormal = cat([
+		repeat(
+			[0, 0, 1, 0],
+			size(vertexData, 1)
+		)
+	]..., dims=2) .|> Float32
+
+	# 	normalData = repeat(faceNormal, inner=(1, 3))
+
+	circle = WGPUCircle(
+		radius,
+		nSectors,
+		nothing,
+		"TriangleList",
+		vertexData, 
+		colorData, 
+		indexData,
+		nothing, #normalData
+		nothing, #uvData,
+		nothing, #uniformData,
+		nothing, #uniformBuffer,
+		nothing, #indexBuffer,
+		nothing, #vertexBuffer,
+		nothing, #textureData,
+		nothing, #texture,
+		nothing, #textureView,
+		nothing, #sampler,
+		Dict(), #pipelineLayout,
+		Dict(), #renderPipeline
+		Dict(), #cshader
+	)
 	return circle
-end
-
-
-function getVertexBuffer(gpuDevice, circle::WGPUCircle)
-	(vertexBuffer, _) = WGPUCore.createBufferWithData(
-		gpuDevice, 
-		"vertexBuffer", 
-		vcat([circle.vertexData, circle.colorData]...), 
-		["Vertex", "CopySrc"]
-	)
-	vertexBuffer
-end
-
-
-function getIndexBuffer(gpuDevice, circle::WGPUCircle)
-	(indexBuffer, _) = WGPUCore.createBufferWithData(
-		gpuDevice, 
-		"indexBuffer", 
-		circle.indexData |> flatten, 
-		"Index"
-	)
-	indexBuffer
-end
-
-
-function getVertexBufferLayout(::Type{WGPUCircle}; offset = 0)
-	WGPUCore.GPUVertexBufferLayout => [
-		:arrayStride => 8*4,
-		:stepMode => "Vertex",
-		:attributes => [
-			:attribute => [
-				:format => "Float32x4",
-				:offset => 0,
-				:shaderLocation => offset + 0
-			],
-			:attribute => [
-				:format => "Float32x4",
-				:offset => 4*4,
-				:shaderLocation => offset + 1
-			]
-		]
-	]
-end
-
-
-function getBindingLayouts(::Type{WGPUCircle}; binding=0)
-	bindingLayouts = [
-		WGPUCore.WGPUBufferEntry => [
-			:binding => binding,
-			:visibility => ["Vertex", "Fragment"],
-			:type => "Uniform"
-		],
-	]
-	return bindingLayouts
-end
-
-
-function getBindings(::Type{WGPUCircle}, uniformBuffer; binding=0)
-	bindings = [
-		WGPUCore.GPUBuffer => [
-			:binding => binding,
-			:buffer => uniformBuffer,
-			:offset => 0,
-			:size => uniformBuffer.size
-		],
-	]
-end
-
-
-function getShaderCode(::Type{WGPUCircle}; binding=0)
-	shaderSource = quote
-		struct WGPUCircleUniform
-			transform::Mat4{Float32}
-		end
-		@var Uniform 0 $binding rLocals::@user WGPUCircleUniform
- 	end
- 	
-	return shaderSource
-end
-
-function toMesh(::Type{WGPUCircle})
-	
 end

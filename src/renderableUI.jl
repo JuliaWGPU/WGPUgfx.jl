@@ -171,7 +171,6 @@ end
 
 function updateUniformBuffer(quad::RenderableUI)
 	data = SMatrix{4, 4}(quad.uniformData[:])
-	# @info :UniformBuffer data
 	WGPUCore.writeBuffer(
 		quad.gpuDevice.queue, 
 		getfield(quad, :uniformBuffer),

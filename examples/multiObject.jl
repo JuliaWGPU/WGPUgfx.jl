@@ -10,29 +10,27 @@ using StaticArrays
 using CoordinateTransformations
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas; size=(500, 500));
-gpuDevice = WGPUCore.getDefaultDevice();
 
-camera = defaultCamera()
-light = defaultLighting()
+scene = Scene()
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
 
-scene = Scene(
-	gpuDevice,
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...,
-)
+renderer = getRenderer(scene)
 
 grid = defaultGrid()
 mesh1 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "sphere.obj"))
 mesh2 = defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "torus.obj"))
-addObject!(scene, grid)
-addObject!(scene, mesh2)
-addObject!(scene, mesh1)
+addObject!(renderer, grid)
+addObject!(renderer, mesh2)
+addObject!(renderer, mesh1)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 # @enter	runApp(scene, gpuDevice, renderPipeline)
 main = () -> begin
@@ -44,7 +42,7 @@ main = () -> begin
 			mat[1:3, 1:3] .= rot
 			mesh1.uniformData = mat
 			
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally

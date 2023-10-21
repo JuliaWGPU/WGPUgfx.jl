@@ -1,3 +1,6 @@
+# TODO this is a bit incomplete.
+# The wireframe does not convert the all vertices and lines yet but a good start for now
+
 using Debugger
 using WGPUgfx
 using WGPUgfx: RenderType
@@ -10,33 +13,34 @@ using Rotations
 using StaticArrays
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
-canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas);
-gpuDevice = WGPUCore.getDefaultDevice();
+scene = Scene()
+canvas = scene.canvas
+gpuDevice = scene.gpuDevice
 
-camera = defaultCamera()
-light = defaultLighting()
-scene = Scene(
-	gpuDevice, 
-	canvas, 
-	camera, 
-	light, 
-	[], 
-	repeat([nothing], 4)...
+renderer = getRenderer(scene)
+
+mesh = WGPUgfx.defaultCube(
+	joinpath(pkgdir(WGPUgfx), "assets", "cube.obj")
 )
 
-mesh = WGPUgfx.defaultCube()# (joinpath(pkgdir(WGPUgfx), "assets", "monkey.obj"))
 wo = WorldObject{Cube}(
 	mesh, 
-	RenderType(VISIBLE | SURFACE | WIREFRAME | AXIS), 
+	RenderType(VISIBLE | WIREFRAME | AXIS), 
 	nothing, 
 	nothing, 
 	nothing, 
 	nothing
 )
 
-addObject!(scene, wo)
+addObject!(renderer, wo)
 
-attachEventSystem(scene)
+attachEventSystem(renderer)
+
+function runApp(renderer)
+	init(renderer)
+	render(renderer)
+	deinit(renderer)
+end
 
 main = () -> begin
 	try
@@ -45,7 +49,7 @@ main = () -> begin
 			mat = MMatrix{4, 4}(wo.uniformData)
 			mat .= tz
 			wo.uniformData = mat
-			runApp(gpuDevice, scene)
+			runApp(renderer)
 			PollEvents()
 		end
 	finally
