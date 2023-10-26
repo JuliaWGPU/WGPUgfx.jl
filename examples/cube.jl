@@ -17,7 +17,7 @@ scene = Scene()
 canvas = scene.canvas 
 renderer = getRenderer(scene)
 
-cube = defaultWGPUMesh("$(pkgdir(WGPUgfx))/assets/monkey.obj")
+cube = defaultWGPUMesh("$(pkgdir(WGPUgfx))/assets/cube.obj"; color=[0.3, 0.4, 0.5, 0.6])
 grid = defaultGrid()
 axis = defaultAxis(; len=2)
 wo = WorldObject(cube, RenderType(VISIBLE | SURFACE | WIREFRAME | BBOX | AXIS ), nothing, nothing, nothing, nothing)
