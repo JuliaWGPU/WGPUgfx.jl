@@ -1,6 +1,6 @@
 using CEnum
 
-export WorldNode, render
+export WorldObject, render
 
 mutable struct WorldObject{T<:Renderable} <: Renderable
 	renderObj::T

@@ -32,7 +32,7 @@ function generateCircle(nDivs, radius=1)
 	positions = []
 	indices = []
 	vec = [1, 0, 1]
-	for idx in 0:nDivs
+	for idx in 1:nDivs
 		push!(positions, [vec..., 1.0])
 		push!(indices, [0, idx, idx+1])
 		vec = rotz*vec

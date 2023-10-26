@@ -14,6 +14,7 @@ include("primitivesUI.jl")
 include("system.jl")
 include("scene.jl")
 include("object.jl")
+include("tree.jl")
 include("renderer.jl")
 include("events.jl")
 

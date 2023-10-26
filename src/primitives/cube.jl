@@ -24,6 +24,12 @@ mutable struct Cube <: Renderable
 	cshaders
 end
 
+function getCubeData()
+	vertexData = cat([
+		
+	])
+end
+
 function defaultCube()
 	vertexData = cat([
 	    [-1, -1, 1, 1],
@@ -78,7 +84,7 @@ function defaultCube()
 		[0, -1, 0, 0]
 	]..., dims=2) .|> Float32
 	
-	normalData = repeat(faceNormal, inner=(1, 4))
+	normalData = repeat(faceNormal, inner=(1, 6))
 
 	cube = Cube(
 		nothing, 		# gpuDevice
