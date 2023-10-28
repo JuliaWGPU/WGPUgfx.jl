@@ -4,7 +4,7 @@ using GLFW: WindowShouldClose, PollEvents
 using WGPUCore
 using WGPUNative
 
-WGPUCore.SetLogLevel(WGPULogLevel_Debug)
+WGPUCore.SetLogLevel(WGPULogLevel_None)
 
 scene = Scene()
 renderer = getRenderer(scene)
@@ -32,7 +32,6 @@ end
 function runApp(renderer)
 	init(renderer)
 	render(renderer)
-	getImage()
 	deinit(renderer)
 end
 
@@ -63,83 +62,8 @@ function mainApp()
 	end
 end
 
-function getImage()
-	ctxtSize = WGPUCore.determineSize(renderer.presentContext) .|> Int
-	bufferDims = WGPUCore.BufferDimensions(ctxtSize...)
-	bufferSize = bufferDims.padded_bytes_per_row * bufferDims.height
-	outputBuffer = WGPUCore.createBuffer(
-		"OUTPUT BUFFER",
-		gpuDevice,
-		bufferSize,
-		["CopyDst", "CopySrc"],
-		false
-	)
-	WGPUCore.copyTextureToBuffer(
-		renderer.cmdEncoder,
-		[
-			:texture => renderer.currentTextureView,
-			:mipLevel => 0,
-			:origin => [
-				:x => 0,
-				:y => 0,
-				:z => 0,
-			] |> Dict
-		] |> Dict,
-		[
-			:buffer => outputBuffer,
-			:layout => [
-				:offset => 0,
-				:bytesPerRow => bufferDims.padded_bytes_per_row,
-				:rowsPerImage => WGPU_COPY_STRIDE_UNDEFINED,
-			] |> Dict,
-		] |> Dict,
-		[
-			:width => bufferDims.width,
-			:height => bufferDims.height,
-			:depthOrArrayLayers => 1,
-		] |> Dict
-	)
-	data = WGPUCore.readBuffer(gpuDevice, outputBuffer, 0, bufferSize |> Int)
-	return data
-end
-
 if abspath(PROGRAM_FILE) == @__FILE__
 	mainApp()
 else
 	mainApp()
 end
-
-
-using Images
-using ImageView
-
-img = load(joinpath(ENV["HOMEPATH"], "Downloads", "OIP.jpg"))
-grayImg = Gray.(img)
-
-imshow(grayImg)
-cviewImg = channelview(grayImg) |> float
-sz = size(cviewImg)
-
-midPoint = sz./2 .|> ceil .|> Int
-
-radius = (sz .- midPoint).^2 |> sum |> sqrt |> ceil |> Int
-filteredIdxs = filter(x->(x%3)==0, 1:size(circle.vertexData, 2))
-vertices = radius*circle.vertexData[:, filteredIdxs][1:2, :] .+ radius
-
-sparsity = 4
-
-rs = zeros(Int, size(vertices, 2), sparsity)
-
-function overlapScore()
-
-end
-
-for idx in 1:size(vertices, 2)
-	vertex = vertices[:, idx]
-	maxValue = 0
-	topIdx = 1
-	for yIdx in 1:size(vertices, 2)
-		yVertex = vertices[:, yIdx]
-		
-end
-
