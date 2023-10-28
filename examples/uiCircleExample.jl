@@ -23,8 +23,7 @@ scene = Scene();
 renderer = getRenderer(scene);
 
 circle = defaultUICircle(;nSectors=20, radius=0.2, color = [0.4, 0.3, 0.5, 0.6]);
-axis = defaultAxis()
-addObject!(renderer, axis)
+
 addObject!(renderer, circle, scene.camera);
 
 # quad.uniformData = Matrix{Float32}(I, (4, 4))
