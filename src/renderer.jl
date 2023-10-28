@@ -145,7 +145,9 @@ function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MA
 		cshaders =  getfield(object, :cshaders)
 		cshaders[scene.cameraId] = cshader
 		# setfield!(object, :cshader, cshader)
-		@info  cshader.src "Renderable"
+		if isdefined(WGPUCore, :logLevel) && Int(WGPUCore.logLevel) == 4 # Debug level
+			@info  cshader.src "Renderable"
+		end
 	catch(e)
 		@info "Caught exception in Renderable :compileShaders!" e
 		rethrow(e)
@@ -165,7 +167,9 @@ function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MA
 		cshaders =  getfield(quad, :cshaders)
 		cshaders[scene.cameraId] = cshader
 		# setfield!(object, :cshader, cshader)
-		@info  cshader.src "RenderableUI"
+		if isdefined(WGPUCore, :logLevel) && Int(WGPUCore.logLevel) == 4
+			@info  cshader.src "RenderableUI"
+		end
 	catch(e)
 		@info "Caught exception in RenderableUI :compileShaders!" e
 		rethrow(e)
@@ -206,7 +210,9 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=M
 				cshaders = getfield(obj, :cshaders)
 				cshaders[scene.cameraId] = cshader
 				# setfield!(obj, :cshader, cshader)
-				@info  cshader.src "WorldObject"
+				if isdefined(WGPUCore, :logLevel) && Int(WGPUCore.logLevel) == 4
+					@info  cshader.src "WorldObject"
+				end
 			catch(e)
 				@info "Caught Exception in WorldObject :compileShaders!" e
 				rethrow(e)
