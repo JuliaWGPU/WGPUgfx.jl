@@ -4,7 +4,7 @@ using GLFW: WindowShouldClose, PollEvents
 using WGPUCore
 using WGPUNative
 
-WGPUCore.SetLogLevel(WGPULogLevel_None)
+WGPUCore.SetLogLevel(WGPULogLevel_Off)
 
 scene = Scene()
 renderer = getRenderer(scene)
