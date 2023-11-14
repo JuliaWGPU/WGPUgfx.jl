@@ -1,7 +1,7 @@
 name = "WGPUgfx"
 uuid = "02f56413-64a8-464d-a8fa-8dfc28b55f81"
 authors = ["arhik <arhik23@gmail.com>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
