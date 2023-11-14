@@ -1,5 +1,6 @@
 module WGPUgfx
 
+using WGPUGUI
 using LinearAlgebra
 using WGPUCore
 

@@ -9,6 +9,7 @@
 using Revise
 using WGPUgfx
 using WGPUCore
+using WGPUGUI
 using GLFW
 using GLFW: WindowShouldClose, PollEvents, DestroyWindow
 using LinearAlgebra

@@ -19,7 +19,7 @@ mutable struct Scene
 	light						# TODO lights
 	objects 					# ::Union{WorldObject, ObjectGroup}
 	function Scene()
-		canvas = WGPUCore.defaultCanvas(WGPUCore.WGPUCanvas)
+		canvas = WGPUCore.getCanvas(:GLFW)
 		gpuDevice = WGPUCore.getDefaultDevice();
 		camera = defaultCamera()
 		light = defaultLighting()
