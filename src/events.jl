@@ -1,4 +1,4 @@
-using WGPUGUI
+using WGPUCanvas
 using WGPUCore
 using GLFW
 using CoordinateTransformations
@@ -42,7 +42,7 @@ end
 
 
 function attachMouseButtonCallback(scene, camera)
-	WGPUGUI.setMouseButtonCallback(
+	WGPUCanvas.setMouseButtonCallback(
 		scene.canvas, 
 		(_, button, action, a) -> begin
 			# @info GLFW.MouseButton button action a mouseState
@@ -52,7 +52,7 @@ function attachMouseButtonCallback(scene, camera)
 end
 
 function attachScrollCallback(scene, camera::Camera)
-	WGPUGUI.setScrollCallback(
+	WGPUCanvas.setScrollCallback(
 		scene.canvas,
 		(_, xoff, yoff) -> begin
 			# @info "MouseScroll" xoff, yoff
@@ -62,7 +62,7 @@ function attachScrollCallback(scene, camera::Camera)
 end
 
 function attachCursorPosCallback(scene, camera::Camera)
-	WGPUGUI.setCursorPosCallback(
+	WGPUCanvas.setCursorPosCallback(
 		scene.canvas, 
 		(_, x, y) -> begin
 			# @info "Mouse Position" x, y

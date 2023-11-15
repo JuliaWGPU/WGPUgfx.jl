@@ -1,6 +1,6 @@
 module WGPUgfx
 
-using WGPUGUI
+using WGPUCanvas
 using LinearAlgebra
 using WGPUCore
 
