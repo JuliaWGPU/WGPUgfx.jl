@@ -28,15 +28,25 @@ mutable struct WGPUPlane <: Renderable
 	cshaders
 end
 
-function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0.2, 0.5, 1.0])
+function defaultPlane(;width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0.2, 0.5, 1.0], image="")
+
+	
+	# vertexData = cat([
+	# 	[-1, -1, 0, 1],
+	# 	[1, -1, 0, 1],
+	# 	[1, 1, 0, 1],
+	# 	[1, 1, 0, 1],
+	# 	[-1, 1, 0, 1],
+	# 	[-1, -1, 0, 1],
+	# ]..., dims=2) .|> Float32
 
 	vertexData = cat([
-		[-1, -1, 0, 1],
 		[1, -1, 0, 1],
 		[1, 1, 0, 1],
+		[-1, -1, 0, 1],
+		[-1, -1, 0, 1],
 		[1, 1, 0, 1],
 		[-1, 1, 0, 1],
-		[-1, -1, 0, 1],
 	]..., dims=2) .|> Float32
 
 	unitColor = cat([
@@ -51,6 +61,31 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 		[0, 1, 2, 3, 4, 5],
 	]..., dims=2) .|> UInt32
 
+	uvData = nothing
+	texture = nothing
+	textureData = nothing
+	textureView = nothing
+
+	if texture !== nothing || image != ""
+
+		uvData = cat([
+			[1, 0],
+			[1, 1],
+			[0, 0],
+			[0, 0],
+			[1, 1],
+			[0, 1]
+		]..., dims=2) .|> Float32
+
+		textureData = begin
+			img = load(image)
+			img = imresize(img, (256, 256)) # TODO hardcoded size
+			img = imrotate(RGBA.(img), pi/2)
+			imgview = channelview(img) |> collect
+		end
+
+	end
+
 	faceNormal = cat([
 		[0, 0, 1, 0],
 		[0, 0, 1, 0],
@@ -58,7 +93,6 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 
 	normalData = repeat(faceNormal, inner=(1, 3))
 
-	
 	WGPUPlane(
 		width, 
 		height, 
@@ -70,12 +104,12 @@ function defaultPlane(width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0
 		colorData,
 		indexData,
 		normalData,
-		nothing, #uvData,
+		uvData, #uvData,
 		nothing, #uniformData,
 		nothing, #uniformBuffer,
 		nothing, #indexBuffer,
 		nothing, #vertexBuffer,
-		nothing, #textureData,
+		textureData, #textureData,
 		nothing, #texture,
 		nothing, #textureView,
 		nothing, #sampler,

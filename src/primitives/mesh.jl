@@ -106,7 +106,7 @@ function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 
 		textureData = begin
 			img = load(image)
 			img = imresize(img, (256, 256)) # TODO hardcoded size
-			img = RGBA.(img) |> adjoint
+			img = RGBA.(img)
 			imgview = channelview(img) |> collect 
 		end
 	end
