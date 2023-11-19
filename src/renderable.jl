@@ -53,8 +53,8 @@ function prepareObject(gpuDevice, mesh::Renderable)
 			:textureData => mesh.textureData,
 			:layout => [
 				:offset => 0,
-				:bytesPerRow => 256*4, # TODO should be multiple of 256
-				:rowsPerImage => 256
+				:bytesPerRow => textureSize[1]*4 |> UInt32, # TODO should be multiple of 256
+				:rowsPerImage => textureSize[2] |> UInt32
 			],
 			:textureSize => textureSize
 		]

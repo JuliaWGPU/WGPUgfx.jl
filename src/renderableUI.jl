@@ -41,8 +41,8 @@ function prepareObject(gpuDevice, quad::RenderableUI)
 			:textureData => quad.textureData,
 			:layout => [
 				:offset => 0,
-				:bytesPerRow => 256*4, # TODO should be multiple of 256
-				:rowsPerImage => 256
+				:bytesPerRow => (textureSize[1]*4) |> UInt32, # TODO should be multiple of 256
+				:rowsPerImage => textureSize[2] |> UInt32
 			],
 			:textureSize => textureSize
 		]
@@ -271,6 +271,11 @@ function getVertexBuffer(gpuDevice, quad::RenderableUI)
 		quad.colorData
 	]
 	
+	if isNormalDefined(quad)
+		push!(data, quad.normalData)
+	else
+		push!(data, zeros(size(quad.vertexData)))
+	end
 	if isTextureDefined(quad) && quad.textureData !== nothing
 		push!(data, quad.uvData)
 	end
@@ -298,7 +303,7 @@ end
 
 function getVertexBufferLayout(quad::RenderableUI; offset=0)
 	WGPUCore.GPUVertexBufferLayout => [
-		:arrayStride => (isTextureDefined(quad) && quad.textureData !== nothing) ? 10*4 : 8*4,
+		:arrayStride => (isTextureDefined(quad) && quad.textureData !== nothing) ? 14*4 : 12*4,
 		:stepMode => "Vertex",
 		:attributes => [
 			:attribute => [
@@ -310,6 +315,11 @@ function getVertexBufferLayout(quad::RenderableUI; offset=0)
 				:format => "Float32x4",
 				:offset => 4*4,
 				:shaderLocation => offset + 1
+			],
+			:attribute => [
+				:format => "Float32x4",
+				:offset => 8*4,
+				:shaderLocation => offset + 2
 			],
 			:attribute => [
 				:format => "Float32x2",
