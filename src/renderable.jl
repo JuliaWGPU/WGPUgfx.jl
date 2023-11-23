@@ -233,7 +233,7 @@ function getShaderCode(mesh::Renderable, cameraId::Int; binding=0)
 	name = Symbol(typeof(mesh), binding)
 	meshType = typeof(mesh)
 	meshUniform = Symbol(meshType, :Uniform)
-	isTexture = isTextureDefined(mesh) && mesh.textureData != nothing
+	isTexture = isTextureDefined(mesh) && mesh.textureData !== nothing
 	isLight = isNormalDefined(mesh)
 	vertexInputName = Symbol(
 		:VertexInput,
@@ -336,7 +336,7 @@ function getVertexBuffer(gpuDevice, mesh::Renderable)
 		push!(data, zeros(size(mesh.vertexData)))
 	end
 
-	if isTextureDefined(mesh) && mesh.textureData != nothing
+	if isTextureDefined(mesh) && mesh.textureData !== nothing
 		push!(data, mesh.uvData)
 	end
 	
@@ -363,7 +363,7 @@ end
 
 function getVertexBufferLayout(mesh::Renderable; offset=0)
 	WGPUCore.GPUVertexBufferLayout => [
-		:arrayStride => (isTextureDefined(mesh) && mesh.textureData != nothing) ? 14*4 : 12*4,
+		:arrayStride => (isTextureDefined(mesh) && mesh.textureData !== nothing) ? 14*4 : 12*4,
 		:stepMode => "Vertex",
 		:attributes => [
 			:attribute => [
@@ -386,7 +386,7 @@ function getVertexBufferLayout(mesh::Renderable; offset=0)
 				:offset => 12*4,
 				:shaderLocation => offset + 3
 			]
-		][(isTextureDefined(mesh) && mesh.textureData != nothing) ? (1:end) : (1:end-1)]
+		][(isTextureDefined(mesh) && mesh.textureData !== nothing) ? (1:end) : (1:end-1)]
 	]
 end
 
@@ -399,7 +399,7 @@ function getBindingLayouts(mesh::Renderable; binding=0)
 			:type => "Uniform"
 		]
 	]
-	if isTextureDefined(mesh) && mesh.textureData != nothing
+	if isTextureDefined(mesh) && mesh.textureData !== nothing
 		append!(
 			bindingLayouts, 
 			[			

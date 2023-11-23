@@ -33,7 +33,7 @@ AbstractTrees.children(t::TreeNode) = t.childObjs
 function Base.show(io::IO, mime::MIME{Symbol("text/plain")}, node::TreeNode)
 	summary(io, node)
 	print(io, "\n")
-	renderObj = (node.object != nothing) ? (node.object.renderObj |> typeof) : nothing
+	renderObj = (node.object !== nothing) ? (node.object.renderObj |> typeof) : nothing
 	println(io, " rObj : $(renderObj)")
 end
 
