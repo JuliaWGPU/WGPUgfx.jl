@@ -9,36 +9,16 @@ using Rotations
 using StaticArrays
 using WGPUNative
 using Debugger
-using Images
-using ImageView
 
-WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
+WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
 scene = Scene();
 renderer = getRenderer(scene);
 camera = defaultCamera();
 addCamera!(scene, camera)
 
-using FreeTypeAbstraction
-
-# load a font
-face = FTFont("$(ENV["HOMEPATH"])/JuliaMono-Light.ttf")
-
-# render a character
-img, metric = renderface(face, 'C', 50)
-
-imageF = ones(RGBA{N0f8}, size(img) |> reverse)
-
-imageF[:, :, :, 1] = imrotate(RGB{N0f8}.(img./255f0), -pi/2)
-
-textureData = begin
-	img = imrotate((imageF), pi/2)
-	imgview = channelview(img) |> collect 
-end
-
-quad = defaultQuad(; imgData = Ref(textureData));
-
-addObject!(renderer, quad, camera);
+textBox = defaultTextBox("Hell0!!! How are you ?"; x=0, y=0)
+addObject!(renderer, textBox, camera);
 
 # attachEventSystem(renderer)
 
