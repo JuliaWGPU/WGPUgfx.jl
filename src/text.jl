@@ -4,7 +4,6 @@ using WGPUCore
 using FreeTypeAbstraction
 using Images
 using AbstractTrees
-using Infiltrator
 
 # load a font
 
