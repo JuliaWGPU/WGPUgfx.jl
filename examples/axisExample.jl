@@ -9,7 +9,18 @@
 # Also Event system is attached to only viewport.
 # TODO Make a seperate example maybe for viewports and event listening showcasing purposes.
 
-using Revise
+import Pkg
+Pkg.add([
+	"WGPUgfx", 
+	"WGPUCore", 
+	"WGPUCanvas", 
+	"GLFW", 
+	"Rotations", 
+	"StaticArrays", 
+	"WGPUNative", 
+	"Images"
+])
+
 using WGPUgfx
 using WGPUCore
 using GLFW
@@ -18,7 +29,7 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 using WGPUNative
-using Debugger
+
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
