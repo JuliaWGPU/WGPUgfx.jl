@@ -6,7 +6,7 @@
 # TODOMore dynamic 3D environment will be more evident for showcasing purposes.
 
 
-using Revise
+
 using WGPUgfx
 using WGPUCore
 using WGPUCanvas
@@ -16,7 +16,6 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 using WGPUNative
-using Debugger
 using Images
 
 
