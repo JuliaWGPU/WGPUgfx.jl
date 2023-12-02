@@ -5,7 +5,17 @@
 # Fully function example should render text and stay at a place with interaction possibilty. 
 # TODOMore dynamic 3D environment will be more evident for showcasing purposes.
 
-
+import Pkg
+Pkg.add([
+	"WGPUgfx", 
+	"WGPUCore", 
+	"WGPUCanvas", 
+	"GLFW", 
+	"Rotations", 
+	"StaticArrays", 
+	"WGPUNative", 
+	"Images"
+])
 
 using WGPUgfx
 using WGPUCore
