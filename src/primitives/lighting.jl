@@ -228,7 +228,7 @@ function getShaderCode(lighting::Lighting; binding=LIGHT_BINDING_START)
 			specularIntensity::Float32
 			specularShininess::Float32
 		end
-		@var Uniform 0 $binding lighting::@user LightingUniform
+		@var Uniform 0 $binding lighting::LightingUniform
 	end
 	return shaderSource
 end

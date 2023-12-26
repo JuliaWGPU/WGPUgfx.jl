@@ -97,10 +97,10 @@ function conicTo(vector::Ptr{FT_Vector}, control::Ptr{FT_Vector}, userData::Ptr{
 end
 
 function cubicTo(vector::Ptr{FT_Vector}, control1::Ptr{FT_Vector}, control2::Ptr{FT_Vector}, ::Ptr{Cvoid})
-    v = unsafe_load(vector)
-    ctrl1 = unsafe_load(control1)
-    ctrl2 = unsafe_load(control2)
-    println("Cubic To : [$(v.x) , $(v.y)]")
+    v = convert(FontPoint, unsafe_load(vector))
+    ctrl1 = convert(FontPoint, unsafe_load(control1))
+    ctrl2 = convert(FontPoint, unsafe_load(control2))
+    println("CubicTo : [$(v.x) , $(v.y)]")
     println("Ctrl1 : [$(ctrl1.x) , $(ctrl1.y)]")
     println("Ctrl2 : [$(ctrl2.x) , $(ctrl2.y)]")
     return 0
@@ -125,3 +125,4 @@ FT_Outline_Decompose(
     funcsRef |> Ref, 
     C_NULL, 
 )
+

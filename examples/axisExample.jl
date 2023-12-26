@@ -10,16 +10,17 @@
 # TODO Make a seperate example maybe for viewports and event listening showcasing purposes.
 
 import Pkg
-Pkg.add([
-	"WGPUgfx", 
-	"WGPUCore", 
-	"WGPUCanvas", 
-	"GLFW", 
-	"Rotations", 
-	"StaticArrays", 
-	"WGPUNative", 
-	"Images"
-])
+
+# Pkg.add([
+# 	"WGPUgfx", 
+# 	"WGPUCore", 
+# 	"WGPUCanvas", 
+# 	"GLFW", 
+# 	"Rotations", 
+# 	"StaticArrays", 
+# 	"WGPUNative", 
+# 	"Images"
+# ])
 
 using WGPUgfx
 using WGPUCore

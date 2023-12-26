@@ -188,7 +188,7 @@ end
 # 			p1::Vec2{Float32}
 # 		end
 
-# 		@var StorageRead 0 0 curve::@user Array{CurvePoints}
+# 		@var StorageRead 0 0 curve::Array{CurvePoints}
 # 	end
 # end
 

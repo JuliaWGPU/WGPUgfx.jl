@@ -20,7 +20,7 @@ mutable struct Quad <: RenderableUI
     cshaders
 end
 
-function defaultQuad(; color=[0.2, 0.4, 0.8, 1.0], scale::Union{Vector{Float32}, Float32} = 1.0f0, image="", imgData=nothing)
+function defaultQuad(; color=[0.2, 0.4, 0.8, 0.5], scale::Union{Vector{Float32}, Float32} = 1.0f0, image="", imgData=nothing)
 
 	if typeof(scale) == Float32
 		scale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm

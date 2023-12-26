@@ -5,25 +5,8 @@
 # Fully function example should render text and stay at a place with interaction possibilty. 
 # TODOMore dynamic 3D environment will be more evident for showcasing purposes.
 
-# import Pkg
-# Pkg.add([
-# 	"WGPUgfx", 
-# 	"WGPUCore", 
-# 	"WGPUCanvas", 
-# 	"GLFW", 
-# 	"Rotations", 
-# 	"StaticArrays", 
-# 	"WGPUNative", 
-# 	"Images"
-# ])
 
-using Tracy
-using TracyProfiler_jll
-
-run(TracyProfiler_jll.tracy(); wait=false)
-
-sleep(5)
-
+using Revise
 using WGPUgfx
 using WGPUCore
 using WGPUCanvas
@@ -33,7 +16,9 @@ using LinearAlgebra
 using Rotations
 using StaticArrays
 using WGPUNative
+using Debugger
 using Images
+using VideoIO
 
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
@@ -56,47 +41,47 @@ scene.cameraSystem = CameraSystem([camera1, camera2])
 addObject!(renderer, axis1)
 addObject!(renderer, axis2)
 
-quad = defaultQuad()
+quad = defaultQuad(;image=joinpath("$(ENV["HOMEPATH"])", "Downloads", "spanda2.jpg"))
 # setfield!(quad, :textureData, textureData)
 
-@tracepoint "addObject" addObject!(renderer, quad, camera1)
+addObject!(renderer, quad, camera1)
 
 attachEventSystem(renderer)
 
 function runApp(renderer)
-	@tracepoint "init" init(renderer)
-	@tracepoint "render" render(renderer)
+	init(renderer)
+	render(renderer)
 	# render(renderer, renderer.scene.objects; dims=(50, 50, 300, 300))
 	# render(renderer, renderer.scene.objects[2]; dims=(150, 150, 400, 400))
-	@tracepoint "deinit" deinit(renderer)
+	deinit(renderer)
 end
 
-mainApp = () -> begin
-	try
-		count = 0
-		camera1 = scene.cameraSystem[1]
-		while !WindowShouldClose(scene.canvas.windowRef[])
-			rot = RotXY(0.01, 0.02)
-			mat = MMatrix{4, 4, Float32}(I)
-			mat[1:3, 1:3] = rot
-			camera1.transform = camera1.transform*mat
-			theta = time()
-			quad.uniformData = translate((				
-				1.0*(sin(theta)), 
-				1.0*(cos(theta)), 
-				0, 
-				1
-			)).linear
-			@tracepoint "runAppLoop" runApp(renderer)
-			PollEvents()
-		end
-	finally
-		WGPUCore.destroyWindow(scene.canvas)
-	end
+function run()
+    try
+        count = 0
+        camera1 = scene.cameraSystem[1]
+        while !WindowShouldClose(scene.canvas.windowRef[])
+            rot = RotXY(0.01, 0.02)
+            mat = MMatrix{4, 4, Float32}(I)
+            mat[1:3, 1:3] = rot
+            camera1.transform = camera1.transform*mat
+                    theta = time()
+                    quad.uniformData = translate((				
+                    1.0*(sin(theta)), 
+            1.0*(cos(theta)), 
+            0, 
+            1
+            )).linear
+            runApp(renderer)
+            PollEvents()
+        end
+    finally
+        WGPUCore.destroyWindow(scene.canvas)
+    end
 end
 
 if abspath(PROGRAM_FILE)==@__FILE__
-	mainApp()
+	run()
 else
-	mainApp()
+	run()
 end

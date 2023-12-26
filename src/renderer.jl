@@ -56,7 +56,7 @@ function addObject!(renderer::Renderer, quad::RenderableUI, camera::Camera)
 	push!(scene.objects, quad)
 end
 
-function addObject!(renderer::Renderer, object::Renderable)
+function addObject!(renderer::Renderer, object::Union{Renderable, RenderableUI})
     scene = renderer.scene
 	for camera in scene.cameraSystem
 		setup(renderer, object, camera)
@@ -133,15 +133,15 @@ function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 	return src
 end
 
-function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
+@tracepoint "createShaders" function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = isNormalDefined(object) && scene.light != nothing 
 	
 	isTexture =  isTextureDefined(object) && object.textureData != nothing
 
-	src = getDefaultSrc(scene, isLight, isTexture)
+	@tracepoint "getDefaultSrc" src = getDefaultSrc(scene, isLight, isTexture)
 	push!(src.args, getShaderCode(object, scene.cameraId; binding = binding))
 	try
-		cshader = createShaderObj(gpuDevice, src; savefile=false)
+		@tracepoint "createShaderObj" cshader = createShaderObj(gpuDevice, src; savefile=false)
 		cshaders =  getfield(object, :cshaders)
 		cshaders[scene.cameraId] = cshader
 		# setfield!(object, :cshader, cshader)
@@ -156,14 +156,14 @@ function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MA
 end
 
 
-function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MAX_CAMERAS + MAX_LIGHTS+1)
+@tracepoint "compileShadersQuad" function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = false
 	isTexture =  isTextureDefined(quad) && quad.textureData !== nothing
 
 	src = quote end
 	push!(src.args, getShaderCode(quad, scene.cameraId; binding = binding))
 	try
-		cshader = createShaderObj(gpuDevice, src; savefile=false)
+		@tracepoint "createShaderObj" cshader = createShaderObj(gpuDevice, src; savefile=false)
 		cshaders =  getfield(quad, :cshaders)
 		cshaders[scene.cameraId] = cshader
 		# setfield!(object, :cshader, cshader)
@@ -178,7 +178,7 @@ function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MA
 end
 
 
-function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=MAX_CAMERAS+MAX_LIGHTS+1)
+@tracepoint "compileShadersWO" function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=MAX_CAMERAS+MAX_LIGHTS+1)
 	objType = typeof(object)
 	for fieldIdx in 1:fieldcount(WorldObject)
 		fName = fieldname(objType, fieldIdx)
@@ -225,12 +225,12 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=M
 	return nothing
 end
 
-function init(renderer::Renderer)
+@tracepoint "init" function init(renderer::Renderer)
 	scene = renderer.scene
 	renderSize = scene.canvas.size
 	renderer.currentTextureView = WGPUCore.getCurrentTexture(renderer.presentContext);
 
-	renderer.depthTexture = WGPUCore.createTexture(
+	@tracepoint "createTexture" renderer.depthTexture = WGPUCore.createTexture(
 		scene.gpuDevice,
 		"DEPTH TEXTURE",
 		(renderSize..., 1),
@@ -243,22 +243,22 @@ function init(renderer::Renderer)
 	
 	renderer.depthView = WGPUCore.createView(renderer.depthTexture)
 
-	renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView, renderer.depthView)
+	@tracepoint "renderPassOptions" renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView, renderer.depthView)
 
-	renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER")
-	renderer.renderPass = WGPUCore.beginRenderPass(
+	@tracepoint "createCmdEncoder" renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER")
+	@tracepoint "beginRenderPass" renderer.renderPass = WGPUCore.beginRenderPass(
 		renderer.cmdEncoder, 
 		renderer.renderPassOptions |> Ref; 
 		label= "BEGIN RENDER PASS"
 	)
 end
 
-function deinit(renderer::Renderer)
-	WGPUCore.endEncoder(renderer.renderPass)
-	WGPUCore.submit(renderer.scene.gpuDevice.queue, [WGPUCore.finish(renderer.cmdEncoder),])
-	WGPUCore.present(renderer.presentContext)
-	WGPUCore.destroy(renderer.depthView)
-	WGPUCore.destroy(renderer.depthView.texture[])
+@tracepoint "deinit" function deinit(renderer::Renderer)
+	@tracepoint "endEncoder"	WGPUCore.endEncoder(renderer.renderPass)
+	@tracepoint "submit" WGPUCore.submit(renderer.scene.gpuDevice.queue, [WGPUCore.finish(renderer.cmdEncoder),])
+	@tracepoint "present" WGPUCore.present(renderer.presentContext)
+	@tracepoint "destroyView" WGPUCore.destroy(renderer.depthView)
+	@tracepoint "destroyTexture" WGPUCore.destroy(renderer.depthView.texture[])
 	# WGPUCore.destroy(renderer.depthTexture[])
 end
 

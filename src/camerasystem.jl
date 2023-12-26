@@ -23,9 +23,10 @@ function getShaderCode(camSys::CameraSystem;binding=1)
 	shaderSource = quote 
 		struct CameraUniform
 			eye::Vec3{Float32}
+			fov::Float32
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $(binding) camera::@user CameraUniform
+		@var Uniform 0 $(binding) camera::CameraUniform
 	end
 	return shaderSource
 end

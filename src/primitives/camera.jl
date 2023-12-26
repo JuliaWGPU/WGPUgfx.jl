@@ -71,13 +71,15 @@ function computeUniformData(camera::Camera)
 	unsafe_write(io, uniformData, sizeof(uniformData))
 	seek(io, 0)
 	setVal!(camera, Val(:transform), computeTransform(camera))
+	setVal!(camera, Val(:eye), camera.eye)
+	setVal!(camera, Val(:fov), camera.fov)
 	seek(io, 0)
 	return io
 end
 
 
 function defaultCamera(;id=0)
-	eye = [0.0, 0.0, -4.0] .|> Float32
+	eye = [0.0, 0.0, 4.0] .|> Float32
 	lookat = [0, 0, 0] .|> Float32
 	up = [0, 1, 0] .|> Float32
 	scale = [1, 1, 1] .|> Float32
@@ -341,7 +343,7 @@ function perspectiveMatrix(camera::Camera)
 	ar = camera.aspectRatio
 	n = camera.nearPlane
 	f = camera.farPlane
-	t = abs(n)*tan(fov/2)
+	t = n*tan(fov/2)
 	b = -t
 	r = ar*t
 	l = -r
@@ -430,9 +432,10 @@ function getShaderCode(camera::Camera; binding=CAMERA_BINDING_START)
 	shaderSource = quote
 		struct $cameraUniform
 			eye::Vec3{Float32}
+			fov::Float32
 			transform::Mat4{Float32}
 		end
-		@var Uniform 0 $(binding) camera::@user $cameraUniform
+		@var Uniform 0 $(binding) camera::$cameraUniform
 	end
 	return shaderSource
 end

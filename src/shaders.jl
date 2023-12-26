@@ -11,20 +11,13 @@ end
 
 
 function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
+	@info "IR CODE" shaderSource
 	shaderSource = shaderSource |> wgslCode 
+	@info "WGSLCODE" print(shaderSource)
 	shaderBytes  = shaderSource |> Vector{UInt8}
 
 	shaderInfo = WGPUCore.loadWGSL(shaderBytes)
 
-	if savefile
-		# TODO this is not necessary anymore @stage can be safely removed
-		shaderSource = replace(shaderSource, "@stage(fragment)"=>"@fragment")
-		shaderSource = replace(shaderSource, "@stage(vertex)"=>"@vertex")
-		file = open("scratch.wgsl", "w")
-		write(file, shaderSource)
-		close(file)
-	end
-	
 	shaderObj = ShaderObj(
 		shaderSource,
 		WGPUCore.createShaderModule(
@@ -36,6 +29,15 @@ function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
 		) |> Ref,
 		shaderInfo
 	)
+	if savefile
+		# TODO this is not necessary anymore @stage can be safely removed
+		shaderSource = replace(shaderSource, "@stage(fragment)"=>"@fragment")
+		shaderSource = replace(shaderSource, "@stage(vertex)"=>"@vertex")
+		file = open("scratch.wgsl", "w")
+		write(file, shaderSource)
+		close(file)
+	end
+
 
 	if debug
 		if shaderObj.internal[].internal[] == Ptr{Nothing}()
@@ -50,7 +52,7 @@ function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
 			# TODO move scratch to scratch area with definite
 			# path = joinpath(pkgdir(WGPUgfx), "scratch.wgsl")
 			try
-				run(`naga scratch.wgsl`)
+				detach(run(`naga scratch.wgsl`; wait=false))
 			catch(e)
 				@info shaderSource
 				rethrow(e)

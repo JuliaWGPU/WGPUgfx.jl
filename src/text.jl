@@ -1,7 +1,7 @@
 export defaultTextBox, TextBox
 
 using WGPUCore
-using FreeTypeAbstraction
+# using FreeTypeAbstraction
 using Images
 using AbstractTrees
 
