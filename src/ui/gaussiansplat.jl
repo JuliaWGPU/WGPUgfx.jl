@@ -119,9 +119,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
 			return Mat4{Float32}(
-				s.x, 0.0, 0.0, 0.0,
-				0.0, s.y, 0.0, 0.0,
-				0.0, 0.0, s.z, 0.0,
+				exp(s.x), 0.0, 0.0, 0.0,
+				0.0, exp(s.y), 0.0, 0.0,
+				0.0, 0.0, exp(s.z), 0.0,
 				0.0, 0.0, 0.0, 1.0
 			)
 		end
@@ -208,17 +208,15 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let splatIn  = splatArray[iIdx]
 			@let R::Mat4{Float32} = quatToRotMat(splatIn.quaternions)
 			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale)
-			@let M = S*R
-			@let sigma = transpose(M)*M
-			@let ortho = orthoMatrix(camera)
+			@let M = transpose(transpose(R)*transpose(S))
+			@let sigma = transpose(transpose(M)*(M))
 			@let pos = Vec4{Float32}(splatIn.pos, 1.0)
 			out.pos = $(name).transform*pos
 			@let tx = out.pos.x 
 			@let ty = out.pos.y
 			@let tz = out.pos.z
 			out.pos = camera.transform*out.pos
-			# out.pos = ortho*out.pos
-			@let f::Float32 = 2.0*(tan(camera.fov/2.0))
+			@let f::Float32 = 2.0# 40.0 #1.32 # 40.0*(tan(camera.fov/2.0))
 
 			@let J = SMatrix{2, 4, Float32, 8}(
 				f/tz, 0.0, -f*tx/(tz*tz), 0.0,
@@ -226,9 +224,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			)
 
 			@let Rcam = transToRotMat(camera.transform)
-			@let W = transpose(Rcam)*J
-			@let covinter = transpose(W)*transpose(sigma)
-			@let cov4D = covinter*W
+			@let W = transpose(transpose(J)*Rcam)
+			@let covinter = transpose(transpose(W)*transpose(sigma))
+			@let cov4D = transpose(transpose(covinter)*W)
 
 			@let cov2D = Vec4{Float32}(
 				cov4D[0][0], cov4D[0][1],
@@ -245,21 +243,21 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 			@let det2D = a*d - b*c
 			
-			@let xoffset = 0.03# 2.0*(sqrt(cov2D[3]/det2D))
-			@let yoffset = 0.03# 2.0*(sqrt(cov2D[0]/det2D))
+			@let xoffset = 1.50*(sqrt(cov2D[3]/det2D))
+			@let yoffset = 1.50*(sqrt(cov2D[0]/det2D))
 			
 			@var xmin = out.pos.x  - xoffset
 			@var xmax = out.pos.x  + xoffset
 			@var ymin = out.pos.y  - yoffset
 			@var ymax = out.pos.y  + yoffset
 
-			@escif if xmax > xmin
+			@escif if xmax < xmin
 				@let t = xmax
 				xmax = xmin
 				xmin = t
 			end
 
-			@escif if ymax > ymin
+			@escif if ymax < ymin
 				@let t = ymax
 				ymax = ymin
 				ymin = t
@@ -293,6 +291,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			end
 
 			out.mu = out.pos
+			#out.mu.x = (((500.0*out.pos.x)/out.pos.w) + 1.0)/2.0
+			#out.mu.y = (((500.0*out.pos.y)/out.pos.w) + 1.0)/2.0
+			#out.mu.y = (500.0*out.pos.y)/out.pos.w
 			# out.pos = quadpos
 
 			out.pos.x = quadpos.x
@@ -319,14 +320,14 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatOut.cov2d[3],
 			)
 
-			@let delta = Vec2{Float32}(mu.x - fragPos.x/500.0, mu.y - fragPos.y/500.0)
+			@let delta = Vec2{Float32}(mu.x - fragPos.x, mu.y - fragPos.y)
 			
 			@let invCov2dAdj = Mat2{Float32}(
 				cov2d[1][1], -cov2d[0][1],
 				-cov2d[1][0], cov2d[0][0]
 			)
 
-			@let det::Float32 = determinant(invCov2dAdj)
+			@let det::Float32 = determinant(cov2d)
 			
 			@let invCov2d::Mat2{Float32} = Mat2{Float32}(
 			 	invCov2dAdj[0][0]/det,
@@ -335,13 +336,13 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				invCov2dAdj[1][1]/det,
 			)
 
-			@let intensity = dot(delta*invCov2d, delta)
+			@let intensity = 0.5*dot(invCov2d*delta, delta)
 			
 			@let color::Vec4{Float32} = Vec4{Float32}(
 				fragColor.x,
 				fragColor.y,
 				fragColor.z,
-				(1.0-intensity)*splatOut.opacity
+				(exp(-intensity)*splatOut.opacity)
 			)
 			return color
 		end
@@ -547,7 +548,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 		WGPUCore.GPUPrimitiveState => [
 			:topology => splat.topology,
 			:frontFace => "CCW",
-			:cullMode => "Back",
+			:cullMode => "None",
 			:stripIndexFormat => "Undefined"
 		],
 		WGPUCore.GPUDepthStencilState => [

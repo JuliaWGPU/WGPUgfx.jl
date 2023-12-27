@@ -84,6 +84,7 @@ while true
  	addLine!(temp, vertex, oVertex, tf)
 	value = imgDiffError(grayImg, outputImg .+ temp)
 	if value < minValue
+		global minValue
 		minValue = value
 		addLine!(outputImg, vertex, oVertex, tf)
 	end

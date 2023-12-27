@@ -25,7 +25,7 @@ using StaticArrays
 using WGPUNative
 using Images
 
-WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Debug)
+WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
 scene = Scene()
 renderer = getRenderer(scene)

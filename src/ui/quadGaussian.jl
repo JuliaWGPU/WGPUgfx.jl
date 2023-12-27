@@ -124,7 +124,7 @@ function getShaderCode(quad::GaussianQuad, cameraId::Int; binding=0)
 		@fragment function fs_main(fragmentIn::$vertexOutputName)::@location 0 Vec4{Float32}
 			@let pos::Vec2{Float32} = Vec2{Float32}(fragmentIn.vPosition.x/500.0, fragmentIn.vPosition.y/500.0)
 			@let delta = Vec2{Float32}(pos - fragmentIn.pos.xy)
-			@let dist = 1.0/sqrt(2.0*3.14*0.01)*(exp(-(delta.x*delta.x + delta.y*delta.y)/0.01))
+			@let dist = 1.0/sqrt(2.0*3.14*0.1)*(sin(-(delta.x*delta.x + delta.y*delta.y)/0.1))
 			@var color::Vec4{Float32} = Vec4{Float32}(fragmentIn.vColor.rgb,  1.0-dist)
 			return color
 		end
