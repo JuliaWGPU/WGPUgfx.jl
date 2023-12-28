@@ -21,7 +21,7 @@ function getRenderPassOptions(currentTextureView, depthView; depthClearValue=1.0
 				WGPUCore.GPUColorAttachment => [
 					:view => currentTextureView,
 					:resolveTarget => C_NULL,
-					:clearValue => (0.2, 0.2, 0.2, 1.0),
+					:clearValue => (0.0, 0.0, 0.0, 1.0),
 					:loadOp => WGPULoadOp_Clear,
 					:storeOp => WGPUStoreOp_Store,
 				],

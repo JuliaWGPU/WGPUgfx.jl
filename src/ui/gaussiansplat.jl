@@ -37,7 +37,12 @@ mutable struct GSplat <: Renderable
 end
 
 function sigmoid(x)
-	return exp(x)/(1 + exp(x))
+	if x > 0.0
+		return 1 ./(1 .+ exp(-x))
+	else
+		z = exp(x)
+		return z/(1 + z)
+	end
 end
 
 function readPlyFile(path)
@@ -118,10 +123,11 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 	shaderSource = quote
 
 		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
+			@let scale = 2.0
 			return Mat4{Float32}(
-				exp(s.x), 0.0, 0.0, 0.0,
-				0.0, exp(s.y), 0.0, 0.0,
-				0.0, 0.0, exp(s.z), 0.0,
+				exp(s.x)*scale, 0.0, 0.0, 0.0,
+				0.0, exp(s.y)*scale, 0.0, 0.0,
+				0.0, 0.0, exp(s.z)*scale, 0.0,
 				0.0, 0.0, 0.0, 1.0
 			)
 		end
@@ -208,15 +214,16 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let splatIn  = splatArray[iIdx]
 			@let R::Mat4{Float32} = quatToRotMat(splatIn.quaternions)
 			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale)
-			@let M = transpose(transpose(R)*transpose(S))
-			@let sigma = transpose(transpose(M)*(M))
+			@let M = transpose(S)*R
+			@let sigma = transpose(M)*M
 			@let pos = Vec4{Float32}(splatIn.pos, 1.0)
 			out.pos = $(name).transform*pos
 			@let tx = out.pos.x 
 			@let ty = out.pos.y
 			@let tz = out.pos.z
 			out.pos = camera.transform*out.pos
-			@let f::Float32 = 2.0# 40.0 #1.32 # 40.0*(tan(camera.fov/2.0))
+			# out.pos = out.pos/out.pos.w
+			@let f::Float32 = 4.0 #1.32 # 40.0*(tan(camera.fov/2.0))
 
 			@let J = SMatrix{2, 4, Float32, 8}(
 				f/tz, 0.0, -f*tx/(tz*tz), 0.0,
@@ -224,17 +231,17 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			)
 
 			@let Rcam = transToRotMat(camera.transform)
-			@let W = transpose(transpose(J)*Rcam)
-			@let covinter = transpose(transpose(W)*transpose(sigma))
-			@let cov4D = transpose(transpose(covinter)*W)
+			@let W = transpose(Rcam)*J
+			@let covinter = transpose(sigma)*W
+			@let cov4D = transpose(W)*covinter
 
-			@let cov2D = Vec4{Float32}(
+			@var cov2D = Vec4{Float32}(
 				cov4D[0][0], cov4D[0][1],
 				cov4D[1][0], cov4D[1][1],
 			)
 
-			cov2D[0][0] += 0.3
-			cov2D[1][1] += 0.3
+			cov2D[0] = cov2D[0] + 0.3
+			cov2D[3] = cov2D[0] + 0.3
 
 			@let a = cov2D[0]
 			@let b = cov2D[1]
@@ -242,77 +249,30 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let d = cov2D[3]
 
 			@let det2D = a*d - b*c
-			
-			@let xoffset = 1.50*(sqrt(cov2D[3]/det2D))
-			@let yoffset = 1.50*(sqrt(cov2D[0]/det2D))
-			
-			@var xmin = out.pos.x  - xoffset
-			@var xmax = out.pos.x  + xoffset
-			@var ymin = out.pos.y  - yoffset
-			@var ymax = out.pos.y  + yoffset
+			@let halfad = (a + d)/2.0
+			@let eigendir1 = halfad + sqrt(max(0.1, halfad*halfad - det2D))
+			@let eigendir2 = halfad - sqrt(max(0.1, halfad*halfad - det2D))
+			@let majorAxis = max(eigendir1, eigendir2)
+			@let radiusBB = ceil(3.0 * sqrt(majorAxis))
+			@let radiusNDC = Vec2{Float32}(radiusBB/250.0, radiusBB/250.0)
 
-			@escif if xmax < xmin
-				@let t = xmax
-				xmax = xmin
-				xmin = t
-			end
-
-			@escif if ymax < ymin
-				@let t = ymax
-				ymax = ymin
-				ymin = t
-			end
-
-			@var quadpos = vertexArray[vIdx]
-
-			@escif if vIdx == 0u
-				quadpos.x = xmin
-				quadpos.y = ymax
-			end
-			@escif if vIdx == 1u
-				quadpos.x = xmin
-				quadpos.y = ymin
-			end
-			@escif if vIdx == 2u
-				quadpos.x = xmax
-				quadpos.y = ymax
-			end
-			@escif if vIdx == 3u
-				quadpos.x = xmax
-				quadpos.y = ymax
-			end
-			@escif if vIdx == 4u
-				quadpos.x = xmin
-				quadpos.y = ymin
-			end
-			@escif if vIdx == 5u
-				quadpos.x = xmax
-				quadpos.y = ymin
-			end
-
-			out.mu = out.pos
-			#out.mu.x = (((500.0*out.pos.x)/out.pos.w) + 1.0)/2.0
-			#out.mu.y = (((500.0*out.pos.y)/out.pos.w) + 1.0)/2.0
-			#out.mu.y = (500.0*out.pos.y)/out.pos.w
-			# out.pos = quadpos
-
-			out.pos.x = quadpos.x
-			out.pos.y = quadpos.y
-			# out.pos.z = quadpos.z
-			# @let dir = normalize(out.pos - Vec4{Float32}(camera.eye, 1.0));
+			@let quadpos = vertexArray[vIdx]
+			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
+			out.mu = radiusBB*quadpos
 			@let SH_C0 = 0.28209479177387814;
-			@var result = SH_C0 * splatIn.sh;
+			@let result = SH_C0 * splatIn.sh + 0.5;
 			out.cov2d = cov2D
 			out.opacity = splatIn.opacity
 			out.color = Vec4{Float32}(result, 1.0)
-
 			return out
 		end
 
 		@fragment function fs_main(splatOut::GSplatOut)::@location 0 Vec4{Float32}
-			@var mu = splatOut.mu
+			@let mu = splatOut.mu
 			@var fragPos = splatOut.pos
 			@var fragColor = splatOut.color
+			@let opacity = splatOut.opacity
+
 			@let cov2d = Mat2{Float32}(
 				splatOut.cov2d[0],
 				splatOut.cov2d[1],
@@ -320,7 +280,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatOut.cov2d[3],
 			)
 
-			@let delta = Vec2{Float32}(mu.x - fragPos.x, mu.y - fragPos.y)
+			@let delta = Vec2{Float32}(mu.x, mu.y)
 			
 			@let invCov2dAdj = Mat2{Float32}(
 				cov2d[1][1], -cov2d[0][1],
@@ -336,13 +296,17 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				invCov2dAdj[1][1]/det,
 			)
 
-			@let intensity = 0.5*dot(invCov2d*delta, delta)
+			@let intensity::Float32 = 0.5*dot(invCov2d*delta, delta)
 			
+			@escif if (intensity < 0.0)
+				@esc discard
+			end
+			
+			@let alpha = min(0.99, opacity*exp(-intensity))
+
 			@let color::Vec4{Float32} = Vec4{Float32}(
-				fragColor.x,
-				fragColor.y,
-				fragColor.z,
-				(exp(-intensity)*splatOut.opacity)
+				fragColor.xyz*alpha,
+				alpha
 			)
 			return color
 		end
@@ -547,12 +511,12 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 		],
 		WGPUCore.GPUPrimitiveState => [
 			:topology => splat.topology,
-			:frontFace => "CCW",
+			:frontFace => "CW",
 			:cullMode => "None",
 			:stripIndexFormat => "Undefined"
 		],
 		WGPUCore.GPUDepthStencilState => [
-			:depthWriteEnabled => true,
+			:depthWriteEnabled => false,
 			:depthCompare => WGPUCompareFunction_LessEqual,
 			:format => WGPUTextureFormat_Depth24Plus
 		],
@@ -574,7 +538,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 					],
 					:alpha => [
 						:srcFactor => "One",
-						:dstFactor => "OneMinusSrcAlpha",
+						:dstFactor => "OneMinusDstAlpha",
 						:operation => "Add",
 					]
 				],
