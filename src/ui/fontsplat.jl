@@ -37,15 +37,17 @@ end
 # Goal is to define three splats on each axis and visualize them
 
 function getQuaternion(x)
-	q =	getproperty(RotXYZ(x...) |> Rotations.QuatRotation, :q)
+	qxyz = RotXYZ(x...) |> Rotations.QuatRotation	
+	q =	getproperty(qxyz, :q)
 	return [q.s, q.v1, q.v2, q.v3]
 end
 
+
 function getSplatData()
 	point = [1.0, 0.0, 0.0] .|> Float32
-	scale = [0.2, 0.05, 0.05] .|> Float32
-	color = [1.0, 0.0, 0.0]  .|> Float32
-	quat = [1, 0, 0, 0]
+	scale = [0.86, 0.15, 0.05] .|> Float32
+	color = [0.0, 0.0, 1.0]  .|> Float32
+	quat = [pi/2, 0, 0, 0] .|> Float32
 	scales = []
 	points = []
 	colors = []
@@ -57,12 +59,36 @@ function getSplatData()
 	end
 	colors = cat(colors..., dims=(2,))
 	scales = cat(scales..., dims=(2,))
-	quats = repeat(quat, inner=(1, 3))
+	quats = repeat(quat, inner=(1,size(colors, 2)))
 	points = cat(points..., dims=(2,))
 	splatData = GSplatAxisData(points, scales, colors, quats) 
 	return splatData
 end
 
+"""
+function getSplatData()
+	scales = []
+	points = []
+	colors = []
+	quats = []
+	for i in 1:1000
+		point = rand(3) .|> Float32
+		color = rand(3) .|> Float32
+		scale = rand(3) .|> Float32
+		quat = rand(3) .|> Float32
+		push!(quats, quat |> getQuaternion)
+		push!(colors, color)
+		push!(points, point)
+		push!(scales, scale)
+	end
+	colors = cat(colors..., dims=(2,))
+	scales = cat(scales..., dims=(2,))
+	quats = cat(quats..., dims=(2,))
+	points = cat(points..., dims=(2,))
+	splatData = GSplatAxisData(points, scales, colors, quats) 
+	return splatData
+end
+"""
 
 function gsplatAxis(;scale::Union{Vector{Float32}, Float32} = 1.0f0)
 
@@ -76,12 +102,12 @@ function gsplatAxis(;scale::Union{Vector{Float32}, Float32} = 1.0f0)
 	# swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
 
 	vertexData = cat([
+		[-1, -1, 0, 1],
+		[1, 1, 0, 1],
 		[1, -1, 0, 1],
-		[1, 1, 0, 1],
-		[-1, -1, 0, 1],
-		[-1, -1, 0, 1],
-		[1, 1, 0, 1],
 		[-1, 1, 0, 1],
+		[-1, -1, 0, 1],
+		[1, 1, 0, 1],
 	]..., dims=2) .|> Float32
 
 	vertexData = scale*swapMat*vertexData
@@ -127,7 +153,7 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 	shaderSource = quote
 
 		function scaleMatrix(s::Vec3{Float32})::Mat3{Float32}
-			@let scale = 1.0
+			@let scale = 0.5
 			return Mat3{Float32}(
 				exp(s.x)*scale, 0.0, 0.0,
 				0.0, exp(s.y)*scale, 0.0,
@@ -245,7 +271,7 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 			@let eigendir2 = halfad - sqrt(max(0.1, halfad*halfad - det2D))
 			@let majorAxis = max(eigendir1, eigendir2)
 			@let radiusBB = ceil(3.0 * sqrt(majorAxis))
-			@let radiusNDC = Vec2{Float32}(radiusBB/250.0, radiusBB/250.0)
+			@let radiusNDC = Vec2{Float32}(radiusBB/500.0, radiusBB/500.0)
 
 			@let quadpos = vertexArray[vIdx]
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
@@ -254,7 +280,7 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 			#@let result = SH_C0 * splatIn.sh[0] + 0.5;
 			out.cov2d = cov2D
 			out.color = Vec4{Float32}(splatIn.color, 1.0)
-			out.opacity = 1.0
+			out.opacity = 0.3
 			return out
 		end
 
@@ -275,23 +301,27 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 			
 			@let invCov2dAdj = Mat2{Float32}(
 				cov2d[1][1], -cov2d[0][1],
-				-cov2d[1][0], cov2d[0][0]
+				-cov2d[0][1], cov2d[0][0]
 			)
 
 			@let det::Float32 = determinant(cov2d)
+
+			@escif if (det < 0.0)
+				@esc discard
+			end
 			
 			@let invCov2d::Mat2{Float32} = Mat2{Float32}(
 			 	invCov2dAdj[0][0]/det,
 				invCov2dAdj[0][1]/det,
-				invCov2dAdj[1][0]/det,
+				invCov2dAdj[0][1]/det,
 				invCov2dAdj[1][1]/det,
 			)
 
 			@let intensity::Float32 = 0.5*dot(invCov2d*delta, delta)
 			
-			@escif if (intensity < 0.0)
-				@esc discard
-			end
+			#@escif if (intensity < 0.0)
+			#	@esc discard
+			#end
 			
 			@let alpha = min(0.99, opacity*exp(-intensity))
 
@@ -318,11 +348,11 @@ function prepareObject(gpuDevice, gsplat::GSplatAxis)
 
 	storageData = vcat(
 		splatData.points,
-		zeros(UInt32, 1, 3),
+		zeros(UInt32, 1, size(splatData.points, 2)),
 		splatData.scale,
-		zeros(UInt32, 1, 3),
+		zeros(UInt32, 1, size(splatData.points, 2)),
 		splatData.colors,
-		zeros(UInt32, 1, 3),
+		zeros(UInt32, 1, size(splatData.points, 2)),
 		splatData.quaternions
 	) .|> Float32
 
@@ -525,7 +555,7 @@ function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, gs
 	WGPUCore.setIndexBuffer(renderPass, gsplat.indexBuffer, "Uint32")
 	WGPUCore.setVertexBuffer(renderPass, 0, gsplat.vertexBuffer)
 	WGPUCore.setBindGroup(renderPass, 0, gsplat.pipelineLayouts[camIdx].bindGroup, UInt32[], 0, 99)
-	WGPUCore.drawIndexed(renderPass, Int32(gsplat.indexBuffer.size/sizeof(UInt32)); instanceCount = size(gsplat.splatData.points, 1), firstIndex=0, baseVertex= 0, firstInstance=0)
+	WGPUCore.drawIndexed(renderPass, Int32(gsplat.indexBuffer.size/sizeof(UInt32)); instanceCount = size(gsplat.splatData.points, 2), firstIndex=0, baseVertex= 0, firstInstance=0)
 end
 
 Base.show(io::IO, ::MIME"text/plain", gsplat::GSplatAxis) = begin
