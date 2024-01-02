@@ -501,7 +501,7 @@ function getRenderPipelineOptions(renderer, mesh::Renderable)
 	renderpipelineOptions
 end
 
-@tracepoint "renderCall" function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, mesh::Renderable, camIdx::Int)
+function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, mesh::Renderable, camIdx::Int)
 	WGPUCore.setPipeline(renderPass, mesh.renderPipelines[camIdx])
 	WGPUCore.setIndexBuffer(renderPass, mesh.indexBuffer, "Uint32")
 	WGPUCore.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)

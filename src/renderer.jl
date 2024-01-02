@@ -133,15 +133,15 @@ function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 	return src
 end
 
-@tracepoint "createShaders" function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
+function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = isNormalDefined(object) && scene.light != nothing 
 	
 	isTexture =  isTextureDefined(object) && object.textureData != nothing
 
-	@tracepoint "getDefaultSrc" src = getDefaultSrc(scene, isLight, isTexture)
+	src = getDefaultSrc(scene, isLight, isTexture)
 	push!(src.args, getShaderCode(object, scene.cameraId; binding = binding))
 	try
-		@tracepoint "createShaderObj" cshader = createShaderObj(gpuDevice, src; savefile=false)
+		cshader = createShaderObj(gpuDevice, src; savefile=false)
 		cshaders =  getfield(object, :cshaders)
 		cshaders[scene.cameraId] = cshader
 		# setfield!(object, :cshader, cshader)
@@ -156,14 +156,14 @@ end
 end
 
 
-@tracepoint "compileShadersQuad" function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MAX_CAMERAS + MAX_LIGHTS+1)
+function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = false
 	isTexture =  isTextureDefined(quad) && quad.textureData !== nothing
 
 	src = quote end
 	push!(src.args, getShaderCode(quad, scene.cameraId; binding = binding))
 	try
-		@tracepoint "createShaderObj" cshader = createShaderObj(gpuDevice, src; savefile=false)
+		cshader = createShaderObj(gpuDevice, src; savefile=false)
 		cshaders =  getfield(quad, :cshaders)
 		cshaders[scene.cameraId] = cshader
 		# setfield!(object, :cshader, cshader)
@@ -178,7 +178,7 @@ end
 end
 
 
-@tracepoint "compileShadersWO" function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=MAX_CAMERAS+MAX_LIGHTS+1)
+function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=MAX_CAMERAS+MAX_LIGHTS+1)
 	objType = typeof(object)
 	for fieldIdx in 1:fieldcount(WorldObject)
 		fName = fieldname(objType, fieldIdx)
@@ -225,12 +225,12 @@ end
 	return nothing
 end
 
-@tracepoint "init" function init(renderer::Renderer)
+function init(renderer::Renderer)
 	scene = renderer.scene
 	renderSize = scene.canvas.size
 	renderer.currentTextureView = WGPUCore.getCurrentTexture(renderer.presentContext);
 
-	@tracepoint "createTexture" renderer.depthTexture = WGPUCore.createTexture(
+	renderer.depthTexture = WGPUCore.createTexture(
 		scene.gpuDevice,
 		"DEPTH TEXTURE",
 		(renderSize..., 1),
@@ -243,22 +243,22 @@ end
 	
 	renderer.depthView = WGPUCore.createView(renderer.depthTexture)
 
-	@tracepoint "renderPassOptions" renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView, renderer.depthView)
+	renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView, renderer.depthView)
 
-	@tracepoint "createCmdEncoder" renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER")
-	@tracepoint "beginRenderPass" renderer.renderPass = WGPUCore.beginRenderPass(
+	renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER")
+	renderer.renderPass = WGPUCore.beginRenderPass(
 		renderer.cmdEncoder, 
 		renderer.renderPassOptions |> Ref; 
 		label= "BEGIN RENDER PASS"
 	)
 end
 
-@tracepoint "deinit" function deinit(renderer::Renderer)
-	@tracepoint "endEncoder"	WGPUCore.endEncoder(renderer.renderPass)
-	@tracepoint "submit" WGPUCore.submit(renderer.scene.gpuDevice.queue, [WGPUCore.finish(renderer.cmdEncoder),])
-	@tracepoint "present" WGPUCore.present(renderer.presentContext)
-	@tracepoint "destroyView" WGPUCore.destroy(renderer.depthView)
-	@tracepoint "destroyTexture" WGPUCore.destroy(renderer.depthView.texture[])
+function deinit(renderer::Renderer)
+	WGPUCore.endEncoder(renderer.renderPass)
+	WGPUCore.submit(renderer.scene.gpuDevice.queue, [WGPUCore.finish(renderer.cmdEncoder),])
+	WGPUCore.present(renderer.presentContext)
+	WGPUCore.destroy(renderer.depthView)
+	WGPUCore.destroy(renderer.depthView.texture[])
 	# WGPUCore.destroy(renderer.depthTexture[])
 end
 

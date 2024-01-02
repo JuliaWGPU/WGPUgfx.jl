@@ -59,7 +59,7 @@ addObject!(renderer, axis2)
 quad = defaultQuad()
 # setfield!(quad, :textureData, textureData)
 
-@tracepoint "addObject" addObject!(renderer, quad, camera1)
+addObject!(renderer, quad, camera1)
 
 attachEventSystem(renderer)
 

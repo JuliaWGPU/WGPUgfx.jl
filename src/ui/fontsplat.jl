@@ -1,18 +1,16 @@
 
 using PlyIO
 
-export GSplat, defaultGSplat
+export GSplatAxis, gsplatAxis
 
-mutable struct GSplatData
+mutable struct GSplatAxisData
 	points
 	scale
-	sphericalHarmonics
+	colors
 	quaternions
-	opacity
-	features
 end
 
-mutable struct GSplat <: Renderable
+mutable struct GSplatAxis <: Renderable
 	gpuDevice
     topology
     vertexData
@@ -22,7 +20,7 @@ mutable struct GSplat <: Renderable
     uniformData
     uniformBuffer
 	splatBuffer
-	splatData::Union{Nothing, GSplatData}
+	splatData::Union{Nothing, GSplatAxisData}
 	filepath
     indexBuffer
     vertexBuffer
@@ -36,31 +34,37 @@ mutable struct GSplat <: Renderable
     cshaders
 end
 
-function sigmoid(x)
-	if x > 0.0
-		return 1 ./(1 .+ exp(-x))
-	else
-		z = exp(x)
-		return z/(1 + z)
-	end
+# Goal is to define three splats on each axis and visualize them
+
+function getQuaternion(x)
+	q =	getproperty(RotXYZ(x...) |> Rotations.QuatRotation, :q)
+	return [q.s, q.v1, q.v2, q.v3]
 end
 
-function readPlyFile(path)
-	plyData = PlyIO.load_ply(path);
-	vertexElement = plyData["vertex"]
-	sh = cat(map((x) -> getindex(vertexElement, x), ["f_dc_0", "f_dc_1", "f_dc_2"])..., dims=2)
-	scale = cat(map((x) -> getindex(vertexElement, x), ["scale_0", "scale_1", "scale_2"])..., dims=2)
-	# normals = cat(map((x) -> getindex(vertexElement, x), ["nx", "ny", "nz"])..., dims=2)
-	points = cat(map((x) -> getindex(vertexElement, x), ["x", "y", "z"])..., dims=2)
-	quaternions = cat(map((x) -> getindex(vertexElement, x), ["rot_0", "rot_1", "rot_2", "rot_3"])..., dims=2)
-	features = cat(map((x) -> getindex(vertexElement, x), ["f_rest_$i" for i in 0:44])..., dims=2)
-	opacity = vertexElement["opacity"] .|> sigmoid
-	splatData = GSplatData(points, scale, sh, quaternions, opacity, features) 
+function getSplatData()
+	point = [1.0, 0.0, 0.0] .|> Float32
+	scale = [0.2, 0.05, 0.05] .|> Float32
+	color = [1.0, 0.0, 0.0]  .|> Float32
+	quat = [1, 0, 0, 0]
+	scales = []
+	points = []
+	colors = []
+	quats = []
+	for i in 1:3
+		push!(colors, circshift(color, (i-1,)))
+		push!(points, circshift(point, (i-1,)))
+		push!(scales, circshift(scale, (i-1,)))
+	end
+	colors = cat(colors..., dims=(2,))
+	scales = cat(scales..., dims=(2,))
+	quats = repeat(quat, inner=(1, 3))
+	points = cat(points..., dims=(2,))
+	splatData = GSplatAxisData(points, scales, colors, quats) 
 	return splatData
 end
 
 
-function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Vector{Float32}, Float32} = 1.0f0)
+function gsplatAxis(;scale::Union{Vector{Float32}, Float32} = 1.0f0)
 
 	if typeof(scale) == Float32
 		scale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm
@@ -86,7 +90,7 @@ function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Ve
 		[0, 1, 2, 3, 4, 5],
 	]..., dims=2) .|> UInt32
 	
-	box = GSplat(
+	box = GSplatAxis(
 		nothing, 		# gpuDevice
 		"TriangleList",
 		vertexData, 
@@ -113,7 +117,7 @@ function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Ve
 end
 
 
-function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
+function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 	name = Symbol(typeof(gsplat), binding)
 	renderableType = typeof(gsplat)
 	renderableUniform = Symbol(renderableType, :Uniform)
@@ -168,16 +172,15 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@builtin position vertexPos::Vec4{Float32}
 		end
 
-		struct GSplatIn
+		struct GSplatAxisIn
 			pos::Vec3{Float32}
 			scale::Vec3{Float32}
-			opacity::Float32
+			color::Vec3{Float32}
 			quaternions::Vec4{Float32}
-			sh::Array{Vec3{Float32}, 4}
 		end
 
 		# Matrices are not allowed yet in wgsl ... 
-		struct GSplatOut
+		struct GSplatAxisOut
 			@builtin position pos::Vec4{Float32}
 			@location 0 mu::Vec4{Float32}
 			@location 1 color::Vec4{Float32}
@@ -190,15 +193,15 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		end
 
 		@var Uniform 0 $binding $name::$renderableUniform
-		@var StorageRead 0 $(binding+1) splatArray::Array{GSplatIn}
+		@var StorageRead 0 $(binding+1) splatArray::Array{GSplatAxisIn}
 		@var StorageRead 0 $(binding+2) vertexArray::Array{Vec4{Float32}, 6}
 
 		@vertex function vs_main(
 				@builtin(vertex_index, vIdx::UInt32), 
 				@builtin(instance_index, iIdx::UInt32),
 				@location 0 quadPos::Vec4{Float32}
-			)::GSplatOut
-			@var out::GSplatOut
+			)::GSplatAxisOut
+			@var out::GSplatAxisOut
 			@let splatIn  = splatArray[iIdx]
 			@let R::Mat3{Float32} = quatToRotMat(splatIn.quaternions)
 			@let S::Mat3{Float32} = scaleMatrix(splatIn.scale)
@@ -210,7 +213,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let ty = out.pos.y
 			@let tz = out.pos.z
 			out.pos = camera.transform*out.pos
-			out.pos = out.pos/out.pos.w
+			# out.pos = out.pos/out.pos.w
 			@let f::Float32 = 4.0 #1.32 # 40.0*(tan(camera.fov/2.0))
 
 			@let J = SMatrix{2, 3, Float32, 6}(
@@ -248,14 +251,14 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
 			out.mu = radiusBB*quadpos
 			@let SH_C0 = 0.28209479177387814;
-			@let result = SH_C0 * splatIn.sh[0] + 0.5;
+			#@let result = SH_C0 * splatIn.sh[0] + 0.5;
 			out.cov2d = cov2D
-			out.opacity = splatIn.opacity
-			out.color = Vec4{Float32}(result, out.opacity)
+			out.color = Vec4{Float32}(splatIn.color, 1.0)
+			out.opacity = 1.0
 			return out
 		end
 
-		@fragment function fs_main(splatOut::GSplatOut)::@location 0 Vec4{Float32}
+		@fragment function fs_main(splatOut::GSplatAxisOut)::@location 0 Vec4{Float32}
 			@let mu = splatOut.mu
 			@var fragPos = splatOut.pos
 			@var fragColor = splatOut.color
@@ -302,52 +305,32 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 	return shaderSource
 end
 
-function prepareObject(gpuDevice, gsplat::GSplat)
+function prepareObject(gpuDevice, gsplat::GSplatAxis)
 	uniformData = computeUniformData(gsplat)
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
-		"GSPLAT Buffer",
+		"GSplatAxis Buffer",
 		uniformData,
 		["Uniform", "CopyDst", "CopySrc"]
 	)
 
-	splatData = readPlyFile(gsplat.filepath);  # TODO remove 
+	splatData = getSplatData();  # TODO remove 
 
-	# TODO make mutable structs as default vector operation
-	# buffer = zeros(UInt8, sizeof(WGSLTypes.GSplatIn)*size(splatData.points, 1))
-	
-	# storageArray = reinterpret(WGSLTypes.GSplatIn, buffer)
-
-	# for (idx, splat) in enumerate(storageArray)
-	# 	splat.pos = splatData.points[idx, :]
-	# 	#splat.scale = splatData.scale[idx, :]
-	# 	#splat.opacity = splatData.opacity[idx, :]
-	# 	#splat.quaternions = splatData.quaternion[idx, :]
-	# 	#splat.sh = splatData.sphericalHarmonics[idx, :]
-	# end
-
-	points = splatData.points .|> Float32;
-	scale = splatData.scale  .|> Float32;
-	opacity = splatData.opacity .|> Float32;
-	quaternions = splatData.quaternions .|> Float32;
-	sh = splatData.sphericalHarmonics  .|> Float32;
-	sh_extras = splatData.features[:, 1:9]  .|> Float32;
-
-	storageData = hcat(
-		points,
-		zeros(UInt32, size(points, 1)),
-		scale,
-		opacity,
-		quaternions,
-		sh,
-		#sh_extras
-	) |> adjoint .|> Float32
+	storageData = vcat(
+		splatData.points,
+		zeros(UInt32, 1, 3),
+		splatData.scale,
+		zeros(UInt32, 1, 3),
+		splatData.colors,
+		zeros(UInt32, 1, 3),
+		splatData.quaternions
+	) .|> Float32
 
 	storageData = reinterpret(UInt8, storageData)
 
 	(splatBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
-		"GSPLATIn Buffer",
+		"GSplatAxisIn Buffer",
 		storageData[:],
 		["Storage", "CopySrc"]
 	)
@@ -373,7 +356,7 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 	setfield!(gsplat, :vertexStorage, vertexStorageBuffer)
 end
 
-function getBindingLayouts(gsplat::GSplat; binding=0)
+function getBindingLayouts(gsplat::GSplatAxis; binding=0)
 	bindingLayouts = [
 		WGPUCore.WGPUBufferEntry => [
 			:binding => binding,
@@ -395,7 +378,7 @@ function getBindingLayouts(gsplat::GSplat; binding=0)
 end
 
 
-function getBindings(gsplat::GSplat, uniformBuffer; binding=0)
+function getBindings(gsplat::GSplatAxis, uniformBuffer; binding=0)
 	bindings = [
 		WGPUCore.GPUBuffer => [
 			:binding => binding,
@@ -420,7 +403,7 @@ function getBindings(gsplat::GSplat, uniformBuffer; binding=0)
 end
 
 
-function preparePipeline(gpuDevice, renderer, gsplat::GSplat)
+function preparePipeline(gpuDevice, renderer, gsplat::GSplatAxis)
 	scene = renderer.scene
 	vertexBuffer = getfield(gsplat, :vertexBuffer)
 	uniformBuffer = getfield(gsplat, :uniformBuffer)
@@ -453,13 +436,13 @@ function preparePipeline(gpuDevice, renderer, gsplat::GSplat)
 		gpuDevice, 
 		pipelineLayout, 
 		renderPipelineOptions; 
-		label="[ GSPLAT RENDER PIPELINE ]"
+		label="[ GSplatAxis RENDER PIPELINE ]"
 	)
 	gsplat.renderPipelines = renderPipeline
 end
 
 
-function getVertexBuffer(gpuDevice, gsplat::GSplat)
+function getVertexBuffer(gpuDevice, gsplat::GSplatAxis)
 	data = [
 		gsplat.vertexData
 	]
@@ -473,7 +456,7 @@ function getVertexBuffer(gpuDevice, gsplat::GSplat)
 	vertexBuffer
 end
 
-function getVertexBufferLayout(gsplat::GSplat; offset=0)
+function getVertexBufferLayout(gsplat::GSplatAxis; offset=0)
 	WGPUCore.GPUVertexBufferLayout => [
 		:arrayStride => 4*4,
 		:stepMode => "Vertex",
@@ -487,7 +470,7 @@ function getVertexBufferLayout(gsplat::GSplat; offset=0)
 	]
 end
 
-function getRenderPipelineOptions(renderer, splat::GSplat)
+function getRenderPipelineOptions(renderer, splat::GSplatAxis)
 	scene = renderer.scene
 	camIdx = scene.cameraId
 	renderpipelineOptions = [
@@ -537,7 +520,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 	renderpipelineOptions
 end
 
-function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, gsplat::GSplat, camIdx::Int)
+function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, gsplat::GSplatAxis, camIdx::Int)
 	WGPUCore.setPipeline(renderPass, gsplat.renderPipelines[camIdx])
 	WGPUCore.setIndexBuffer(renderPass, gsplat.indexBuffer, "Uint32")
 	WGPUCore.setVertexBuffer(renderPass, 0, gsplat.vertexBuffer)
@@ -545,6 +528,6 @@ function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, gs
 	WGPUCore.drawIndexed(renderPass, Int32(gsplat.indexBuffer.size/sizeof(UInt32)); instanceCount = size(gsplat.splatData.points, 1), firstIndex=0, baseVertex= 0, firstInstance=0)
 end
 
-Base.show(io::IO, ::MIME"text/plain", gsplat::GSplat) = begin
-	print("GSplat : $(typeof(gsplat))")
+Base.show(io::IO, ::MIME"text/plain", gsplat::GSplatAxis) = begin
+	print("GSplatAxis : $(typeof(gsplat))")
 end
