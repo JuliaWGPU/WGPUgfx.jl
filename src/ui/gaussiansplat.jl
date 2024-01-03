@@ -9,6 +9,7 @@ mutable struct GSplatData
 	sphericalHarmonics
 	quaternions
 	opacity
+	features
 end
 
 mutable struct GSplat <: Renderable
@@ -52,9 +53,9 @@ function readPlyFile(path)
 	# normals = cat(map((x) -> getindex(vertexElement, x), ["nx", "ny", "nz"])..., dims=2)
 	points = cat(map((x) -> getindex(vertexElement, x), ["x", "y", "z"])..., dims=2)
 	quaternions = cat(map((x) -> getindex(vertexElement, x), ["rot_0", "rot_1", "rot_2", "rot_3"])..., dims=2)
-	# features = cat(map((x) -> getindex(vertexElement, x), ["f_rest_$i" for i in 0:44])..., dims=2)
+	features = cat(map((x) -> getindex(vertexElement, x), ["f_rest_$i" for i in 0:44])..., dims=2)
 	opacity = vertexElement["opacity"] .|> sigmoid
-	splatData = GSplatData(points, scale, sh, quaternions, opacity) 
+	splatData = GSplatData(points, scale, sh, quaternions, opacity, features) 
 	return splatData
 end
 
@@ -122,12 +123,12 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 	shaderSource = quote
 
 		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
-			@let scale = 1.0
+			@let scale = 1.0# camera.eye.y
 			return Mat4{Float32}(
 				exp(s.x)*scale, 0.0, 0.0, 0.0,
 				0.0, exp(s.y)*scale, 0.0, 0.0,
 				0.0, 0.0, exp(s.z)*scale, 0.0,
-				0.0, 0.0, 0.0, 1.0
+				0.0, 0.0, 0.0, 0.0
 			)
 		end
 
@@ -174,8 +175,8 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			pos::Vec3{Float32}
 			scale::Vec3{Float32}
 			opacity::Float32
+			sh::SMatrix{3, 4, Float32, 12}
 			quaternions::Vec4{Float32}
-			sh::Vec3{Float32}
 		end
 
 		# Matrices are not allowed yet in wgsl ... 
@@ -194,6 +195,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		@var Uniform 0 $binding $name::$renderableUniform
 		@var StorageRead 0 $(binding+1) splatArray::Array{GSplatIn}
 		@var StorageRead 0 $(binding+2) vertexArray::Array{Vec4{Float32}, 6}
+		# @var StorageRead 0 $(binding+2) vertexArray::Array{Vec3{Float32}, 4}
 
 		@vertex function vs_main(
 				@builtin(vertex_index, vIdx::UInt32), 
@@ -212,8 +214,8 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let ty = out.pos.y
 			@let tz = out.pos.z
 			out.pos = camera.transform*out.pos
-			# out.pos = out.pos/out.pos.w
-			@let f::Float32 = 4.0 #1.32 # 40.0*(tan(camera.fov/2.0))
+			out.pos = out.pos/out.pos.w
+			@let f::Float32 = 2.0 #1.32 # 40.0*(tan(camera.fov/2.0))
 
 			@let J = SMatrix{2, 4, Float32, 8}(
 				f/tz, 0.0, -f*tx/(tz*tz), 0.0, 
@@ -250,7 +252,21 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
 			out.mu = radiusBB*quadpos
 			@let SH_C0 = 0.28209479177387814
-			@var result = SH_C0*splatIn.sh + 0.5
+			@let SH_C1 = 0.4886025119029199
+			@let SH_Mat = SMatrix{4, 3, Float32, 12}(
+				splatIn.sh[0][0], splatIn.sh[0][1], splatIn.sh[0][2], splatIn.sh[0][3],
+				splatIn.sh[1][0], splatIn.sh[1][1], splatIn.sh[1][2], splatIn.sh[1][3],
+				splatIn.sh[2][0], splatIn.sh[2][1], splatIn.sh[2][2], splatIn.sh[2][3]
+			);
+			@let dir = normalize(out.pos.xyz - camera.eye);
+			  
+			@let x = dir.x;
+			@let y = dir.y;
+			@let z = dir.z;
+			@var result = SH_C0*SH_Mat[0]
+			result = result + SH_C1 * (-y * SH_Mat[1] + z * SH_Mat[2] - x * SH_Mat[3]);
+			result = result + 0.5
+			result = max(result, Vec3{Float32}(0.))
 			out.cov2d = cov2D
 			out.opacity = splatIn.opacity
 			out.color = Vec4{Float32}(result, out.opacity)
@@ -292,9 +308,11 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 			@let intensity::Float32 = 0.5*dot(invCov2d*delta, delta)
 			
+			
 			@escif if (intensity < 0.0)
 				@esc discard
 			end
+			
 			
 			@let alpha = min(0.99, opacity*exp(-intensity))
 
@@ -336,17 +354,16 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 	scale = splatData.scale  .|> Float32;
 	opacity = splatData.opacity .|> Float32;
 	quaternions = splatData.quaternions .|> Float32;
-	sh = splatData.sphericalHarmonics  .|> Float32;
-	# sh_extras = splatData.features[:, 1:9]  .|> Float32;
+
+	sh = hcat(splatData.sphericalHarmonics, splatData.features[:, 1:9]) .|> Float32;
 
 	storageData = hcat(
 		points,
 		zeros(UInt32, size(points, 1)),
 		scale,
 		opacity,
-		quaternions,
 		sh,
-		zeros(UInt32, size(points, 1))
+		quaternions
 	) |> adjoint .|> Float32
 
 	storageData = reinterpret(UInt8, storageData)
