@@ -9,7 +9,6 @@ mutable struct GSplatData
 	sphericalHarmonics
 	quaternions
 	opacity
-	features
 end
 
 mutable struct GSplat <: Renderable
@@ -53,9 +52,9 @@ function readPlyFile(path)
 	# normals = cat(map((x) -> getindex(vertexElement, x), ["nx", "ny", "nz"])..., dims=2)
 	points = cat(map((x) -> getindex(vertexElement, x), ["x", "y", "z"])..., dims=2)
 	quaternions = cat(map((x) -> getindex(vertexElement, x), ["rot_0", "rot_1", "rot_2", "rot_3"])..., dims=2)
-	features = cat(map((x) -> getindex(vertexElement, x), ["f_rest_$i" for i in 0:44])..., dims=2)
+	# features = cat(map((x) -> getindex(vertexElement, x), ["f_rest_$i" for i in 0:44])..., dims=2)
 	opacity = vertexElement["opacity"] .|> sigmoid
-	splatData = GSplatData(points, scale, sh, quaternions, opacity, features) 
+	splatData = GSplatData(points, scale, sh, quaternions, opacity) 
 	return splatData
 end
 
@@ -122,32 +121,35 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 	shaderSource = quote
 
-		function scaleMatrix(s::Vec3{Float32})::Mat3{Float32}
+		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
 			@let scale = 1.0
-			return Mat3{Float32}(
-				exp(s.x)*scale, 0.0, 0.0,
-				0.0, exp(s.y)*scale, 0.0,
-				0.0, 0.0, exp(s.z)*scale,
+			return Mat4{Float32}(
+				exp(s.x)*scale, 0.0, 0.0, 0.0,
+				0.0, exp(s.y)*scale, 0.0, 0.0,
+				0.0, 0.0, exp(s.z)*scale, 0.0,
+				0.0, 0.0, 0.0, 1.0
 			)
 		end
 
-		function transToRotMat(mat::Mat4{Float32})::Mat3{Float32}
-			return Mat3{Float32}(
-				mat[0][0], mat[0][1], mat[0][2], 
-				mat[1][0], mat[1][1], mat[1][2], 
-				mat[2][0], mat[2][1], mat[2][2],
+		function transToRotMat(mat::Mat4{Float32})::Mat4{Float32}
+			return Mat4{Float32}(
+				mat[0][0], mat[0][1], mat[0][2], 0.0,
+				mat[1][0], mat[1][1], mat[1][2], 0.0,
+				mat[2][0], mat[2][1], mat[2][2], 0.0,
+				0.0, 0.0, 0.0, 1.0
 			)
 		end
 
-		function quatToRotMat(q::Vec4{Float32})::Mat3{Float32}
+		function quatToRotMat(q::Vec4{Float32})::Mat4{Float32}
 			@let x = q.x
 			@let y = q.y
 			@let z = q.z
 			@let w = q.w
-			return Mat3{Float32}(
-				1.0 - 2.0*(y*y + z*z), 2.0*(x*y - w*z), 2.0*(x*z + w*y),
-				2.0*(x*y + w*z), 1.0 - 2.0*(x*x - z*z), 2.0*(y*z - w*x), 
-				2.0*(x*z - w*z), 2.0*(y*z + w*x), 1.0 - 2.0*(x*x + y*y),
+			return Mat4{Float32}(
+				1.0 - 2.0*(y*y + z*z), 2.0*(x*y - w*z), 2.0*(x*z + w*y), 0.0,
+				2.0*(x*y + w*z), 1.0 - 2.0*(x*x - z*z), 2.0*(y*z - w*x), 0.0, 
+				2.0*(x*z - w*z), 2.0*(y*z + w*x), 1.0 - 2.0*(x*x + y*y), 0.0,
+				0.0, 0.0, 0.0, 1.0
 			)
 		end
 
@@ -173,7 +175,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			scale::Vec3{Float32}
 			opacity::Float32
 			quaternions::Vec4{Float32}
-			sh::Array{Vec3{Float32}, 4}
+			sh::Vec3{Float32}
 		end
 
 		# Matrices are not allowed yet in wgsl ... 
@@ -200,27 +202,27 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			)::GSplatOut
 			@var out::GSplatOut
 			@let splatIn  = splatArray[iIdx]
-			@let R::Mat3{Float32} = quatToRotMat(splatIn.quaternions)
-			@let S::Mat3{Float32} = scaleMatrix(splatIn.scale)
-			@let M = transpose(S)*R
-			@let sigma = transpose(M)*M
+			@let R::Mat4{Float32} = quatToRotMat(splatIn.quaternions)
+			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale)
+			@let M = R*S
+			@let sigma = M*transpose(M)
 			@let pos = Vec4{Float32}(splatIn.pos, 1.0)
 			out.pos = $(name).transform*pos
 			@let tx = out.pos.x 
 			@let ty = out.pos.y
 			@let tz = out.pos.z
 			out.pos = camera.transform*out.pos
-			out.pos = out.pos/out.pos.w
+			# out.pos = out.pos/out.pos.w
 			@let f::Float32 = 4.0 #1.32 # 40.0*(tan(camera.fov/2.0))
 
-			@let J = SMatrix{2, 3, Float32, 6}(
-				f/tz, 0.0, -f*tx/(tz*tz), 
-			 	0.0, f/tz, -f*ty/(tz*tz),
+			@let J = SMatrix{2, 4, Float32, 8}(
+				f/tz, 0.0, -f*tx/(tz*tz), 0.0, 
+			 	0.0, f/tz, -f*ty/(tz*tz), 0.0,
 			)
 
 			@let Rcam = transToRotMat(camera.transform)
-			@let W = transpose(Rcam)*J
-			@let covinter = transpose(sigma)*W
+			@let W = Rcam*J
+			@let covinter = sigma*W
 			@let cov4D = transpose(W)*covinter
 
 			@var cov2D = Vec4{Float32}(
@@ -242,13 +244,13 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let eigendir2 = halfad - sqrt(max(0.1, halfad*halfad - det2D))
 			@let majorAxis = max(eigendir1, eigendir2)
 			@let radiusBB = ceil(3.0 * sqrt(majorAxis))
-			@let radiusNDC = Vec2{Float32}(radiusBB/250.0, radiusBB/250.0)
+			@let radiusNDC = Vec2{Float32}(radiusBB/500.0, radiusBB/500.0)
 
 			@let quadpos = vertexArray[vIdx]
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
 			out.mu = radiusBB*quadpos
-			@let SH_C0 = 0.28209479177387814;
-			@let result = SH_C0 * splatIn.sh[0] + 0.5;
+			@let SH_C0 = 0.28209479177387814
+			@var result = SH_C0*splatIn.sh + 0.5
 			out.cov2d = cov2D
 			out.opacity = splatIn.opacity
 			out.color = Vec4{Float32}(result, out.opacity)
@@ -276,6 +278,10 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			)
 
 			@let det::Float32 = determinant(cov2d)
+
+			@escif if (det < 0.0)
+				@esc discard
+			end
 			
 			@let invCov2d::Mat2{Float32} = Mat2{Float32}(
 			 	invCov2dAdj[0][0]/det,
@@ -331,7 +337,7 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 	opacity = splatData.opacity .|> Float32;
 	quaternions = splatData.quaternions .|> Float32;
 	sh = splatData.sphericalHarmonics  .|> Float32;
-	sh_extras = splatData.features[:, 1:9]  .|> Float32;
+	# sh_extras = splatData.features[:, 1:9]  .|> Float32;
 
 	storageData = hcat(
 		points,
@@ -340,7 +346,7 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 		opacity,
 		quaternions,
 		sh,
-		#sh_extras
+		zeros(UInt32, size(points, 1))
 	) |> adjoint .|> Float32
 
 	storageData = reinterpret(UInt8, storageData)
@@ -526,8 +532,8 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 						:operation => "Add"
 					],
 					:alpha => [
-						:srcFactor => "One",
-						:dstFactor => "OneMinusSrcAlpha",
+						:srcFactor => "Dst",
+						:dstFactor => "OneMinusDstAlpha",
 						:operation => "Add",
 					]
 				],

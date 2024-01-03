@@ -327,7 +327,7 @@ transform([upperCoords(bb1)..., 0, 0])
 function lookAtLeftHanded(camera::Camera)
 	eye = camera.eye
 	lookat = camera.lookat
-	up = -camera.up
+	up = camera.up
 	w = -(lookat .- eye) |> normalize
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
@@ -358,11 +358,11 @@ function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, 
 	yS = 2*n/(t-b) # (t-b) is height
 	xR = (r+l)/(r-l)
 	yR = (t+b)/(t-b)
-	zR = -(f + n)/(f-n)
+	zR = -(f)/(f-n)
 	oR = -2*f*n/(f-n)
 	pmat = coordinateTransform * [
-		xS		0		0		0	;
-		0		yS		0		0	;
+		xS		0		xR		0	;
+		0		yS		yR		0	;
 		0		0		zR		oR	;
 		0		0		-1		0	;
 	]
