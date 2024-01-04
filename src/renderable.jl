@@ -287,14 +287,16 @@ function getShaderCode(mesh::Renderable, cameraId::Int; binding=0)
 		@vertex function vs_main(vertexIn::$vertexInputName)::$vertexOutputName
 			@var out::$vertexOutputName
 			out.pos = $(name).transform*vertexIn.pos
-			out.pos = camera.transform*out.pos
+			out.pos = camera.viewMatrix*out.pos
+			out.pos = camera.projMatrix*out.pos
 			out.vColor = vertexIn.vColor
 			if $isTexture
 				out.vTexCoords = vertexIn.vTexCoords
 			end
 			if $isLight
 				out.vNormal = $(name).transform*vertexIn.vNormal
-				out.vNormal = camera.transform*out.vNormal
+				out.vNormal = camera.viewMatrix*out.vNormal
+				out.vNormal = camera.projMatrix*out.vNormal
 			end
 			return out
 		end
