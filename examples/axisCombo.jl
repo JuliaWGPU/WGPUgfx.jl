@@ -25,6 +25,7 @@ run(TracyProfiler_jll.tracy(); wait=false)
 sleep(5)
 
 using WGPUgfx
+using WGPUgfx: updateViewTransform!
 using WGPUCore
 using WGPUCanvas
 using GLFW
@@ -79,7 +80,7 @@ mainApp = () -> begin
 			rot = RotXY(0.01, 0.02)
 			mat = MMatrix{4, 4, Float32}(I)
 			mat[1:3, 1:3] = rot
-			camera1.transform = camera1.transform*mat
+			updateViewTransform!(camera1, camera1.uniformData.viewMatrix*mat)
 			theta = time()
 			quad.uniformData = translate((				
 				1.0*(sin(theta)), 

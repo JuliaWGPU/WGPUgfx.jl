@@ -204,7 +204,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let ty = out.pos.y
 			@let tz = out.pos.z
 			
-			@let f::Float32 = 2.2*(tan(camera.fov/2.0))
+			@let f::Float32 = 2.0*(tan(camera.fov/2.0))
 			#@let tx = pos.x 
 			#@let ty = pos.y
 			#@let tz = pos.z
@@ -305,11 +305,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 			@let intensity::Float32 = 0.5*dot(invCov2d*delta, delta)
 			
-			
 			@escif if (intensity < 0.0)
 				@esc discard
 			end
-			
 			
 			@let alpha = min(0.99, opacity*exp(-intensity))
 
@@ -332,20 +330,7 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 		["Uniform", "CopyDst", "CopySrc"]
 	)
 
-	splatData = readPlyFile(gsplat.filepath);  # TODO remove 
-
-	# TODO make mutable structs as default vector operation
-	# buffer = zeros(UInt8, sizeof(WGSLTypes.GSplatIn)*size(splatData.points, 1))
-	
-	# storageArray = reinterpret(WGSLTypes.GSplatIn, buffer)
-
-	# for (idx, splat) in enumerate(storageArray)
-	# 	splat.pos = splatData.points[idx, :]
-	# 	#splat.scale = splatData.scale[idx, :]
-	# 	#splat.opacity = splatData.opacity[idx, :]
-	# 	#splat.quaternions = splatData.quaternion[idx, :]
-	# 	#splat.sh = splatData.sphericalHarmonics[idx, :]
-	# end
+	splatData = readPlyFile(gsplat.filepath); 
 
 	points = splatData.points .|> Float32;
 	scale = splatData.scale  .|> Float32;
@@ -400,12 +385,12 @@ function getBindingLayouts(gsplat::GSplat; binding=0)
 			:visibility => ["Vertex", "Fragment"],
 			:type => "Uniform"
 		],
-		WGPUCore.WGPUBufferEntry => [ # TODO hardcoded
+		WGPUCore.WGPUBufferEntry => [ 
 			:binding => binding + 1,
 			:visibility=> ["Vertex", "Fragment"],
 			:type => "ReadOnlyStorage" # TODO VERTEXWRITABLESTORAGE feature needs to be enabled if its not read-only
 		],
-		WGPUCore.WGPUBufferEntry => [ # TODO hardcoded
+		WGPUCore.WGPUBufferEntry => [
 			:binding => binding + 2,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "ReadOnlyStorage"
@@ -512,7 +497,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 	camIdx = scene.cameraId
 	renderpipelineOptions = [
 		WGPUCore.GPUVertexState => [
-			:_module => splat.cshaders[camIdx].internal[],				# SET THIS (AUTOMATICALLY)
+			:_module => splat.cshaders[camIdx].internal[],		# SET THIS (AUTOMATICALLY)
 			:entryPoint => "vs_main",							# SET THIS (FIXED FOR NOW)
 			:buffers => [
 					getVertexBufferLayout(splat)
@@ -535,11 +520,11 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 			:alphaToCoverageEnabled=>false,
 		],
 		WGPUCore.GPUFragmentState => [
-			:_module => splat.cshaders[camIdx].internal[],						# SET THIS
+			:_module => splat.cshaders[camIdx].internal[],		# SET THIS
 			:entryPoint => "fs_main",							# SET THIS (FIXED FOR NOW)
 			:targets => [
 				WGPUCore.GPUColorTargetState =>	[
-					:format => renderer.renderTextureFormat,				# SET THIS
+					:format => renderer.renderTextureFormat,	# SET THIS
 					:color => [
 						:srcFactor => "One",
 						:dstFactor => "OneMinusSrcAlpha",

@@ -44,10 +44,10 @@ end
 
 
 function getSplatData()
-	point = [1.0, 0.0, 0.0] .|> Float32
-	scale = [0.86, 0.15, 0.05] .|> Float32
-	color = [0.0, 0.0, 1.0]  .|> Float32
-	quat = [pi/2, 0, 0, 0] .|> Float32
+	point = [0.4, 0.0, 0.0] .|> Float32
+	scale = [0.6, 0.4, 0.4] .|> Float32
+	color = [1.0, 0.0, 0.0]  .|> Float32
+	quat = [pi/2, 0, 0] .|> Float32
 	scales = []
 	points = []
 	colors = []
@@ -56,10 +56,11 @@ function getSplatData()
 		push!(colors, circshift(color, (i-1,)))
 		push!(points, circshift(point, (i-1,)))
 		push!(scales, circshift(scale, (i-1,)))
+		push!(quats, circshift(quat, (i-1,)) |> getQuaternion)
 	end
 	colors = cat(colors..., dims=(2,))
 	scales = cat(scales..., dims=(2,))
-	quats = repeat(quat, inner=(1,size(colors, 2)))
+	quats = cat(quats..., dims=(2,))
 	points = cat(points..., dims=(2,))
 	splatData = GSplatAxisData(points, scales, colors, quats) 
 	return splatData
@@ -235,19 +236,20 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 			@let sigma = transpose(M)*M
 			@let pos = Vec4{Float32}(splatIn.pos, 1.0)
 			out.pos = $(name).transform*pos
+			out.pos = camera.viewMatrix*out.pos
 			@let tx = out.pos.x 
 			@let ty = out.pos.y
 			@let tz = out.pos.z
-			out.pos = camera.transform*out.pos
-			# out.pos = out.pos/out.pos.w
-			@let f::Float32 = 4.0 #1.32 # 40.0*(tan(camera.fov/2.0))
+			out.pos = camera.projMatrix*out.pos
+			out.pos = out.pos/out.pos.w
+			@let f::Float32 = 2.0*(tan(camera.fov/2.0))
 
 			@let J = SMatrix{2, 3, Float32, 6}(
 				f/tz, 0.0, -f*tx/(tz*tz), 
 			 	0.0, f/tz, -f*ty/(tz*tz),
 			)
 
-			@let Rcam = transToRotMat(camera.transform)
+			@let Rcam = transToRotMat(camera.viewMatrix)
 			@let W = transpose(Rcam)*J
 			@let covinter = transpose(sigma)*W
 			@let cov4D = transpose(W)*covinter
@@ -258,7 +260,7 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 			)
 
 			cov2D[0] = cov2D[0] + 0.3
-			cov2D[3] = cov2D[0] + 0.3
+			cov2D[3] = cov2D[3] + 0.3
 
 			@let a = cov2D[0]
 			@let b = cov2D[1]
@@ -280,7 +282,7 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 			#@let result = SH_C0 * splatIn.sh[0] + 0.5;
 			out.cov2d = cov2D
 			out.color = Vec4{Float32}(splatIn.color, 1.0)
-			out.opacity = 0.3
+			out.opacity = 1.0
 			return out
 		end
 

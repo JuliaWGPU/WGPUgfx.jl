@@ -55,8 +55,8 @@ function attachScrollCallback(scene, camera::Camera)
 	WGPUCanvas.setScrollCallback(
 		scene.canvas,
 		(_, xoff, yoff) -> begin
-			# @info "MouseScroll" xoff, yoff
-			camera.scale = camera.scale .+ yoff.*maximum(mouseState.speed)
+			camera.eye += (camera.eye - camera.lookat)*yoff.*maximum(mouseState.speed)
+			camera.lookat += (camera.eye-camera.lookat)*yoff.*maximum(mouseState.speed)
 		end
 	)
 end
@@ -69,21 +69,23 @@ function attachCursorPosCallback(scene, camera::Camera)
 			if all(((x, y) .- scene.canvas.size) .< 0)
 				if mouseState.leftClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
-					# @info delta
 					rot = RotXY(delta...)
+					#camera.eye = rot*camera.eye
 					mat = MMatrix{4, 4, Float32}(I)
 					mat[1:3, 1:3] = rot
 					updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
 					mouseState.prevPosition = (y, x)
 				elseif mouseState.rightClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
-					mat = MMatrix{4, 4, Float32}(I)
-					mat[1:3, 3] .= [delta..., 0]
-					updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
+					#camera.lookat += [delta..., 0]
+					#camera.eye += [delta..., 0]
+					#mat = MMatrix{4, 4, Float32}(I)
+					#mat[1:3, 3] .= [delta..., 0]
+					#updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
 					mouseState.prevPosition = (y, x)
 				elseif mouseState.middleClick
-					mat = MMatrix{4, 4, Float32}(I)
-					updateViewTransform!(camera, mat)
+					#mat = MMatrix{4, 4, Float32}(I)
+					#updateViewTransform!(camera, mat)
 					mouseState.prevPosition = (y, x)
 				else
 					mouseState.prevPosition = (y, x)
