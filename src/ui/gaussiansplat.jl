@@ -69,7 +69,7 @@ function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Ve
 	end
 
 	swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
-	# swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
+	#swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
 
 	vertexData = cat([
 		[1, -1, 0, 1],
@@ -123,12 +123,12 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 	shaderSource = quote
 
 		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
-			@let scale = 1.0# camera.eye.y
+			@let scale = 1.0
 			return Mat4{Float32}(
-				exp(s.x)*scale, 0.0, 0.0, 0.0,
-				0.0, exp(s.y)*scale, 0.0, 0.0,
-				0.0, 0.0, exp(s.z)*scale, 0.0,
-				0.0, 0.0, 0.0, 0.0
+				exp(s.x)*(scale), 0.0, 0.0, 0.0,
+				0.0, exp(s.y)*(scale), 0.0, 0.0,
+				0.0, 0.0, exp(s.z)*(scale), 0.0,
+				0.0, 0.0, 0.0, 1.0
 			)
 		end
 
@@ -154,19 +154,6 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			)
 		end
 
-		function orthoMatrix(cam::CameraUniform)::Mat4{Float32}
-			@let fov::Float32 = cam.fov
-			@let f::Float32 = (2.0*tan(fov/2.0))
-			@let fr::Float32 = 100.0
-			@let nr::Float32 = 0.1
-			return Mat4{Float32}(
-				(2.0*f)/500.0, 0.0, 0.0, 0.0,
-				0.0, (2.0*f)/500.0, 0.0, 0.0,
-				0.0, 0.0, (fr + nr)/(fr - nr), -2.0*fr*nr/(fr - nr),
-				0.0, 0.0, -1.0, 0.0,
-			)
-		end
-
 		struct QuadVertex
 			@builtin position vertexPos::Vec4{Float32}
 		end
@@ -175,7 +162,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			pos::Vec3{Float32}
 			scale::Vec3{Float32}
 			opacity::Float32
-			sh::SMatrix{3, 4, Float32, 12}
+			sh::SMatrix{3, 4, Float32, 12} # Temporary solution for size limits
 			quaternions::Vec4{Float32}
 		end
 
@@ -206,26 +193,31 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let splatIn  = splatArray[iIdx]
 			@let R::Mat4{Float32} = quatToRotMat(splatIn.quaternions)
 			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale)
-			@let M = R*S
-			@let sigma = M*transpose(M)
+			@let M = S*R
+			@let sigma = transpose(M)*M
 			@let pos = Vec4{Float32}(splatIn.pos, 1.0)
 			out.pos = $(name).transform*pos
+			out.pos = camera.viewMatrix*out.pos
+			out.pos = out.pos/out.pos.w
+			
 			@let tx = out.pos.x 
 			@let ty = out.pos.y
 			@let tz = out.pos.z
-			out.pos = camera.transform*out.pos
-			out.pos = out.pos/out.pos.w
-			@let f::Float32 = 2.0 #1.32 # 40.0*(tan(camera.fov/2.0))
+			
+			@let f::Float32 = 2.2*(tan(camera.fov/2.0))
+			#@let tx = pos.x 
+			#@let ty = pos.y
+			#@let tz = pos.z
 
 			@let J = SMatrix{2, 4, Float32, 8}(
 				f/tz, 0.0, -f*tx/(tz*tz), 0.0, 
 			 	0.0, f/tz, -f*ty/(tz*tz), 0.0,
 			)
 
-			@let Rcam = transToRotMat(camera.transform)
-			@let W = Rcam*J
-			@let covinter = sigma*W
-			@let cov4D = transpose(W)*covinter
+			@let Rcam = transToRotMat(camera.viewMatrix)
+			@let W = transpose(Rcam)*J
+			@let covinter = transpose(W)*sigma
+			@let cov4D::Mat2{Float32} = covinter*W
 
 			@var cov2D = Vec4{Float32}(
 				cov4D[0][0], cov4D[0][1],
@@ -233,7 +225,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			)
 
 			cov2D[0] = cov2D[0] + 0.3
-			cov2D[3] = cov2D[0] + 0.3
+			cov2D[3] = cov2D[3] + 0.3
 
 			@let a = cov2D[0]
 			@let b = cov2D[1]
@@ -242,14 +234,18 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 			@let det2D = a*d - b*c
 			@let halfad = (a + d)/2.0
-			@let eigendir1 = halfad + sqrt(max(0.1, halfad*halfad - det2D))
-			@let eigendir2 = halfad - sqrt(max(0.1, halfad*halfad - det2D))
+			@let eigendir1 = halfad - sqrt(max(0.1, halfad*halfad - det2D))
+			@let eigendir2 = halfad + sqrt(max(0.1, halfad*halfad - det2D))
 			@let majorAxis = max(eigendir1, eigendir2)
 			@let radiusBB = ceil(3.0 * sqrt(majorAxis))
 			@let radiusNDC = Vec2{Float32}(radiusBB/500.0, radiusBB/500.0)
 
 			@let quadpos = vertexArray[vIdx]
+			out.pos = camera.projMatrix*out.pos
+			out.pos = out.pos/out.pos.w
+
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
+			out.pos = out.pos/out.pos.w
 			out.mu = radiusBB*quadpos
 			@let SH_C0 = 0.28209479177387814
 			@let SH_C1 = 0.4886025119029199
@@ -258,8 +254,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatIn.sh[1][0], splatIn.sh[1][1], splatIn.sh[1][2], splatIn.sh[1][3],
 				splatIn.sh[2][0], splatIn.sh[2][1], splatIn.sh[2][2], splatIn.sh[2][3]
 			);
-			@let dir = normalize(out.pos.xyz - camera.eye);
-			  
+			# @let eye = Vec3{Float32}(0.0, 0.0, 4.0)
+			@let dir = normalize(out.pos.xyz - camera.eye.xyz);
+			
 			@let x = dir.x;
 			@let y = dir.y;
 			@let z = dir.z;
@@ -295,7 +292,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 			@let det::Float32 = determinant(cov2d)
 
-			@escif if (det < 0.0)
+			@escif if (det <= 0.0)
 				@esc discard
 			end
 			
@@ -549,7 +546,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 						:operation => "Add"
 					],
 					:alpha => [
-						:srcFactor => "Dst",
+						:srcFactor => "One",
 						:dstFactor => "OneMinusDstAlpha",
 						:operation => "Add",
 					]
