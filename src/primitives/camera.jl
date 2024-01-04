@@ -10,7 +10,7 @@ const CAMERA_BINDING_START = 0
 
 export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicMatrix, 
 	windowingTransform, translateCamera, openglToWGSL, translate, rotateTransform, scaleTransform,
-	getUniformBuffer, getUniformData, getShaderCode, updateUniformBuffer
+	getUniformBuffer, getUniformData, getShaderCode, updateUniformBuffer, updateViewTransform, updateProjTransform, getTransform
 
 coordinateTransform = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32
 invCoordinateTransform = inv(coordinateTransform)
@@ -32,19 +32,18 @@ end
 
 function prepareObject(gpuDevice, camera::Camera)
 	scale = [1, 1, 1] .|> Float32
-	io = computeUniformData(camera)
-	uniformDataBytes = io |> read
-	seek(io, 0)
+	uniformData = computeUniformData(camera)
+	uniformDataBytes = uniformData |> toByteArray
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice, 
 		" CAMERA $(camera.id-1) BUFFER ",
 		uniformDataBytes, 
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
-	setfield!(camera, :uniformData, io)
+	setfield!(camera, :uniformData, uniformData)
 	setfield!(camera, :uniformBuffer, uniformBuffer)
 	setfield!(camera, :gpuDevice, gpuDevice)
-	seek(io, 0)
+	camera.fov = camera.fov
 	return camera
 end
 
@@ -59,22 +58,17 @@ end
 function computeTransform(camera::Camera)
 	viewMatrix = lookAtLeftHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
 	projectionMatrix = perspectiveMatrix(camera)
-	viewProject = projectionMatrix ∘ viewMatrix
-	return viewProject.linear
+	return (viewMatrix.linear, projectionMatrix.linear)
 end
 
 
 function computeUniformData(camera::Camera)
 	UniformType = getproperty(WGSLTypes, :CameraUniform)
-	uniformData = Ref{UniformType}() # TODO only first is necessary
-	io = getfield(camera, :uniformData)
-	unsafe_write(io, uniformData, sizeof(uniformData))
-	seek(io, 0)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-	setVal!(camera, Val(:eye), camera.eye)
-	setVal!(camera, Val(:fov), camera.fov)
-	seek(io, 0)
-	return io
+	uniformData = cStruct(UniformType) # TODO only first is necessary
+	(viewMatrix, projMatrix) = computeTransform(camera)
+	uniformData.projMatrix = projMatrix
+	uniformData.viewMatrix = viewMatrix
+	return uniformData
 end
 
 
@@ -97,123 +91,44 @@ function defaultCamera(;id=0)
 		aspectRatio,
 		nearPlane,
 		farPlane,
-		IOBuffer(),
+		nothing,
 		nothing,
 		id
 	)
 end
 
-
-function setVal!(camera::Camera, ::Val{:transform}, v)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
-	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :transform))
-	io = getfield(camera, :uniformData)
-	seek(io, offset)
-	write(io, coordinateTransform*v)
-	seek(io, 0)
-end
-
-
-function setVal!(camera::Camera, ::Val{:eye}, v)
-	setfield!(camera, :eye, v)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
-	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, :eye))
-	io = getfield(camera, :uniformData)
-	seek(io, offset)
-	write(io, coordinateTransform[1:3, 1:3]*v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-	seek(io, 0)
-end
-
-
-function setVal!(camera::Camera, ::Val{:scale}, v)
-	setfield!(camera, :scale, coordinateTransform[1:3, 1:3]*v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-end
-
-
-function setVal!(camera::Camera, ::Val{:lookat}, v)
-	setfield!(camera, :lookat, coordinateTransform[1:3, 1:3]*v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-end
-
-
-function setVal!(camera::Camera, ::Val{:farPlane}, v)
-	setfield!(camera, :farPlane, v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-end
-
-
-function setVal!(camera::Camera, ::Val{:fov}, v)
-	setfield!(camera, :fov, v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-end
-
-
-function setVal!(camera::Camera, ::Val{:aspectRatio}, v)
-	setfield!(camera, :aspectRatio, v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-end
-
-
-function setVal!(camera::Camera, ::Val{:nearPlane}, v)
-	setfield!(camera, :nearPlane, v)
-	setVal!(camera, Val(:transform), computeTransform(camera))
-end
-
-
-function setVal!(camera::Camera, ::Val{N}, v) where N
-	setfield!(camera, N, v)
-end
-
-
-function setVal!(camera::Camera, ::Val{:uniformData}, v)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
-	t = Ref{UniformType}()
-	io = getfield(camera, :uniformData)
-	seek(io, 0)
-	unsafe_write(io, coordinateTransform*v, sizeof(v)) # TODO BUG v should be passed instead of t.
-	seek(io, 0)
-end
-
-
 Base.setproperty!(camera::Camera, f::Symbol, v) = begin
-	# setfield!(camera, f, v)
-	setVal!(camera, Val(f), v)
+	setfield!(camera, f, v)
+	uniformData = camera.uniformData
+	if f in propertynames(uniformData)
+		setproperty!(uniformData, f, v)
+	end
+	(viewMatrix, projMatrix) = computeTransform(camera)
+	uniformData.viewMatrix = viewMatrix
+	uniformData.projMatrix = projMatrix
 	updateUniformBuffer(camera)
 end
 
-
-# TODO not working
-function getVal(camera::Camera, ::Val{:unifomBuffer})
-	return readUniformBuffer(camera)
+function updateViewTransform!(camera::Camera, transform)
+	uniformData = camera.uniformData
+	uniformData.viewMatrix = transform
+	updateUniformBuffer(camera)
 end
 
-
-function getVal(camera::Camera, ::Val{:transform})
-	uniformData = getVal(camera, Val(:uniformData))
-	return getfield(uniformData, :transform)
+function updateProjTransform!(camera::Camera, transform)
+	uniformData = camera.uniformData
+	uniformData.projMatrix = transform
+	updateUniformBuffer(camera)
 end
 
-
-function getVal(camera::Camera, ::Val{:uniformData})
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
-	t = Ref{UniformType}()
-	io = getfield(camera, :uniformData)
-	seek(io, 0)
-	unsafe_read(io, t, sizeof(UniformType))
-	seek(io, 0)
-	t[]
+function getViewTransform(camera::Camera)
+	uniformData = camera.uniformData
+	return uniformData.viewMatrix
 end
 
-
-function getVal(camera::Camera, ::Val{N}) where N
-	return getfield(camera, N)
-end
-
-
-Base.getproperty(camera::Camera, f::Symbol) = begin
-	return getVal(camera, Val(f))
+function getProjTransform(camera::Camera)
+	uniformData = camera.uniformData
+	return uniformData.projMatrix
 end
 
 
@@ -400,8 +315,7 @@ end
 
 
 function updateUniformBuffer(camera::Camera)
-	data = getfield(camera, :uniformData).data
-	# @info :UniformBuffer camera.uniformData.transform camera.uniformData.eye
+	data = getfield(camera, :uniformData) |> toByteArray
 	WGPUCore.writeBuffer(
 		camera.gpuDevice.queue, 
 		getfield(camera, :uniformBuffer),
@@ -433,7 +347,8 @@ function getShaderCode(camera::Camera; binding=CAMERA_BINDING_START)
 		struct $cameraUniform
 			eye::Vec3{Float32}
 			fov::Float32
-			transform::Mat4{Float32}
+			viewMatrix::Mat4{Float32}
+			projMatrix::Mat4{Float32}
 		end
 		@var Uniform 0 $(binding) camera::$cameraUniform
 	end

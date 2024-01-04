@@ -24,7 +24,8 @@ function getShaderCode(camSys::CameraSystem;binding=1)
 		struct CameraUniform
 			eye::Vec3{Float32}
 			fov::Float32
-			transform::Mat4{Float32}
+			viewMatrix::Mat4{Float32}
+			projMatrix::Mat4{Float32}
 		end
 		@var Uniform 0 $(binding) camera::CameraUniform
 	end
@@ -36,6 +37,7 @@ function prepareObject(gpuDevice, camSys::CameraSystem)
 		prepareObject(gpuDevice, camera)
 		camera.up = [0, 1, 0] .|> Float32
 		camera.eye = ([0.0, 0, 4.0] .|> Float32)
+		camera.fov = 1.30f0
 	end
 end
 
