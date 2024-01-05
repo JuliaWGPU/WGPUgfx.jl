@@ -15,6 +15,8 @@ export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicM
 coordinateTransform = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32
 invCoordinateTransform = inv(coordinateTransform)
 
+@enum WGPUProjectionType ORTHO=0 PERSPECTIVE=1 # TODO add others projection types
+
 mutable struct Camera
 	gpuDevice
 	eye
@@ -28,6 +30,7 @@ mutable struct Camera
 	uniformData
 	uniformBuffer
 	id
+	projectionType
 end
 
 function prepareObject(gpuDevice, camera::Camera)
@@ -57,7 +60,12 @@ end
 
 function computeTransform(camera::Camera)
 	viewMatrix = lookAtLeftHanded(camera) ∘ scaleTransform(camera.scale .|> Float32)
-	projectionMatrix = perspectiveMatrix(camera)
+	# TODO should use dispatch instead
+	if camera.projectionType == ORTHO
+		projectionMatrix = orthographicMatrix(camera)
+	elseif camera.projectionType == PERSPECTIVE
+		projectionMatrix = perspectiveMatrix(camera)
+	end
 	return (viewMatrix.linear, projectionMatrix.linear)
 end
 
@@ -82,7 +90,10 @@ function defaultCamera(;
 		aspectRatio = 1.0 |> Float32,
 		nearPlane = 0.1 |> Float32,
 		farPlane = 100.0 |> Float32,
+		projectionType::Union{Symbol, WGPUProjectionType} = :PERSPECTIVE
 	)
+	projectionType = eval(projectionType) # Handles both symbol and direct Enum
+	@assert projectionType in instances(WGPUProjectionType) "This projection Type is not defined"
 	return Camera(
 		nothing,
 		eye,
@@ -95,7 +106,8 @@ function defaultCamera(;
 		farPlane,
 		nothing,
 		nothing,
-		id
+		id,
+		projectionType
 	)
 end
 
