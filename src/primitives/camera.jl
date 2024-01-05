@@ -72,15 +72,17 @@ function computeUniformData(camera::Camera)
 end
 
 
-function defaultCamera(;id=0)
-	eye = [0.0, 0.0, 4.0] .|> Float32
-	lookat = [0, 0, 0] .|> Float32
-	up = [0, 1, 0] .|> Float32
-	scale = [1, 1, 1] .|> Float32
-	fov = (75/180)*pi |> Float32
-	aspectRatio = 1.0 |> Float32
-	nearPlane = 0.1 |> Float32
-	farPlane = 100.0 |> Float32
+function defaultCamera(;
+		id=0,
+		eye = [0.0, 0.0, 4.0] .|> Float32,
+		lookat = [0, 0, 0] .|> Float32,
+		up = [0, 1, 0] .|> Float32,
+		scale = [1, 1, 1] .|> Float32,
+		fov = (75/180)*pi |> Float32,
+		aspectRatio = 1.0 |> Float32,
+		nearPlane = 0.1 |> Float32,
+		farPlane = 100.0 |> Float32,
+	)
 	return Camera(
 		nothing,
 		eye,
