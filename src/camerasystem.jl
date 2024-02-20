@@ -23,6 +23,8 @@ function getShaderCode(camSys::CameraSystem;binding=1)
 	shaderSource = quote 
 		struct CameraUniform
 			eye::Vec3{Float32}
+			aspectRatio::Float32
+			lookAt::Vec3{Float32}
 			fov::Float32
 			viewMatrix::Mat4{Float32}
 			projMatrix::Mat4{Float32}
