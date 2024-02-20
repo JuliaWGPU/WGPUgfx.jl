@@ -36,15 +36,6 @@ mutable struct GSplat <: Renderable
     cshaders
 end
 
-function sigmoid(x)
-	if x > 0.0
-		return 1 ./(1 .+ exp(-x))
-	else
-		z = exp(x)
-		return z/(1 + z)
-	end
-end
-
 function readPlyFile(path)
 	plyData = PlyIO.load_ply(path);
 	vertexElement = plyData["vertex"]

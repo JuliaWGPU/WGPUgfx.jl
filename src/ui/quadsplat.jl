@@ -33,15 +33,6 @@ mutable struct QSplat <: Renderable
     cshaders
 end
 
-function sigmoid(x)
-	if x > 0.0
-		return 1 ./(1 .+ exp(-x))
-	else
-		z = exp(x)
-		return z/(1 + z)
-	end
-end
-
 function generateData(n)
 	colors = rand(Float32, n, 3)
 	radius = ones(Float32, n, 1)
