@@ -20,7 +20,7 @@ invCoordinateTransform = inv(coordinateTransform)
 mutable struct Camera
 	gpuDevice
 	eye
-	lookat
+	lookAt
 	up
 	scale
 	fov
@@ -46,7 +46,11 @@ function prepareObject(gpuDevice, camera::Camera)
 	setfield!(camera, :uniformData, uniformData)
 	setfield!(camera, :uniformBuffer, uniformBuffer)
 	setfield!(camera, :gpuDevice, gpuDevice)
+	# TODO could be general design
+	# TODO setting parameters that are common in CPU and GPU structures automatically
 	camera.fov = camera.fov
+	camera.lookAt = camera.lookAt
+	camera.aspectRatio = camera.aspectRatio
 	return camera
 end
 
@@ -82,14 +86,14 @@ end
 
 function defaultCamera(;
 		id=0,
-		eye = [0.0, 0.0, 4.0] .|> Float32,
-		lookat = [0, 0, 0] .|> Float32,
+		eye = [0.0, 0.0, 3.0] .|> Float32,
+		lookAt = [0, 0, 0] .|> Float32,
 		up = [0, 1, 0] .|> Float32,
 		scale = [1, 1, 1] .|> Float32,
-		fov = (75/180)*pi |> Float32,
+		fov = (45/180)*pi |> Float32,
 		aspectRatio = 1.0 |> Float32,
-		nearPlane = 0.1 |> Float32,
-		farPlane = 100.0 |> Float32,
+		nearPlane = 1 |> Float32,
+		farPlane = 1000.0 |> Float32,
 		projectionType::Union{Symbol, WGPUProjectionType} = :PERSPECTIVE
 	)
 	projectionType = eval(projectionType) # Handles both symbol and direct Enum
@@ -97,7 +101,7 @@ function defaultCamera(;
 	return Camera(
 		nothing,
 		eye,
-		lookat,
+		lookAt,
 		up,
 		scale,
 		fov,
@@ -255,9 +259,9 @@ transform([upperCoords(bb1)..., 0, 0])
 
 function lookAtLeftHanded(camera::Camera)
 	eye = camera.eye
-	lookat = camera.lookat
-	up = camera.up
-	w = -(lookat .- eye) |> normalize
+	lookAt = camera.lookAt
+	up = -camera.up
+	w = -(lookAt .- eye) |> normalize
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
 	m = MMatrix{4, 4, Float32}(I)
@@ -272,7 +276,7 @@ function perspectiveMatrix(camera::Camera)
 	ar = camera.aspectRatio
 	n = camera.nearPlane
 	f = camera.farPlane
-	t = n*tan(fov/2)
+	t = abs(n)*tan(fov/2)
 	b = -t
 	r = ar*t
 	l = -r
@@ -287,7 +291,7 @@ function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, 
 	yS = 2*n/(t-b) # (t-b) is height
 	xR = (r+l)/(r-l)
 	yR = (t+b)/(t-b)
-	zR = -(f)/(f-n)
+	zR = -(f+n)/(f-n)
 	oR = -2*f*n/(f-n)
 	pmat = coordinateTransform * [
 		xS		0		xR		0	;
@@ -360,6 +364,8 @@ function getShaderCode(camera::Camera; binding=CAMERA_BINDING_START)
 	shaderSource = quote
 		struct $cameraUniform
 			eye::Vec3{Float32}
+			aspectRatio::Float32
+			lookAt::Vec3{Float32}
 			fov::Float32
 			viewMatrix::Mat4{Float32}
 			projMatrix::Mat4{Float32}

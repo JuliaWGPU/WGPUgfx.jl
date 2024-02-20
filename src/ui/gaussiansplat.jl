@@ -72,12 +72,12 @@ function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Ve
 	#swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
 
 	vertexData = cat([
+		[-1, -1, 0, 1],
+		[-1, 1, 0, 1],
 		[1, -1, 0, 1],
 		[1, 1, 0, 1],
-		[-1, -1, 0, 1],
-		[-1, -1, 0, 1],
-		[1, 1, 0, 1],
 		[-1, 1, 0, 1],
+		[1, -1, 0, 1],
 	]..., dims=2) .|> Float32
 
 	vertexData = scale*swapMat*vertexData
@@ -142,16 +142,18 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		end
 
 		function quatToRotMat(q::Vec4{Float32})::Mat4{Float32}
-			@let x = q.x
-			@let y = q.y
-			@let z = q.z
-			@let w = q.w
-			return Mat4{Float32}(
+			@let w = q.x
+			@let x = q.y
+			@let y = q.z
+			@let z = q.w
+			return """
+			mat4x4<f32>(
 				1.0 - 2.0*(y*y + z*z), 2.0*(x*y - w*z), 2.0*(x*z + w*y), 0.0,
-				2.0*(x*y + w*z), 1.0 - 2.0*(x*x - z*z), 2.0*(y*z - w*x), 0.0, 
+				2.0*(x*y + w*z), 1.0 - 2.0*(x*x + z*z), 2.0*(y*z - w*x), 0.0, 
 				2.0*(x*z - w*z), 2.0*(y*z + w*x), 1.0 - 2.0*(x*x + y*y), 0.0,
 				0.0, 0.0, 0.0, 1.0
 			)
+			"""
 		end
 
 		struct QuadVertex
@@ -190,35 +192,37 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				@location 0 quadPos::Vec4{Float32}
 			)::GSplatOut
 			@var out::GSplatOut
-			@let splatIn  = splatArray[iIdx]
+			@var splatIn  = splatArray[iIdx]
 			@let R::Mat4{Float32} = quatToRotMat(splatIn.quaternions)
 			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale)
 			@let M = S*R
-			@let sigma = transpose(M)*M
-			@let pos = Vec4{Float32}(splatIn.pos, 1.0)
-			out.pos = $(name).transform*pos
-			out.pos = camera.viewMatrix*out.pos
-			out.pos = out.pos/out.pos.w
-			
-			@let tx = out.pos.x 
-			@let ty = out.pos.y
-			@let tz = out.pos.z
-			
-			@let f::Float32 = 2.0*(tan(camera.fov/2.0))
-			#@let tx = pos.x 
-			#@let ty = pos.y
-			#@let tz = pos.z
+			@let sigma = transpose(M)*(M)
+			@var pos = Vec4{Float32}(splatIn.pos, 1.0)
+			@let t = camera.viewMatrix*pos
+			splatIn.pos = t.xyz
 
-			@let J = SMatrix{2, 4, Float32, 8}(
+			@let limx = 1.3*camera.fov;
+			@let limy = 1.3*camera.fov;
+			@let txtz = t.x/t.z
+			@let tytz = t.y/t.z
+			@let tx = min(limx, max(-limx, txtz)) * t.z;
+			@let ty = min(limy, max(-limy, tytz)) * t.z;
+			@let tz = t.z
+			
+			@let f::Float32 = 1500.0*(tan(camera.fov/2.0))
+			
+			@let J = """
+				mat2x4<f32>(
 				f/tz, 0.0, -f*tx/(tz*tz), 0.0, 
 			 	0.0, f/tz, -f*ty/(tz*tz), 0.0,
-			)
+				)
+			"""
 
 			@let Rcam = transToRotMat(camera.viewMatrix)
 			@let W = transpose(Rcam)*J
-			@let covinter = transpose(W)*sigma
+			@let covinter = transpose(W)*transpose(sigma)
 			@let cov4D::Mat2{Float32} = covinter*W
-
+			
 			@var cov2D = Vec4{Float32}(
 				cov4D[0][0], cov4D[0][1],
 				cov4D[1][0], cov4D[1][1],
@@ -233,7 +237,8 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let d = cov2D[3]
 
 			@let det2D = a*d - b*c
-			@let halfad = (a + d)/2.0
+			@let halfadtmp = (a + d)
+			@let halfad = halfadtmp/2.0
 			@let eigendir1 = halfad - sqrt(max(0.1, halfad*halfad - det2D))
 			@let eigendir2 = halfad + sqrt(max(0.1, halfad*halfad - det2D))
 			@let majorAxis = max(eigendir1, eigendir2)
@@ -241,12 +246,14 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let radiusNDC = Vec2{Float32}(radiusBB/500.0, radiusBB/500.0)
 
 			@let quadpos = vertexArray[vIdx]
-			out.pos = camera.projMatrix*out.pos
+			# t′ value
+			out.pos = camera.projMatrix*t
 			out.pos = out.pos/out.pos.w
-
+			#out.mu = out.pos
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
 			out.pos = out.pos/out.pos.w
-			out.mu = radiusBB*quadpos
+			#splatIn.pos = out.pos.xyz
+			out.mu = (radiusBB*quadpos)
 			@let SH_C0 = 0.28209479177387814
 			@let SH_C1 = 0.4886025119029199
 			@let SH_Mat = SMatrix{4, 3, Float32, 12}(
@@ -254,8 +261,8 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatIn.sh[1][0], splatIn.sh[1][1], splatIn.sh[1][2], splatIn.sh[1][3],
 				splatIn.sh[2][0], splatIn.sh[2][1], splatIn.sh[2][2], splatIn.sh[2][3]
 			);
-			# @let eye = Vec3{Float32}(0.0, 0.0, 4.0)
-			@let dir = normalize(out.pos.xyz - camera.eye.xyz);
+			#@let eye = Vec3{Float32}(0.0, 0.0, 4.0)
+			@let dir = normalize(out.pos.xyz - (camera.eye.xyz - camera.lookAt.xyz))
 			
 			@let x = dir.x;
 			@let y = dir.y;
@@ -275,23 +282,23 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@var fragPos = splatOut.pos
 			@var fragColor = splatOut.color
 			@let opacity = splatOut.opacity
-
+			
 			@let cov2d = Mat2{Float32}(
 				splatOut.cov2d[0],
 				splatOut.cov2d[1],
 				splatOut.cov2d[2],
 				splatOut.cov2d[3],
 			)
-
-			@let delta = Vec2{Float32}(mu.x, mu.y)
+			
+			@let delta = Vec2{Float32}(mu.xy)
 			
 			@let invCov2dAdj = Mat2{Float32}(
 				cov2d[1][1], -cov2d[0][1],
 				-cov2d[1][0], cov2d[0][0]
 			)
-
+			
 			@let det::Float32 = determinant(cov2d)
-
+			
 			@escif if (det <= 0.0)
 				@esc discard
 			end
@@ -302,7 +309,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				invCov2dAdj[1][0]/det,
 				invCov2dAdj[1][1]/det,
 			)
-
+			
 			@let intensity::Float32 = 0.5*dot(invCov2d*delta, delta)
 			
 			@escif if (intensity < 0.0)
@@ -315,11 +322,17 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				fragColor.xyz*alpha,
 				alpha
 			)
+			
 			return color
 		end
 	end
 	return shaderSource
 end
+
+
+#function Base.unsafe_copyto!(gpuDevice, dst::Ptr{T}, src::GPUBuffer)
+#	cmdEncoder = WGPUCore.createComm
+#end
 
 function prepareObject(gpuDevice, gsplat::GSplat)
 	uniformData = computeUniformData(gsplat)
@@ -331,12 +344,10 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 	)
 
 	splatData = readPlyFile(gsplat.filepath); 
-
 	points = splatData.points .|> Float32;
 	scale = splatData.scale  .|> Float32;
 	opacity = splatData.opacity .|> Float32;
 	quaternions = splatData.quaternions .|> Float32;
-
 	sh = hcat(splatData.sphericalHarmonics, splatData.features[:, 1:9]) .|> Float32;
 
 	storageData = hcat(
@@ -354,7 +365,7 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 		gpuDevice,
 		"GSPLATIn Buffer",
 		storageData[:],
-		["Storage", "CopySrc"]
+		["Storage", "CopySrc", "CopyDst"]
 	)
 
 	data = [
@@ -534,7 +545,8 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 						:srcFactor => "One",
 						:dstFactor => "OneMinusDstAlpha",
 						:operation => "Add",
-					]
+					],
+					:writeMask => WGPUColorWriteMask_All 
 				],
 			]
 		]

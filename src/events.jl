@@ -55,9 +55,13 @@ function attachScrollCallback(scene, camera::Camera)
 	WGPUCanvas.setScrollCallback(
 		scene.canvas,
 		(_, xoff, yoff) -> begin
-			camera.eye += (camera.eye - camera.lookat)*yoff.*maximum(mouseState.speed)
-			camera.lookat += (camera.eye-camera.lookat)*yoff.*maximum(mouseState.speed)
+			# @info "MouseScroll" xoff, yoff
+			camera.scale = camera.scale .+ yoff.*maximum(mouseState.speed)
 		end
+		#(_, xoff, yoff) -> begin
+		#	camera.eye += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
+		#	camera.lookAt += (camera.eye-camera.lookAt)*yoff.*maximum(mouseState.speed)
+		#end
 	)
 end
 
@@ -77,7 +81,7 @@ function attachCursorPosCallback(scene, camera::Camera)
 					mouseState.prevPosition = (y, x)
 				elseif mouseState.rightClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
-					#camera.lookat += [delta..., 0]
+					#camera.lookAt += [delta..., 0]
 					#camera.eye += [delta..., 0]
 					#mat = MMatrix{4, 4, Float32}(I)
 					#mat[1:3, 3] .= [delta..., 0]
