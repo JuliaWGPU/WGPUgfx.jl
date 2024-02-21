@@ -16,8 +16,16 @@ WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 scene = Scene()
 renderer = getRenderer(scene)
 
+getHomePath() = begin
+	if Sys.isunix()
+		return ENV["HOME"]
+	elseif Sys.iswindows()
+		return ENV["HOMEPATH"]
+	end
+end
+
 # pc = defaultGSplat(joinpath(pkgdir(WGPUgfx), "assets", "bonsai", "bonsai_30000.ply"))
-pc = defaultGSplat(joinpath(ENV["HOME"], "Downloads", "train", "train_30000.ply"))
+pc = defaultGSplat(joinpath(getHomePath(), "Downloads", "train", "train_30000.ply"))
 # pc = defaultGSplat(joinpath(ENV["HOME"], "Downloads", "bonsai", "bonsai_30000.ply"))
 # pc = defaultGSplat(joinpath(ENV["HOME"], "Downloads", "garden", "garden_30000.ply"))
 
