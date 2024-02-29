@@ -114,7 +114,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 	shaderSource = quote
 
 		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
-			@let scale = 1.0
+			@let scale::Float32 = 1.0
 			return Mat4{Float32}(
 				exp(s.x)*(scale), 0.0, 0.0, 0.0,
 				0.0, exp(s.y)*(scale), 0.0, 0.0,
@@ -137,8 +137,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let x = q.y
 			@let y = q.z
 			@let z = q.w
-			return """
-			mat4x4<f32>(
+			return """mat4x4<f32>(
 				1.0 - 2.0*(y*y + z*z), 2.0*(x*y - w*z), 2.0*(x*z + w*y), 0.0,
 				2.0*(x*y + w*z), 1.0 - 2.0*(x*x + z*z), 2.0*(y*z - w*x), 0.0, 
 				2.0*(x*z - w*z), 2.0*(y*z + w*x), 1.0 - 2.0*(x*x + y*y), 0.0,
@@ -162,7 +161,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		# Matrices are not allowed yet in wgsl ... 
 		struct GSplatOut
 			@builtin position pos::Vec4{Float32}
-			@location 0 mu::Vec4{Float32}
+			@location 0 mu::Vec2{Float32}
 			@location 1 color::Vec4{Float32}
 			@location 2 cov2d::Vec4{Float32}
 			@location 3 opacity::Float32
@@ -189,8 +188,10 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let M = S*R
 			@let sigma = transpose(M)*(M)
 			@var pos = Vec4{Float32}(splatIn.pos, 1.0)
+			# pos = $(name).transform*pos
 			@let t = camera.viewMatrix*pos
-			splatIn.pos = t.xyz
+			# t = t/t.w
+			# splatIn.pos = t.xyz
 
 			@let limx = 1.3*camera.fov;
 			@let limy = 1.3*camera.fov;
@@ -200,7 +201,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let ty = min(limy, max(-limy, tytz)) * t.z;
 			@let tz = t.z
 			
-			@let f::Float32 = 1500.0*(tan(camera.fov/2.0))
+			@let f::Float32 = 1200.0*(tan(camera.fov/2.0))
 			
 			@let J = """
 				mat2x4<f32>(
@@ -208,11 +209,11 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			 	0.0, f/tz, -f*ty/(tz*tz), 0.0,
 				)
 			"""
-
+			
 			@let Rcam = transToRotMat(camera.viewMatrix)
-			@let W = transpose(Rcam)*J
-			@let covinter = transpose(W)*transpose(sigma)
-			@let cov4D::Mat2{Float32} = covinter*W
+			@let W::SMatrix{2, 4, Float32, 8} = Rcam*J
+			@let covinter::SMatrix{2, 4, Float32, 8} = sigma*W
+			@let cov4D::Mat2{Float32} = transpose(W)*covinter
 			
 			@var cov2D = Vec4{Float32}(
 				cov4D[0][0], cov4D[0][1],
@@ -235,18 +236,18 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let majorAxis = max(eigendir1, eigendir2)
 			@let radiusBB = ceil(3.0 * sqrt(majorAxis))
 			@let radiusNDC = Vec2{Float32}(radiusBB/500.0, radiusBB/500.0)
-
+			
 			@let quadpos = vertexArray[vIdx]
 			# t′ value
 			out.pos = camera.projMatrix*t
 			out.pos = out.pos/out.pos.w
-			#out.mu = out.pos
+			# out.mu = out.pos
 			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
-			out.pos = out.pos/out.pos.w
-			#splatIn.pos = out.pos.xyz
-			out.mu = (radiusBB*quadpos)
+			# out.pos = out.pos/out.pos.w
+			# splatIn.pos = out.pos.xyz
+			out.mu = radiusBB*quadpos.xy
 			@let SH_C0 = 0.28209479177387814
-			@let SH_C1 = 0.4886025119029199
+			@let SH_C1 = 0.48860251190291990
 			@let SH_Mat = SMatrix{4, 3, Float32, 12}(
 				splatIn.sh[0][0], splatIn.sh[0][1], splatIn.sh[0][2], splatIn.sh[0][3],
 				splatIn.sh[1][0], splatIn.sh[1][1], splatIn.sh[1][2], splatIn.sh[1][3],
@@ -261,7 +262,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@var result = SH_C0*SH_Mat[0]
 			result = result + SH_C1 * (-y * SH_Mat[1] + z * SH_Mat[2] - x * SH_Mat[3]);
 			result = result + 0.5
-			result = max(result, Vec3{Float32}(0.))
+			result = max(result, Vec3{Float32}(0.0))
 			out.cov2d = cov2D
 			out.opacity = splatIn.opacity
 			out.color = Vec4{Float32}(result, out.opacity)
@@ -269,7 +270,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		end
 
 		@fragment function fs_main(splatOut::GSplatOut)::@location 0 Vec4{Float32}
-			@let mu = splatOut.mu
+			@let mu = -splatOut.mu
 			@var fragPos = splatOut.pos
 			@var fragColor = splatOut.color
 			@let opacity = splatOut.opacity
@@ -434,7 +435,7 @@ function preparePipeline(gpuDevice, renderer, gsplat::GSplat)
 	indexBuffer = getfield(gsplat, :indexBuffer)
 	bindingLayouts = []
 	for camera in scene.cameraSystem
-		append!(bindingLayouts, getBindingLayouts(camera; binding = camera.id-1))
+		append!(bindingLayouts, getBindingLayouts(camera; binding = camera.id - 1))
 	end
 	append!(bindingLayouts, getBindingLayouts(gsplat; binding=LIGHT_BINDING_START + MAX_LIGHTS))
 
@@ -537,7 +538,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 						:dstFactor => "OneMinusDstAlpha",
 						:operation => "Add",
 					],
-					:writeMask => WGPUColorWriteMask_All 
+					#:writeMask => WGPUColorWriteMask_All 
 				],
 			]
 		]

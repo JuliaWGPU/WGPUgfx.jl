@@ -24,10 +24,9 @@ getHomePath() = begin
 	end
 end
 
-# pc = defaultGSplat(joinpath(pkgdir(WGPUgfx), "assets", "bonsai", "bonsai_30000.ply"))
+# pc = defaultGSplat(joinpath(getHomePath(), "Downloads", "bonsai", "bonsai_30000.ply"))
 pc = defaultGSplat(joinpath(getHomePath(), "Downloads", "train", "train_30000.ply"))
-# pc = defaultGSplat(joinpath(ENV["HOME"], "Downloads", "bonsai", "bonsai_30000.ply"))
-# pc = defaultGSplat(joinpath(ENV["HOME"], "Downloads", "garden", "garden_30000.ply"))
+# pc = defaultGSplat(joinpath(getHomePath(), "Downloads", "bicycle", "bicycle_30000.ply"))
 
 axis = defaultAxis()
 
@@ -45,6 +44,12 @@ end
 
 mainApp = () -> begin
 	try
+		global renderer
+		if !GLFW.is_initialized()
+			scene.canvas = WGPUCore.getCanvas(:GLFW)
+			renderer = getRenderer(scene)
+		end
+		attachEventSystem(renderer)
 		splatDataCopy = WGPUCore.readBuffer(scene.gpuDevice, pc.splatBuffer, 0, pc.splatBuffer.size)
 		gsplatInCopy = reinterpret(WGSLTypes.GSplatIn, splatDataCopy)
 		sortIdxs = sortperm(gsplatInCopy, by=x->x.pos[3])
@@ -62,7 +67,9 @@ mainApp = () -> begin
 	catch e
 		@info e
 	finally
+		detachEventSystem(renderer)
 		WGPUCore.destroyWindow(scene.canvas)
+		GLFW.Terminate()
 	end
 end
 

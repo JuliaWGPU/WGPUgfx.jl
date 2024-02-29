@@ -6,7 +6,7 @@ using Rotations
 using StaticArrays
 using LinearAlgebra
 
-export attachEventSystem
+export attachEventSystem, detachEventSystem
 
 mutable struct MouseState
 	leftClick
@@ -16,7 +16,7 @@ mutable struct MouseState
 	speed
 end
 
-mouseState = MouseState(false, false, false, (0, 0), (0.01, 0.01))
+mouseState = MouseState(false, false, false, (0, 0), (0.02, 0.02))
 
 
 istruthy(::Val{GLFW.PRESS}) = true
@@ -54,14 +54,14 @@ end
 function attachScrollCallback(scene, camera::Camera)
 	WGPUCanvas.setScrollCallback(
 		scene.canvas,
-		(_, xoff, yoff) -> begin
-			# @info "MouseScroll" xoff, yoff
-			camera.scale = camera.scale .+ yoff.*maximum(mouseState.speed)
-		end
 		#(_, xoff, yoff) -> begin
-		#	camera.eye += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
-		#	camera.lookAt += (camera.eye-camera.lookAt)*yoff.*maximum(mouseState.speed)
+		#	# @info "MouseScroll" xoff, yoff
+		#	camera.scale = camera.scale .+ yoff.*maximum(mouseState.speed)
 		#end
+		(_, xoff, yoff) -> begin
+			camera.eye += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
+			camera.lookAt += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
+		end
 	)
 end
 
@@ -74,10 +74,10 @@ function attachCursorPosCallback(scene, camera::Camera)
 				if mouseState.leftClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
 					rot = RotXY(delta...)
-					#camera.eye = rot*camera.eye
-					mat = MMatrix{4, 4, Float32}(I)
-					mat[1:3, 1:3] = rot
-					updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
+					camera.eye = rot*camera.eye
+					#mat = MMatrix{4, 4, Float32}(I)
+					#mat[1:3, 1:3] = rot
+					#updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
 					mouseState.prevPosition = (y, x)
 				elseif mouseState.rightClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
@@ -100,6 +100,35 @@ function attachCursorPosCallback(scene, camera::Camera)
 end
 
 
+function attachKeyCallback(scene, camera::Camera)
+	WGPUCanvas.setKeyCallback(
+		scene.canvas,
+        (_, key, scancode, action, mods) -> begin
+                name = GLFW.GetKeyName(key, scancode)
+               	if name == "a" && action == GLFW.PRESS
+					attachMouseButtonCallback(scene, camera)
+					attachScrollCallback(scene, camera)
+					attachCursorPosCallback(scene, camera)	
+                elseif name == "d" && action == GLFW.PRESS
+					detachMouseButtonCallback(scene, camera)
+					detachScrollCallback(scene, camera)
+					detachCursorPosCallback(scene, camera)                	
+                end                     	
+		end
+	)
+end
+
+function detachMouseButtonCallback(scene, camera)
+	WGPUCanvas.setMouseButtonCallback(scene.canvas, nothing)
+end
+
+function detachScrollCallback(scene, camera)
+	WGPUCanvas.setScrollCallback(scene.canvas, nothing)
+end
+
+function detachCursorPosCallback(scene, camera)
+	WGPUCanvas.setCursorPosCallback(scene.canvas, nothing)
+end
 
 function attachEventSystem(renderer)
 	scene = renderer.scene
@@ -107,4 +136,13 @@ function attachEventSystem(renderer)
 	attachMouseButtonCallback(scene, camera)
 	attachScrollCallback(scene, camera)
 	attachCursorPosCallback(scene, camera)
+	attachKeyCallback(scene, camera)
+end
+
+function detachEventSystem(renderer)
+	scene = renderer.scene
+	camera = scene.camera
+	detachMouseButtonCallback(scene, camera)
+	detachScrollCallback(scene, camera)
+	detachCursorPosCallback(scene, camera)
 end
