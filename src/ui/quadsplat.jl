@@ -118,7 +118,7 @@ function getShaderCode(qsplat::QSplat, cameraId::Int; binding=0)
 			@location 0 mu::Vec2{Float32}
 			@location 1 color::Vec4{Float32}
 			@location 2 radius::Float32
-			@location 4 offset::Vec2{Float32}
+			@location 3 offset::Vec2{Float32}
 		end
 
 		struct $renderableUniform
