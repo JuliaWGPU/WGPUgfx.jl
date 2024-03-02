@@ -94,7 +94,7 @@ end
 function gsplatAxis(;scale::Union{Vector{Float32}, Float32} = 1.0f0)
 
 	if typeof(scale) == Float32
-		scale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm
+		NDCscale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm
 	else
 		scale = scale |> diagm
 	end
@@ -171,10 +171,10 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 		end
 
 		function quatToRotMat(q::Vec4{Float32})::Mat3{Float32}
-			@let x = q.x
-			@let y = q.y
-			@let z = q.z
-			@let w = q.w
+			@let w = q.x
+			@let x = q.y
+			@let y = q.z
+			@let z = q.w
 			return Mat3{Float32}(
 				1.0 - 2.0*(y*y + z*z), 2.0*(x*y - w*z), 2.0*(x*z + w*y),
 				2.0*(x*y + w*z), 1.0 - 2.0*(x*x - z*z), 2.0*(y*z - w*x), 
@@ -321,16 +321,20 @@ function getShaderCode(gsplat::GSplatAxis, cameraId::Int; binding=0)
 
 			@let intensity::Float32 = 0.5*dot(invCov2d*delta, delta)
 			
-			#@escif if (intensity < 0.0)
-			#	@esc discard
-			#end
-			
+			@escif if (intensity < 0.0)
+				@esc discard
+			end
 			@let alpha = min(0.99, opacity*exp(-intensity))
-
-			@let color::Vec4{Float32} = Vec4{Float32}(
-				fragColor.xyz*alpha,
-				alpha
-			)
+			@var color = Vec4{Float32}()
+			
+			@escifelse if alpha > 0.4
+				color.x  = fragColor.x*alpha
+				color.y  = fragColor.y*alpha
+				color.z  = fragColor.z*alpha
+				color.w = alpha
+			else
+				color = Vec4{Float32}(1.0, 1.0, 1.0, 1.0-alpha)
+			end
 			return color
 		end
 	end

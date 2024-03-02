@@ -20,7 +20,7 @@ mutable struct Scene
 	objects 					# ::Union{WorldObject, ObjectGroup}
 	function Scene()
 		canvas = WGPUCore.getCanvas(:GLFW)
-		gpuDevice = WGPUCore.getDefaultDevice();
+		gpuDevice = WGPUCore.getDefaultDevice(canvas);
 		camera = defaultCamera()
 		light = defaultLighting()
 		cameraSystem = CameraSystem(Camera[])

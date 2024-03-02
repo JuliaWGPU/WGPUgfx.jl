@@ -1,7 +1,6 @@
 using FreeType
 using WGPUCore: CStruct, cStruct, ptr, concrete
-
-using GeometryBasics: Vec2
+using WGPUgfx
 
 rootType(::Type{Ref{T}}) where T = T
 
@@ -29,7 +28,7 @@ function loadFace(filename::String, ftlib=ftLib[])
     return face[]
 end
 
-face = loadFace(joinpath(@__DIR__, "..",   "assets", "JuliaMono", "JuliaMono-Light.ttf"))
+face = loadFace(joinpath(pkgdir(WGPUgfx),   "assets", "JuliaMono", "JuliaMono-Light.ttf"))
 
 FT_Set_Pixel_Sizes(face, 1.0, 1.0)
 
