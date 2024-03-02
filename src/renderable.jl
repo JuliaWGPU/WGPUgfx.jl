@@ -1,5 +1,7 @@
 export isNormalDefined, isTextureDefined
 
+using Tracy
+
 abstract type Renderable end
 
 abstract type WGPUPrimitive <: Renderable end
@@ -275,29 +277,31 @@ function getShaderCode(mesh::Renderable, cameraId::Int; binding=0)
 			transform::Mat4{Float32}
 		end
 		
-		@var Uniform 0 $binding $name::@user $meshUniform
+		@var Uniform 0 $binding $name::$meshUniform
 		
 		if $isTexture
 			@var Generic 0 $(binding + 1)  tex::Texture2D{Float32}
 			@var Generic 0 $(binding + 2)  smplr::Sampler
 		end
 
-		@vertex function vs_main(vertexIn::@user $vertexInputName)::@user $vertexOutputName
-			@var out::@user $vertexOutputName
+		@vertex function vs_main(vertexIn::$vertexInputName)::$vertexOutputName
+			@var out::$vertexOutputName
 			out.pos = $(name).transform*vertexIn.pos
-			out.pos = camera.transform*out.pos
+			out.pos = camera.viewMatrix*out.pos
+			out.pos = camera.projMatrix*out.pos
 			out.vColor = vertexIn.vColor
 			if $isTexture
 				out.vTexCoords = vertexIn.vTexCoords
 			end
 			if $isLight
 				out.vNormal = $(name).transform*vertexIn.vNormal
-				out.vNormal = camera.transform*out.vNormal
+				out.vNormal = camera.viewMatrix*out.vNormal
+				out.vNormal = camera.projMatrix*out.vNormal
 			end
 			return out
 		end
 
-		@fragment function fs_main(fragmentIn::@user $vertexOutputName)::@location 0 Vec4{Float32}
+		@fragment function fs_main(fragmentIn::$vertexOutputName)::@location 0 Vec4{Float32}
 			if $isTexture
 				@var color::Vec4{Float32} = textureSample(tex, smplr, fragmentIn.vTexCoords)
 			else
@@ -505,4 +509,9 @@ function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, me
 	WGPUCore.setVertexBuffer(renderPass, 0, mesh.vertexBuffer)
 	WGPUCore.setBindGroup(renderPass, 0, mesh.pipelineLayouts[camIdx].bindGroup, UInt32[], 0, 99)
 	WGPUCore.drawIndexed(renderPass, Int32(mesh.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
+end
+
+
+Base.show(io::IO, ::MIME"text/plain", renderable::Renderable) = begin
+	print("Renderable : $(typeof(renderable))")
 end

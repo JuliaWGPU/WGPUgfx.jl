@@ -21,7 +21,7 @@ function getRenderPassOptions(currentTextureView, depthView; depthClearValue=1.0
 				WGPUCore.GPUColorAttachment => [
 					:view => currentTextureView,
 					:resolveTarget => C_NULL,
-					:clearValue => (0.2, 0.2, 0.2, 1.0),
+					:clearValue => (0.0, 0.0, 0.0, 1.0),
 					:loadOp => WGPULoadOp_Clear,
 					:storeOp => WGPUStoreOp_Store,
 				],
@@ -56,7 +56,7 @@ function addObject!(renderer::Renderer, quad::RenderableUI, camera::Camera)
 	push!(scene.objects, quad)
 end
 
-function addObject!(renderer::Renderer, object::Renderable)
+function addObject!(renderer::Renderer, object::Union{Renderable, RenderableUI})
     scene = renderer.scene
 	for camera in scene.cameraSystem
 		setup(renderer, object, camera)

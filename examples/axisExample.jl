@@ -10,18 +10,20 @@
 # TODO Make a seperate example maybe for viewports and event listening showcasing purposes.
 
 import Pkg
-Pkg.add([
-	"WGPUgfx", 
-	"WGPUCore", 
-	"WGPUCanvas", 
-	"GLFW", 
-	"Rotations", 
-	"StaticArrays", 
-	"WGPUNative", 
-	"Images"
-])
+
+# Pkg.add([
+# 	"WGPUgfx", 
+# 	"WGPUCore", 
+# 	"WGPUCanvas", 
+# 	"GLFW", 
+# 	"Rotations", 
+# 	"StaticArrays", 
+# 	"WGPUNative", 
+# 	"Images"
+# ])
 
 using WGPUgfx
+using WGPUgfx: updateViewTransform!
 using WGPUCore
 using GLFW
 using GLFW: WindowShouldClose, PollEvents, DestroyWindow
@@ -73,7 +75,7 @@ main = () -> begin
 			rot = RotXY(0.01, 0.02)
 			mat = MMatrix{4, 4, Float32}(I)
 			mat[1:3, 1:3] = rot
-			camera1.transform = camera1.transform*mat
+			updateViewTransform!(camera1, camera1.uniformData.viewMatrix*mat)
 			runApp(renderer)
 			PollEvents()
 		end

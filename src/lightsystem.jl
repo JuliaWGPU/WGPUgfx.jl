@@ -23,7 +23,7 @@ function getShaderCode(lightSystem::LightSystem)
 					eye::Vec3{Float32}
 					transform::Mat4{Float32}
 				end
-				@var Uniform 0 $(light.id-1) $lightVar::@user $lightUniform
+				@var Uniform 0 $(light.id-1) $lightVar::$lightUniform
 			end
 		)
 	end

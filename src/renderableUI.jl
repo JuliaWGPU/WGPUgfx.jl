@@ -232,15 +232,15 @@ function getShaderCode(quad::RenderableUI, cameraId::Int; binding=0)
 			transform::Mat4{Float32}
 		end
 		
-		@var Uniform 0 $binding $name::@user $quadUniform
+		@var Uniform 0 $binding $name::$quadUniform
 		
 		if $isTexture
 			@var Generic 0 $(binding + 1)  tex::Texture2D{Float32}
 			@var Generic 0 $(binding + 2)  smplr::Sampler
 		end
 
-		@vertex function vs_main(vertexIn::@user $vertexInputName)::@user $vertexOutputName
-			@var out::@user $vertexOutputName
+		@vertex function vs_main(vertexIn::$vertexInputName)::$vertexOutputName
+			@var out::$vertexOutputName
 			out.pos = $(name).transform*vertexIn.pos;
 			out.vColor = vertexIn.vColor
 			if $isTexture
@@ -249,7 +249,7 @@ function getShaderCode(quad::RenderableUI, cameraId::Int; binding=0)
 			return out
 		end
 
-		@fragment function fs_main(fragmentIn::@user $vertexOutputName)::@location 0 Vec4{Float32}
+		@fragment function fs_main(fragmentIn::$vertexOutputName)::@location 0 Vec4{Float32}
 			if $isTexture
 				@var color::Vec4{Float32} = textureSample(tex, smplr, fragmentIn.vTexCoords)
 			else
@@ -446,3 +446,8 @@ function render(renderPass::WGPUCore.GPURenderPassEncoder, renderPassOptions, qu
 	WGPUCore.setBindGroup(renderPass, 0, quad.pipelineLayouts[camIdx].bindGroup, UInt32[], 0, 99)
 	WGPUCore.drawIndexed(renderPass, Int32(quad.indexBuffer.size/sizeof(UInt32)); instanceCount = 1, firstIndex=0, baseVertex= 0, firstInstance=0)
 end
+
+Base.show(io::IO, ::MIME"text/plain", renderable::RenderableUI) = begin
+	println("Renderable : $(typeof(renderable))")
+end
+	

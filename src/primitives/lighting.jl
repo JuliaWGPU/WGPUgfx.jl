@@ -173,9 +173,9 @@ transform([upperCoords(bb1)..., 0, 0])
 
 function lookAtRightHanded(lighting::Lighting)
 	eye = lighting.eye
-	lookat = lighting.lookat
+	lookAt = lighting.lookAt
 	up = lighting.up
-	w = -(eye .- lookat) |> normalize
+	w = -(eye .- lookAt) |> normalize
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
 	m = Matrix{Float32}(I, (4, 4))
@@ -228,7 +228,7 @@ function getShaderCode(lighting::Lighting; binding=LIGHT_BINDING_START)
 			specularIntensity::Float32
 			specularShininess::Float32
 		end
-		@var Uniform 0 $binding lighting::@user LightingUniform
+		@var Uniform 0 $binding lighting::LightingUniform
 	end
 	return shaderSource
 end
