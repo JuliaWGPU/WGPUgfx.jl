@@ -6,7 +6,7 @@ using Rotations
 using StaticArrays
 using LinearAlgebra
 
-export attachEventSystem, detachEventSystem
+export attachEventSystem, detachEventSystem, defaultMouseState, defaultKeyboardState
 
 mutable struct MouseState
 	leftClick
@@ -16,7 +16,15 @@ mutable struct MouseState
 	speed
 end
 
-mouseState = MouseState(false, false, false, (0, 0), (0.02, 0.02))
+mutable struct KeyboardState
+	key
+	scancode
+	action
+	mods
+end
+
+defaultMouseState() = MouseState(false, false, false, (0, 0), (0.02, 0.02))
+defaultKeyboardState() = KeyboardState(nothing, nothing, nothing, nothing)
 
 
 istruthy(::Val{GLFW.PRESS}) = true
@@ -41,7 +49,7 @@ function setMouseState(mouse, ::Val{GLFW.MOUSE_BUTTON_3}, state)
 end
 
 
-function attachMouseButtonCallback(scene, camera)
+function attachMouseButtonCallback(scene, camera, mouseState::MouseState)
 	WGPUCanvas.setMouseButtonCallback(
 		scene.canvas, 
 		(_, button, action, a) -> begin
@@ -51,7 +59,7 @@ function attachMouseButtonCallback(scene, camera)
 	)
 end
 
-function attachScrollCallback(scene, camera::Camera)
+function attachScrollCallback(scene, camera::Camera, mouseState::MouseState)
 	WGPUCanvas.setScrollCallback(
 		scene.canvas,
 		#(_, xoff, yoff) -> begin
@@ -65,7 +73,7 @@ function attachScrollCallback(scene, camera::Camera)
 	)
 end
 
-function attachCursorPosCallback(scene, camera::Camera)
+function attachCursorPosCallback(scene, camera::Camera, mouseState::MouseState)
 	WGPUCanvas.setCursorPosCallback(
 		scene.canvas, 
 		(_, x, y) -> begin
@@ -78,7 +86,7 @@ function attachCursorPosCallback(scene, camera::Camera)
 					#mat = MMatrix{4, 4, Float32}(I)
 					#mat[1:3, 1:3] = rot
 					#updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
-					mouseState.prevPosition = (y, x)
+					#mouseState.prevPosition = (y, x)
 				elseif mouseState.rightClick
 					delta = -1.0.*(mouseState.prevPosition .- (y, x)).*mouseState.speed
 					#camera.lookAt += [delta..., 0]
@@ -86,34 +94,39 @@ function attachCursorPosCallback(scene, camera::Camera)
 					#mat = MMatrix{4, 4, Float32}(I)
 					#mat[1:3, 3] .= [delta..., 0]
 					#updateViewTransform!(camera, camera.uniformData.viewMatrix*mat)
-					mouseState.prevPosition = (y, x)
+					#mouseState.prevPosition = (y, x)
 				elseif mouseState.middleClick
 					#mat = MMatrix{4, 4, Float32}(I)
 					#updateViewTransform!(camera, mat)
-					mouseState.prevPosition = (y, x)
+					#mouseState.prevPosition = (y, x)
 				else
-					mouseState.prevPosition = (y, x)
+					#mouseState.prevPosition = (y, x)
 				end
+				mouseState.prevPosition = (y, x)
 			end
 		end
 	)
 end
 
 
-function attachKeyCallback(scene, camera::Camera)
+function attachKeyCallback(scene, camera::Camera, mouseState::MouseState, keyboardState::KeyboardState)
 	WGPUCanvas.setKeyCallback(
 		scene.canvas,
         (_, key, scancode, action, mods) -> begin
                 name = GLFW.GetKeyName(key, scancode)
                	if name == "a" && action == GLFW.PRESS
-					attachMouseButtonCallback(scene, camera)
-					attachScrollCallback(scene, camera)
-					attachCursorPosCallback(scene, camera)	
+					attachMouseButtonCallback(scene, camera, mouseState)
+					attachScrollCallback(scene, camera, mouseState)
+					attachCursorPosCallback(scene, camera, mouseState)	
                 elseif name == "d" && action == GLFW.PRESS
 					detachMouseButtonCallback(scene, camera)
 					detachScrollCallback(scene, camera)
-					detachCursorPosCallback(scene, camera)                	
-                end                     	
+					detachCursorPosCallback(scene, camera)
+                end
+				keyboardState.key = key
+				keyboardState.scancode = scancode
+				keyboardState.action = action
+				keyboardState.mods = mods
 		end
 	)
 end
@@ -130,13 +143,13 @@ function detachCursorPosCallback(scene, camera)
 	WGPUCanvas.setCursorPosCallback(scene.canvas, nothing)
 end
 
-function attachEventSystem(renderer)
+function attachEventSystem(renderer, mouseState = defaultMouseState(), keyboardState = defaultKeyboardState())
 	scene = renderer.scene
 	camera = scene.camera
-	attachMouseButtonCallback(scene, camera)
-	attachScrollCallback(scene, camera)
-	attachCursorPosCallback(scene, camera)
-	attachKeyCallback(scene, camera)
+	attachMouseButtonCallback(scene, camera, mouseState)
+	attachScrollCallback(scene, camera, mouseState)
+	attachCursorPosCallback(scene, camera, mouseState)
+	attachKeyCallback(scene, camera, mouseState, keyboardState)
 end
 
 function detachEventSystem(renderer)
