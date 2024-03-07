@@ -118,13 +118,15 @@ end
 Base.setproperty!(camera::Camera, f::Symbol, v) = begin
 	setfield!(camera, f, v)
 	uniformData = camera.uniformData
-	if f in propertynames(uniformData)
-		setproperty!(uniformData, f, v)
+	if camera.uniformData != nothing
+		if f in propertynames(uniformData)
+			setproperty!(uniformData, f, v)
+		end
+		(viewMatrix, projMatrix) = computeTransform(camera)
+		uniformData.viewMatrix = viewMatrix
+		uniformData.projMatrix = projMatrix
+		updateUniformBuffer(camera)
 	end
-	(viewMatrix, projMatrix) = computeTransform(camera)
-	uniformData.viewMatrix = viewMatrix
-	uniformData.projMatrix = projMatrix
-	updateUniformBuffer(camera)
 end
 
 function updateViewTransform!(camera::Camera, transform)
