@@ -6,7 +6,7 @@ DocMeta.setdocmeta!(WGPUgfx, :DocTestSetup, :(using WGPUgfx); recursive=true)
 makedocs(;
     modules=[WGPUgfx],
     authors="arhik <arhik23@gmail.com>",
-    repo="https://github.com/arhik/WGPUgfx.jl/blob/{commit}{path}#{line}",
+    repo="https://github.com/JuliaWGPU/WGPUgfx.jl/blob/{commit}{path}#{line}",
     sitename="WGPUgfx.jl",
     format=Documenter.HTML(;
         prettyurls=get(ENV, "CI", "false") == "true",
@@ -20,6 +20,6 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/arhik/WGPUgfx.jl",
+    repo="github.com/JuliaWGPU/WGPUgfx.jl",
     devbranch="main",
 )
