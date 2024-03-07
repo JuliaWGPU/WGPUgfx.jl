@@ -53,7 +53,6 @@ main = () -> begin
 					flag = false
 				end 
 			end 
-			@info keyboardState
 			PollEvents()
 		end
 	finally
