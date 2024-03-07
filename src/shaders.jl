@@ -11,9 +11,7 @@ end
 
 
 function createShaderObj(gpuDevice, shaderSource; savefile=false, debug = false)
-	@info "IR CODE" shaderSource
 	shaderSource = (shaderSource |> wgslCode)
-	@info shaderSource
 	shaderBytes  = shaderSource |> Vector{UInt8}
 
 	shaderInfo = WGPUCore.loadWGSL(shaderBytes)
