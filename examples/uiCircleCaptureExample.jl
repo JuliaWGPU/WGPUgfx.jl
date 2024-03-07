@@ -15,10 +15,10 @@ scene = Scene();
 renderer = getRenderer(scene);
 
 circle = defaultUICircle(;nSectors=20, radius=0.2, color = [0.4, 0.3, 0.5, 0.6]);
-circle2 = defaultUICircle(;nSectors=100, radius=0.1, color = [0.5, 0.9, 0.2, 0.2]);
+circle2 = defaultUICircle(;nSectors=100, radius=rand(0.1:0.01:0.8), color = rand(4));
 
 addObject!(renderer, circle, scene.camera);
-
+addObject!(renderer, circle2, scene.camera);
 # quad.uniformData = Matrix{Float32}(I, (4, 4))
 
 mouseState = defaultMouseState()
@@ -29,31 +29,18 @@ attachEventSystem(renderer, mouseState, keyboardState)
 
 function runApp(renderer)
 	init(renderer)
-    render(renderer)
-	# render(renderer, renderer.scene.objects[1], camera; dims=(50, 50, 300, 300))
+    #render(renderer)
+	object = mouseState.leftClick ? renderer.scene.objects[2] : renderer.scene.objects[1]
+	WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, renderer.scene.cameraId)
 	deinit(renderer)
 end
-
 
 main = () -> begin
 	try
 		flag = false
 		while !WindowShouldClose(scene.canvas.windowRef[])
 			runApp(renderer)
-			if mouseState.leftClick == true
-				if !flag
-					popfirst!(renderer.scene.objects)
-					addObject!(renderer, circle2, scene.camera)
-					flag = true
-				end
-			else
-				if flag
-					popfirst!(renderer.scene.objects)
-					addObject!(renderer, circle, scene.camera)
-					flag = false
-				end 
-			end 
-			PollEvents()
+			WaitEvents()		
 		end
 	finally
 		WGPUCore.destroyWindow(scene.canvas)
