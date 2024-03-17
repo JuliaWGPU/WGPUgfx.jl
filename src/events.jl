@@ -131,6 +131,16 @@ function attachKeyCallback(scene, camera::Camera, mouseState::MouseState, keyboa
 	)
 end
 
+function attachWindowSizeCallback(scene, camera)
+	callback = (_, w, h) -> begin
+		camera.aspectRatio *= w/scene.canvas.size[1]
+		camera.aspectRatio *= scene.canvas.size[2]/h
+		scene.canvas.size = (w,h)
+		WGPUCore.determineSize(scene.canvas.context)
+	end
+	GLFW.SetWindowSizeCallback(scene.canvas.windowRef[], callback)
+end
+
 function detachMouseButtonCallback(scene, camera)
 	WGPUCanvas.setMouseButtonCallback(scene.canvas, nothing)
 end
@@ -150,6 +160,7 @@ function attachEventSystem(renderer, mouseState = defaultMouseState(), keyboardS
 	attachScrollCallback(scene, camera, mouseState)
 	attachCursorPosCallback(scene, camera, mouseState)
 	attachKeyCallback(scene, camera, mouseState, keyboardState)
+	attachWindowSizeCallback(scene, camera)
 end
 
 function detachEventSystem(renderer)
