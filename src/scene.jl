@@ -18,8 +18,8 @@ mutable struct Scene
 	cameraId::Int					# TODO cameras
 	light						# TODO lights
 	objects 					# ::Union{WorldObject, ObjectGroup}
-	function Scene()
-		canvas = WGPUCore.getCanvas(:GLFW)
+	function Scene(size::Tuple{Int, Int} = (500,500))
+		canvas = WGPUCore.getCanvas(:GLFW, size)
 		gpuDevice = WGPUCore.getDefaultDevice(canvas);
 		camera = defaultCamera()
 		light = defaultLighting()
