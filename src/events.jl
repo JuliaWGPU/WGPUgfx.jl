@@ -135,6 +135,7 @@ function attachWindowSizeCallback(scene, camera)
 	callback = (_, w, h) -> begin
 		camera.aspectRatio *= w/scene.canvas.size[1]
 		camera.aspectRatio *= scene.canvas.size[2]/h
+		camera.fov = 2*atan( (h/(scene.canvas.size[2])) * tan((camera.fov)/2) )
 		scene.canvas.size = (w,h)
 		WGPUCore.determineSize(scene.canvas.context)
 	end
