@@ -30,7 +30,6 @@ for op in [:+, :-, :/, :*]
     end |> eval
 end
 
-
 # Base.show(io::IO, ::MIME"text/plain", p::Point) = println("Point [$(p.x), $(p.y)]")
 
 Base.convert(::Type{FontPoint}, p::FT_Vector) = FontPoint(p.x, p.y)
@@ -116,20 +115,6 @@ function getCurvePoints(outline, firstIdx, lastIdx)
 	
 end
 
-moveToFunc = Ref{FT_Outline_MoveTo_Func}()
-lineToFunc = Ref{FT_Outline_LineTo_Func}()
-conicToFunc = Ref{FT_Outline_ConicTo_Func}()
-cubicToFunc = Ref{FT_Outline_CubicTo_Func}()
-
-global funcsRef = CStruct(FT_Outline_Funcs)
-
-funcsRef.move_to = moveToFunc[]
-funcsRef.line_to = lineToFunc[]
-funcsRef.conic_to = conicToFunc[]
-funcsRef.cubic_to = cubicToFunc[]
-funcsRef.delta = (0 |> Int32)
-funcsRef.shift = (0 |> Int32)
-
 function createGlyph(charCode)
 	global curves
     ftLib = Ref{FT_Library}(C_NULL)
@@ -145,7 +130,7 @@ function createGlyph(charCode)
         return face[]
     end
     
-    face = loadFace(joinpath(@__DIR__, "..", "..",  "assets", "JuliaMono", "JuliaMono-Light.ttf"))
+    face = loadFace(joinpath(pkgdir(WGPUgfx),  "assets", "JuliaMono", "JuliaMono-Light.ttf"))
 	
     FT_Set_Pixel_Sizes(face, 1.0, 1.0)
 	
@@ -162,7 +147,7 @@ function createGlyph(charCode)
 		outlineFuncs |> Ref, 
 		C_NULL
 	)
-
+	
 	@assert status == 0 "FreeType Decompose failed!!!"
 	
 	for contourIdx in 1:nContours
