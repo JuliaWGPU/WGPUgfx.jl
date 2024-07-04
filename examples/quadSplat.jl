@@ -13,11 +13,10 @@ using Images
 
 WGPUCore.SetLogLevel(WGPUCore.WGPULogLevel_Off)
 
-
 scene = Scene()
 renderer = getRenderer(scene)
 
-pc = defaultQSplat(1)
+pc = defaultQSplat(10)
 
 # scene.cameraSystem = CameraSystem([camera1, camera2])
 
