@@ -68,7 +68,7 @@ function attachScrollCallback(scene, camera::Camera, mouseState::MouseState)
 		#end
 		(_, xoff, yoff) -> begin
 			camera.eye += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
-			camera.lookAt += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
+			#camera.lookAt += (camera.eye - camera.lookAt)*yoff.*maximum(mouseState.speed)
 		end
 	)
 end
