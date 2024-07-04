@@ -74,12 +74,12 @@ end
 
 
 function defaultLighting()
-	position = [1.0, 1.0, 1.0, 1.0] .|> Float32
+	position = [2.0, 2.0, 2.0, 1.0] .|> Float32
 	specularColor = [1.0, 1.0, 1.0, 1.0] .|> Float32
-	ambientIntensity = 1.0 |> Float32
-	diffuseIntensity = 1.0 |> Float32
-	specularIntensity = 1.0 |> Float32
-	specularShininess = 1.0 |> Float32
+	ambientIntensity = 0.9 |> Float32
+	diffuseIntensity = 0.5 |> Float32
+	specularIntensity = 0.2 |> Float32
+	specularShininess = 0.2 |> Float32
 	return Lighting(
 		nothing,
 		position,
