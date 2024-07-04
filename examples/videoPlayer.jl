@@ -41,7 +41,9 @@ scene.cameraSystem = CameraSystem([camera1, camera2])
 addObject!(renderer, axis1)
 addObject!(renderer, axis2)
 
-quad = defaultQuad(;image=joinpath("$(ENV["HOMEPATH"])", "Downloads", "spanda2.jpg"))
+homepath = Sys.iswindows() ? "HOMEPATH" : "HOME"
+
+quad = defaultQuad(;image=joinpath("$(ENV[homepath])", "Downloads", "spanda2.jpg"))
 # setfield!(quad, :textureData, textureData)
 
 addObject!(renderer, quad, camera1)
