@@ -8,7 +8,7 @@ using Quaternions
 const MAX_CAMERAS = 4
 const CAMERA_BINDING_START = 0
 
-export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicMatrix, 
+export defaultCamera, Camera, lookAtLeftHanded, perspectiveMatrix, orthographicMatrix,
 	windowingTransform, translateCamera, openglToWGSL, translate, rotateTransform, scaleTransform,
 	getUniformBuffer, getUniformData, getShaderCode, updateUniformBuffer, updateViewTransform, updateProjTransform, getTransform
 
@@ -38,9 +38,9 @@ function prepareObject(gpuDevice, camera::Camera)
 	uniformData = computeUniformData(camera)
 	uniformDataBytes = uniformData |> toByteArray
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
-		gpuDevice, 
+		gpuDevice,
 		" CAMERA $(camera.id-1) BUFFER ",
-		uniformDataBytes, 
+		uniformDataBytes,
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
 	setfield!(camera, :uniformData, uniformData)
@@ -92,8 +92,8 @@ function defaultCamera(;
 		scale = [1, 1, 1] .|> Float32,
 		fov = (45/180)*pi |> Float32,
 		aspectRatio = 1.0 |> Float32,
-		nearPlane = 1 |> Float32,
-		farPlane = 1000.0 |> Float32,
+		nearPlane = 0.1 |> Float32,
+		farPlane = 100.0 |> Float32,
 		projectionType::Union{Symbol, WGPUProjectionType} = :PERSPECTIVE
 	)
 	projectionType = eval(projectionType) # Handles both symbol and direct Enum
@@ -242,7 +242,7 @@ function windowingTransform(fromSize, toSize)
 	trans1 = Translation([-lowerCoords(fromSize)..., 0, 0])
 	trans2 = Translation([lowerCoords(toSize)..., 0, 0])
 	scale = computeScaleFromBB(fromSize, toSize)
-	return trans2 ∘ scale ∘ trans1 
+	return trans2 ∘ scale ∘ trans1
 end
 
 
@@ -262,8 +262,8 @@ transform([upperCoords(bb1)..., 0, 0])
 function lookAtLeftHanded(camera::Camera)
 	eye = camera.eye
 	lookAt = camera.lookAt
-	up = -camera.up
-	w = -(lookAt .- eye) |> normalize
+	up = camera.up
+	w = (lookAt .- eye) |> normalize
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
 	m = MMatrix{4, 4, Float32}(I)
@@ -293,13 +293,13 @@ function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, 
 	yS = 2*n/(t-b) # (t-b) is height
 	xR = (r+l)/(r-l)
 	yR = (t+b)/(t-b)
-	zR = -(f+n)/(f-n)
+	zR = (f+n)/(f-n)
 	oR = -2*f*n/(f-n)
 	pmat = coordinateTransform * [
-		xS		0		xR		0	;
-		0		yS		yR		0	;
+		xS		0		0		0	;
+		0		yS		0		0	;
 		0		0		zR		oR	;
-		0		0		-1		0	;
+		0		0		1		0	;
 	]
 
 	return LinearMap(
@@ -337,7 +337,7 @@ end
 function updateUniformBuffer(camera::Camera)
 	data = getfield(camera, :uniformData) |> toByteArray
 	WGPUCore.writeBuffer(
-		camera.gpuDevice.queue, 
+		camera.gpuDevice.queue,
 		getfield(camera, :uniformBuffer),
 		data,
 	)
@@ -405,4 +405,3 @@ function getBindings(camera::Camera, uniformBuffer; binding=CAMERA_BINDING_START
 		],
 	]
 end
-

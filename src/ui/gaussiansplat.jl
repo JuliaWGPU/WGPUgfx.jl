@@ -34,6 +34,8 @@ mutable struct GSplat <: Renderable
     pipelineLayouts
     renderPipelines
     cshaders
+    splatScale
+    splatScaleBuffer
 end
 
 function readPlyFile(path)
@@ -51,7 +53,12 @@ function readPlyFile(path)
 end
 
 
-function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Vector{Float32}, Float32} = 1.0f0)
+function defaultGSplat(
+		path::String; 
+		color=[0.2, 0.9, 0.0, 1.0], 
+		scale::Union{Vector{Float32}, Float32} = 1.0f0,
+		splatScale::Float32 = 1.0f0
+	)
 
 	if typeof(scale) == Float32
 		scale = [scale.*ones(Float32, 3)..., 1.0f0] |> diagm
@@ -60,14 +67,14 @@ function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Ve
 	end
 
 	swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
-	#swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
+	# swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
 
 	vertexData = cat([
+		[-1, 1, 0, 1],
 		[-1, -1, 0, 1],
-		[-1, 1, 0, 1],
-		[1, -1, 0, 1],
 		[1, 1, 0, 1],
-		[-1, 1, 0, 1],
+		[1, 1, 0, 1],
+		[-1, -1, 0, 1],
 		[1, -1, 0, 1],
 	]..., dims=2) .|> Float32
 
@@ -99,6 +106,8 @@ function defaultGSplat(path::String; color=[0.2, 0.9, 0.0, 1.0], scale::Union{Ve
 		Dict(),		# pipelineLayout
 		Dict(),		# renderPipeline
 		Dict(),		# cshader
+		splatScale,	# splatScale
+		nothing,	# splatScaleBuffer
 	)
 	box
 end
@@ -113,8 +122,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 
 	shaderSource = quote
 
-		function scaleMatrix(s::Vec3{Float32})::Mat4{Float32}
-			@let scale::Float32 = 1.0
+		function scaleMatrix(s::Vec3{Float32}, scale::Float32)::Mat4{Float32}
 			return Mat4{Float32}(
 				exp(s.x)*(scale), 0.0, 0.0, 0.0,
 				0.0, exp(s.y)*(scale), 0.0, 0.0,
@@ -139,8 +147,8 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let z = q.w
 			return """mat4x4<f32>(
 				1.0 - 2.0*(y*y + z*z), 2.0*(x*y - w*z), 2.0*(x*z + w*y), 0.0,
-				2.0*(x*y + w*z), 1.0 - 2.0*(x*x + z*z), 2.0*(y*z - w*x), 0.0, 
-				2.0*(x*z - w*z), 2.0*(y*z + w*x), 1.0 - 2.0*(x*x + y*y), 0.0,
+				2.0*(x*y + w*z), 1.0 - 2.0*(x*x - z*z), 2.0*(y*z - w*x), 0.0, 
+				2.0*(x*z - w*y), 2.0*(y*z + w*x), 1.0 - 2.0*(x*x + y*y), 0.0,
 				0.0, 0.0, 0.0, 1.0
 			)
 			"""
@@ -174,6 +182,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		@var Uniform 0 $binding $name::$renderableUniform
 		@var StorageRead 0 $(binding+1) splatArray::Array{GSplatIn}
 		@var StorageRead 0 $(binding+2) vertexArray::Array{Vec4{Float32}, 6}
+		@var Uniform 0 $(binding + 3) scale::Float32
 		# @var StorageRead 0 $(binding+2) vertexArray::Array{Vec3{Float32}, 4}
 
 		@vertex function vs_main(
@@ -184,7 +193,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@var out::GSplatOut
 			@var splatIn  = splatArray[iIdx]
 			@let R::Mat4{Float32} = quatToRotMat(splatIn.quaternions)
-			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale)
+			@let S::Mat4{Float32} = scaleMatrix(splatIn.scale, scale)
 			@let M = S*R
 			@let sigma = transpose(M)*(M)
 			@var pos = Vec4{Float32}(splatIn.pos, 1.0)
@@ -235,7 +244,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let eigendir2 = halfad + sqrt(max(0.1, halfad*halfad - det2D))
 			@let majorAxis = max(eigendir1, eigendir2)
 			@let radiusBB = ceil(3.0 * sqrt(majorAxis))
-			@let radiusNDC = Vec2{Float32}(radiusBB/500.0, radiusBB/500.0)
+			@let radiusNDC = Vec2{Float32}(radiusBB/1000.0, radiusBB/1000.0)
 			
 			@let quadpos = vertexArray[vIdx]
 			# t′ value
@@ -254,7 +263,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatIn.sh[2][0], splatIn.sh[2][1], splatIn.sh[2][2], splatIn.sh[2][3]
 			);
 			#@let eye = Vec3{Float32}(0.0, 0.0, 4.0)
-			@let dir = normalize(out.pos.xyz - (camera.eye.xyz - camera.lookAt.xyz))
+			@let dir = normalize(out.pos.xyz + (camera.eye.xyz - camera.lookAt.xyz))
 			
 			@let x = dir.x;
 			@let y = dir.y;
@@ -371,10 +380,18 @@ function prepareObject(gpuDevice, gsplat::GSplat)
 		["Storage", "CopySrc"]
 	)
 
+	(splatScaleBuffer, _) = WGPUCore.createBufferWithData(
+		gpuDevice,
+		"SPLAT Scale",
+		Float32[gsplat.splatScale,],
+		["Uniform", "CopyDst", "CopySrc"]
+	)
+
 	setfield!(gsplat, :uniformData, uniformData)
 	setfield!(gsplat, :uniformBuffer, uniformBuffer)	
 	setfield!(gsplat, :splatData, splatData)
 	setfield!(gsplat, :splatBuffer, splatBuffer)
+	setfield!(gsplat, :splatScaleBuffer, splatScaleBuffer)
 	setfield!(gsplat, :gpuDevice, gpuDevice)
 	setfield!(gsplat, :indexBuffer, getIndexBuffer(gpuDevice, gsplat))
 	setfield!(gsplat, :vertexBuffer, getVertexBuffer(gpuDevice, gsplat))
@@ -397,6 +414,11 @@ function getBindingLayouts(gsplat::GSplat; binding=0)
 			:binding => binding + 2,
 			:visibility => ["Vertex", "Fragment"],
 			:type => "ReadOnlyStorage"
+		],
+		WGPUCore.WGPUBufferEntry => [
+			:binding => binding + 3,
+			:visibility => ["Vertex", "Fragment"],
+			:type => "Uniform"
 		]
 	]
 	return bindingLayouts
@@ -423,6 +445,12 @@ function getBindings(gsplat::GSplat, uniformBuffer; binding=0)
 			:offset => 0,
 			:size => gsplat.vertexStorage.size
 		],
+		WGPUCore.GPUBuffer => [
+			:binding => binding + 3,
+			:buffer => gsplat.splatScaleBuffer,
+			:offset => 0,
+			:size => sizeof(Float32)
+		]
 	]
 	return bindings
 end
