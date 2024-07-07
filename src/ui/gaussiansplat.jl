@@ -251,8 +251,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			out.pos = camera.projMatrix*t
 			out.pos = out.pos/out.pos.w
 			# out.mu = out.pos
-			out.pos = Vec4{Float32}(out.pos.xy + 2.0*radiusNDC*quadpos.xy, out.pos.zw)
-			# out.pos = out.pos/out.pos.w
+			out.pos = Vec4{Float32}(out.pos.xy - 2.0*radiusNDC*quadpos.xy, out.pos.zw)
+			out.pos = out.pos/out.pos.w
+			out.pos = SVector{4, Float32}(out.pos.x, -out.pos.y, out.pos.z, out.pos.w)
 			# splatIn.pos = out.pos.xyz
 			out.mu = radiusBB*quadpos.xy
 			@let SH_C0 = 0.28209479177387814
@@ -263,7 +264,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatIn.sh[2][0], splatIn.sh[2][1], splatIn.sh[2][2], splatIn.sh[2][3]
 			);
 			#@let eye = Vec3{Float32}(0.0, 0.0, 4.0)
-			@let dir = normalize(out.pos.xyz + (camera.eye.xyz - camera.lookAt.xyz))
+			@let dir = normalize(out.pos.xyz - (camera.lookAt.xyz - camera.eye.xyz))
 			
 			@let x = dir.x;
 			@let y = dir.y;
@@ -279,7 +280,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 		end
 
 		@fragment function fs_main(splatOut::GSplatOut)::@location 0 Vec4{Float32}
-			@let mu = -splatOut.mu
+			@let mu = splatOut.mu
 			@var fragPos = splatOut.pos
 			@var fragColor = splatOut.color
 			@let opacity = splatOut.opacity
@@ -536,7 +537,7 @@ function getRenderPipelineOptions(renderer, splat::GSplat)
 		],
 		WGPUCore.GPUPrimitiveState => [
 			:topology => splat.topology,
-			:frontFace => "CW",
+			:frontFace => "CCW",
 			:cullMode => "None",
 			:stripIndexFormat => "Undefined"
 		],

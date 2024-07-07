@@ -45,7 +45,8 @@ function runApp(renderer)
 end
 
 mainApp = () -> begin
-	scene.camera.eye = [0, 0, -4]
+	# scene.camera.up = [0, -1, 0]
+	# scene.camera.eye = [1, -1, -2]
 	try
 		global renderer
 		if !GLFW.is_initialized()
@@ -57,7 +58,7 @@ mainApp = () -> begin
 		attachEventSystem(renderer, mouseState, keyboardState)
 		splatDataCopy = WGPUCore.readBuffer(scene.gpuDevice, pc.splatBuffer, 0, pc.splatBuffer.size)
 		gsplatInCopy = reinterpret(WGSLTypes.GSplatIn, splatDataCopy)
-		sortIdxs = sortperm(gsplatInCopy, by=x->-x.pos[3])
+		sortIdxs = sortperm(gsplatInCopy, by=x->x.pos[3])
 		gsplatInSorted = gsplatInCopy[sortIdxs]
 		storageData = reinterpret(UInt8, gsplatInSorted)
 		WGPUCore.writeBuffer(

@@ -263,7 +263,7 @@ function lookAtLeftHanded(camera::Camera)
 	eye = camera.eye
 	lookAt = camera.lookAt
 	up = camera.up
-	w = (lookAt .- eye) |> normalize
+	w = ((lookAt .- eye) |> normalize)
 	u =	cross(up, w) |> normalize
 	v = cross(w, u)
 	m = MMatrix{4, 4, Float32}(I)
@@ -278,7 +278,7 @@ function perspectiveMatrix(camera::Camera)
 	ar = camera.aspectRatio
 	n = camera.nearPlane
 	f = camera.farPlane
-	t = abs(n)*tan(fov/2)
+	t = n*tan(fov/2)
 	b = -t
 	r = ar*t
 	l = -r
@@ -287,8 +287,8 @@ end
 
 
 function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, t::Float32, b::Float32)
-	n = abs(near)
-	f = far |> abs
+	n = near
+	f = far
 	xS = 2*n/(r-l) # r-l is width
 	yS = 2*n/(t-b) # (t-b) is height
 	xR = (r+l)/(r-l)
