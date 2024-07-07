@@ -18,7 +18,7 @@ mutable struct WGPUBBox <: Renderable
 	cshaders
 end
 
-function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
+function defaultBBox(object::Renderable; color=[0.4, 0.4, 0.5, 1.0])
 	aabb = WGPUgfx.AABB(object)
 	mId = Matrix{Float32}(I, (4, 4))
 	coordinates = []
@@ -42,11 +42,17 @@ function defaultBBox(object::Renderable; color=[0.6, 0.4, 0.5, 1.0])
 	colorData = repeat(unitColor, inner=(1, 8))
 
 	indexData =   cat([
+			[0, 6],
+			[6, 1],
+			[1, 3],
 			[3, 0],
-			[3, 1],
-			[3, 2],
+			[5, 7],
 			[7, 4],
-			[7, 5],
+			[4, 2],
+			[2, 5],
+			[2, 3],
+			[4, 1],
+			[5, 0],
 			[7, 6],
 	    ]..., dims=2) .|> UInt32
 	
