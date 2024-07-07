@@ -9,7 +9,7 @@ using GeometryBasics: Mat4
 export Scene, composeShader, defaultCamera, Camera, defaultCube,
 	defaultPlane, Plane, Cube, Triangle3D, defaultTriangle3D,
 	defaultCircle, Circle, setup, runApp, defaultLighting, Lighting,
-	defaultWGPUMesh, addObject!
+	defaultWGPUMesh, addObject!, addObjects!
 
 mutable struct Scene
 	gpuDevice

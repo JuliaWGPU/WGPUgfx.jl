@@ -64,13 +64,25 @@ function addObject!(renderer::Renderer, object::Union{Renderable, RenderableUI})
 	push!(scene.objects, object)
 end
 
+function addObjects!(renderer::Renderer, objects::Array{Union{Renderable, RenderableUI}})
+    for obj in objects
+        addObject!(renderer, obj)
+    end
+end
+
+function addObjects!(renderer::Renderer, objects::Union{Renderable, RenderableUI}...)
+    for obj in objects
+        addObject!(renderer, obj)
+    end
+end
+
 
 function getRenderer(scene::Scene)
 	renderTextureFormat = WGPUCore.getPreferredFormat(scene.canvas)
 	presentContext = WGPUCore.getContext(scene.canvas)
 	WGPUCore.determineSize(presentContext)
 	WGPUCore.config(presentContext, device=scene.gpuDevice, format = renderTextureFormat)
-	
+
 	currentTextureView = WGPUCore.getCurrentTexture(presentContext);
 
 	Renderer(
@@ -105,9 +117,9 @@ function setup(renderer::Renderer, object::Renderable, camera::Camera)
 			preparedLight = true
 		end
 	end
-	# Checking camera.id here to share object uniforms to cameraSystem 
+	# Checking camera.id here to share object uniforms to cameraSystem
 	# TODO we need to make a more disciplined way to handle this
-	# For now we are sharing objects across cameras 
+	# For now we are sharing objects across cameras
 	if camera.id == 1
 		prepareObject(gpuDevice, object)
 	end
@@ -129,13 +141,13 @@ function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 
 	push!(src.args, getShaderCode(scene.cameraSystem; binding=scene.cameraId - 1 + CAMERA_BINDING_START))
 	isLight && push!(src.args, getShaderCode(scene.light; binding = LIGHT_BINDING_START))
-	
+
 	return src
 end
 
 function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
-	isLight = isNormalDefined(object) && scene.light != nothing 
-	
+	isLight = isNormalDefined(object) && scene.light != nothing
+
 	isTexture =  isTextureDefined(object) && object.textureData != nothing
 
 	src = getDefaultSrc(scene, isLight, isTexture)
@@ -193,15 +205,15 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=M
 			(fName == :axis) &&
 				isRenderType(object.rType, AXIS) && object.axis == nothing &&
 					setfield!(object, :axis, defaultAxis(;len=0.1))
-			(fName == :select) && 
+			(fName == :select) &&
 				isRenderType(object.rType, SELECT) && object.select == nothing &&
 					setfield!(object, :select, defaultBBox(object.renderObj))
 			obj = getfield(object, fName)
 			if obj == nothing
 				continue
 			end
-			
-			isLight = isNormalDefined(obj) && scene.light != nothing 
+
+			isLight = isNormalDefined(obj) && scene.light != nothing
 			isTexture = isTextureDefined(obj) && obj.textureData != nothing
 			src = getDefaultSrc(scene, isLight, isTexture)
 			push!(src.args, getShaderCode(obj, scene.cameraId; binding = binding))
@@ -218,7 +230,7 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=M
 				rethrow(e)
 			end
 		# else
-			# Currently this ignore RenderType field within WorldObject 
+			# Currently this ignore RenderType field within WorldObject
 			# @error objType fName fType
 		end
 	end
@@ -240,15 +252,15 @@ function init(renderer::Renderer)
 		WGPUTextureFormat_Depth24Plus,
 		WGPUCore.getEnum(WGPUCore.WGPUTextureUsage, "RenderAttachment")
 	)
-	
+
 	renderer.depthView = WGPUCore.createView(renderer.depthTexture)
 
 	renderer.renderPassOptions = getRenderPassOptions(renderer.currentTextureView, renderer.depthView)
 
 	renderer.cmdEncoder = WGPUCore.createCommandEncoder(scene.gpuDevice, "CMD ENCODER")
 	renderer.renderPass = WGPUCore.beginRenderPass(
-		renderer.cmdEncoder, 
-		renderer.renderPassOptions |> Ref; 
+		renderer.cmdEncoder,
+		renderer.renderPassOptions |> Ref;
 		label= "BEGIN RENDER PASS"
 	)
 end
@@ -320,7 +332,7 @@ end
 
 
 function preparePipeline(gpuDevice, renderer::Renderer, mesh::WorldObject{T}, camera::Camera; binding=0) where T<:Renderable
-	isRenderType(mesh.rType, SURFACE) && mesh.renderObj !== nothing && 
+	isRenderType(mesh.rType, SURFACE) && mesh.renderObj !== nothing &&
 		preparePipeline(gpuDevice, renderer, mesh.renderObj, camera; binding = binding)
 	isRenderType(mesh.rType, WIREFRAME) && mesh.wireFrame !== nothing &&
 		preparePipeline(gpuDevice, renderer, mesh.wireFrame, camera; binding = binding)
