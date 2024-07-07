@@ -26,8 +26,8 @@ end
 
 function defaultTriangle3D()
 	vertexData =  cat([
-	    [-1.0, -1.0, 0.0, 1],
    	    [1.0, -1.0, 0.0, 1],	    
+	    [-1.0, -1.0, 0.0, 1],
    	    [0.0, 1.0, 0.0, 1],
 	]..., dims=2) .|> Float32
 
