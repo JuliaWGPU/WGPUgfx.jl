@@ -232,18 +232,20 @@ function getUniformBuffer(mesh::Renderable)
 end
 
 function getShaderCode(mesh::Renderable, cameraId::Int; binding=0)
-	name = Symbol(typeof(mesh), binding)
-	meshType = typeof(mesh)
+	name = Symbol(typeof(mesh).name.name, binding)
+	meshType = typeof(mesh).name.name
 	meshUniform = Symbol(meshType, :Uniform)
 	isTexture = isTextureDefined(mesh) && mesh.textureData !== nothing
 	isLight = isNormalDefined(mesh)
 	vertexInputName = Symbol(
+		meshType,
 		:VertexInput,
 		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),
 	)
 
 	vertexOutputName = Symbol(
+		meshType,
 		:VertexOutput,
 		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),

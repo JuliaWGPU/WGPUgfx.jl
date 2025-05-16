@@ -78,8 +78,8 @@ end
 
 
 function getShaderCode(quad::GaussianQuad, cameraId::Int; binding=0)
-	name = Symbol(typeof(quad), binding)
-	quadType = typeof(quad)
+	name = Symbol(typeof(quad).name.name, binding)
+	quadType = typeof(quad).name.name
 	quadUniform = Symbol(quadType, :Uniform)
 	isTexture = isTextureDefined(quad) && quad.textureData !== nothing
 	isLight = isNormalDefined(quad)

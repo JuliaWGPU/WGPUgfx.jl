@@ -77,17 +77,24 @@ mainApp = () -> begin
 		count = 0
 		camera1 = scene.cameraSystem[1]
 		while !WindowShouldClose(scene.canvas.windowRef[])
+			# Create rotation matrix
 			rot = RotXY(0.01, 0.02)
-			mat = MMatrix{4, 4, Float32}(I)
-			mat[1:3, 1:3] = rot
-			updateViewTransform!(camera1, camera1.uniformData.viewMatrix*mat)
+			rotMatrix = convertToMatrix(rot)
+			
+			# Get current view matrix and apply rotation
+			viewMatrix = camera1.uniformData.viewMatrix
+			newViewMatrix = viewMatrix * rotMatrix
+			
+			# Update camera view transform
+			updateViewTransform!(camera1, newViewMatrix)
+			
+			# Animate quad position
 			theta = time()
-			quad.uniformData = translate((				
-				1.0*(sin(theta)), 
-				1.0*(cos(theta)), 
-				0, 
-				1
-			)).linear
+			quad.uniformData = translate([
+				1.0*sin(theta), 
+				1.0*cos(theta), 
+				0.0f0
+			]).linear
 			@tracepoint "runAppLoop" runApp(renderer)
 			PollEvents()
 		end

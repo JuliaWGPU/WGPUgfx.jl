@@ -27,19 +27,17 @@ end
 
 
 function prepareObject(gpuDevice, lighting::Lighting)
-	io = computeUniformData(lighting)
-	uniformDataBytes = io |> read
-	seek(io, 0) # TODO not necessary maybe
+	uniformData = computeUniformData(lighting)
+	uniformDataBytes = toByteArray(uniformData)
 	(uniformBuffer, _) = WGPUCore.createBufferWithData(
 		gpuDevice,
 		"LightingBuffer",
 		uniformDataBytes,
 		["Uniform", "CopyDst", "CopySrc"] # CopySrc during development only
 	)
-	setfield!(lighting, :uniformData, io)
+	setfield!(lighting, :uniformData, uniformData)
 	setfield!(lighting, :uniformBuffer, uniformBuffer)
 	setfield!(lighting, :gpuDevice, gpuDevice)
-	seek(io, 0)
 	return lighting
 end
 
@@ -57,19 +55,14 @@ end
 
 
 function computeUniformData(lighting::Lighting)
-	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	uniformData = Ref{UniformType}()
-	io = getfield(lighting, :uniformData)
-	unsafe_write(io, uniformData, sizeof(UniformType))
-	seek(io, 0)
-	setVal!(lighting, Val(:position), lighting.position)
-	setVal!(lighting, Val(:specularColor), lighting.specularColor)
-	setVal!(lighting, Val(:diffuseIntensity), lighting.diffuseIntensity)
-	setVal!(lighting, Val(:ambientIntensity), lighting.ambientIntensity)
-	setVal!(lighting, Val(:specularIntensity), lighting.specularIntensity)
-	setVal!(lighting, Val(:specularShininess), lighting.specularShininess)
-	seek(io, 0)
-	return io
+	return WGPUgfx.LightingUniform(
+		lighting.position,
+		lighting.specularColor,
+		lighting.ambientIntensity,
+		lighting.diffuseIntensity,
+		lighting.specularIntensity,
+		lighting.specularShininess
+	)
 end
 
 
@@ -88,58 +81,23 @@ function defaultLighting()
 		diffuseIntensity,
 		specularIntensity,
 		specularShininess,
-		IOBuffer(),
+		nothing,
 		nothing
 	)
 end
 
-function setVal!(lighting::Lighting, ::Val{N}, v) where N
-	setfield!(lighting, N, v)
-	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	offset = Base.fieldoffset(UniformType, Base.fieldindex(UniformType, N))
-	io = getfield(lighting, :uniformData)
-	seek(io, offset)
-	write(io, v)
-	seek(io, 0)
-end
-
-function setVal!(lighting::Lighting, ::Val{:uniformData}, v)
-	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	t = UniformType(v) |> Ref
-	io = getfield(lighting, :uniformData)
-	seek(io, 0)
-	unsafe_write(io, t, sizeof(t))
-	seek(io, 0)
-end
-
 Base.setproperty!(lighting::Lighting, f::Symbol, v) = begin
-	setVal!(lighting, Val(f), v)
-	updateUniformBuffer(lighting)
+	setfield!(lighting, f, v)
+	if lighting.gpuDevice !== nothing && lighting.uniformBuffer !== nothing
+		# Recompute the entire uniform data
+		setfield!(lighting, :uniformData, computeUniformData(lighting))
+		updateUniformBuffer(lighting)
+	end
 end
 
-
-function getVal(lighting::Lighting, ::Val{:uniformBuffer})
-	return readUniformBuffer(lighting)
-end
-
-
-
-function getVal(lighting::Lighting, ::Val{:uniformData})
-	UniformType = getproperty(WGSLTypes, :LightingUniform)
-	t = Ref{UniformType}()
-	io = getfield(lighting, :uniformData)
-	seek(io, 0)
-	unsafe_read(io, t, sizeof(UniformType))
-	seek(io, 0)
-	t[]
-end
-
-function getVal(lighting::Lighting, ::Val{N}) where N
-	return getfield(lighting, N)
-end
 
 Base.getproperty(lighting::Lighting, f::Symbol) = begin
-	getVal(lighting, Val(f))
+	getfield(lighting, f)
 end
 
 
@@ -190,8 +148,8 @@ end
 
 
 function updateUniformBuffer(lighting::Lighting)
-	data = getfield(lighting, :uniformData).data
-	# @info :UniformBuffer lighting.uniformData
+	uniformData = getfield(lighting, :uniformData)
+	data = toByteArray(uniformData)
 	WGPUCore.writeBuffer(
 		lighting.gpuDevice.queue, 
 		getfield(lighting, :uniformBuffer),
@@ -201,15 +159,14 @@ end
 
 
 function readUniformBuffer(lighting::Lighting)
-	UniformType = getproperty(WGSLTypes, :LightingUniform)
 	data = WGPUCore.readBuffer(
 		lighting.gpuDevice,
 		getfield(lighting, :uniformBuffer),
 		0,
 		getfield(lighting, :uniformBuffer).size
 	)
-	datareinterpret = reinterpret(UniformType, data)[1]
-	# @info "Received Buffer" datareinterpret
+	datareinterpret = reinterpret(WGPUgfx.LightingUniform, data)[1]
+	return datareinterpret
 end
 
 

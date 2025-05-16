@@ -96,8 +96,8 @@ end
 
 
 function getShaderCode(qsplat::QSplat, cameraId::Int; binding=0)
-	name = Symbol(typeof(qsplat), binding)
-	renderableType = typeof(qsplat)
+	name = Symbol(typeof(qsplat).name.name, binding)
+	renderableType = typeof(qsplat).name.name
 	renderableUniform = Symbol(renderableType, :Uniform)
 
 	shaderSource = quote

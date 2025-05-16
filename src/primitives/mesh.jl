@@ -92,8 +92,8 @@ function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 
 		scale = scale |> diagm
 	end
 	# TODO blender conversion 
-	swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
-	# swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
+	# swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
+	swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
 	
 	vertexData = scale*swapMat*vertexData
 	uvData = nothing

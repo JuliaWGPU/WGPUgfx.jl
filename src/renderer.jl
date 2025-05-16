@@ -100,12 +100,12 @@ end
 
 
 function setup(renderer::Renderer, object::Renderable, camera::Camera)
-	binding = 0 # MAX_CAMERAS + MAX_LIGHTS + 1 # Binding slot for objects starts from this index.
+	binding = MAX_CAMERAS + MAX_LIGHTS + 1 # Binding slot for objects starts from this index.
 	scene = renderer.scene
 	gpuDevice = scene.gpuDevice
 	scene.cameraId = camera.id
 	preparedLight=false
-	compileShaders!(gpuDevice, scene, object; binding=MAX_CAMERAS + MAX_LIGHTS + 1)
+	compileShaders!(gpuDevice, scene, object; binding=binding)
 	if camera.uniformBuffer === nothing
 		prepareObject(gpuDevice, camera)
 		camera.up = [0, 1, 0] .|> Float32
@@ -117,10 +117,8 @@ function setup(renderer::Renderer, object::Renderable, camera::Camera)
 			preparedLight = true
 		end
 	end
-	# Checking camera.id here to share object uniforms to cameraSystem
-	# TODO we need to make a more disciplined way to handle this
-	# For now we are sharing objects across cameras
-	if camera.id == 1
+	# Prepare the object only once regardless of camera
+	if !isdefined(object, :gpuDevice) || object.gpuDevice === nothing
 		prepareObject(gpuDevice, object)
 	end
 	preparePipeline(gpuDevice, renderer, object, camera; binding=binding)
@@ -131,15 +129,23 @@ function setup(renderer::Renderer, quad::RenderableUI, camera::Camera)
 	scene = renderer.scene
 	gpuDevice = scene.gpuDevice
 	scene.cameraId = camera.id
-	compileShaders!(gpuDevice, scene, quad; binding=0)
-	prepareObject(gpuDevice, quad)
-	preparePipeline(gpuDevice, renderer, quad, camera; binding=0)
+	compileShaders!(gpuDevice, scene, quad; binding=binding)
+	
+	# Only prepare object if it hasn't been prepared yet
+	if !isdefined(quad, :gpuDevice) || quad.gpuDevice === nothing
+		prepareObject(gpuDevice, quad)
+	end
+	
+	preparePipeline(gpuDevice, renderer, quad, camera; binding=binding)
 end
 
 function getDefaultSrc(scene::Scene, isLight::Bool, isTexture::Bool)
 	src = quote end
 
-	push!(src.args, getShaderCode(scene.cameraSystem; binding=scene.cameraId - 1 + CAMERA_BINDING_START))
+	# Add camera shader code including struct definition and binding
+	push!(src.args, getShaderCode(scene.camera; binding = scene.cameraId - 1 + CAMERA_BINDING_START))
+	
+	# Add lighting if needed
 	isLight && push!(src.args, getShaderCode(scene.light; binding = LIGHT_BINDING_START))
 
 	return src
@@ -147,21 +153,27 @@ end
 
 function compileShaders!(gpuDevice, scene::Scene, object::Renderable; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = isNormalDefined(object) && scene.light != nothing
+	isTexture = isTextureDefined(object) && object.textureData != nothing
 
-	isTexture =  isTextureDefined(object) && object.textureData != nothing
-
-	src = getDefaultSrc(scene, isLight, isTexture)
+	# Create shader source
+	src = quote end
+	
+	# Add specific camera code
+	append!(src.args, getDefaultSrc(scene, isLight, isTexture).args)
+	
+	# Add object-specific shader code
 	push!(src.args, getShaderCode(object, scene.cameraId; binding = binding))
+	
 	try
 		cshader = createShaderObj(gpuDevice, src; savefile=false)
-		cshaders =  getfield(object, :cshaders)
+		cshaders = getfield(object, :cshaders)
 		cshaders[scene.cameraId] = cshader
-		# setfield!(object, :cshader, cshader)
 		if isdefined(WGPUCore, :logLevel) && Int(WGPUCore.logLevel) == 4 # Debug level
-			@info  cshader.src "Renderable"
+			@info cshader.src "Renderable"
 		end
 	catch(e)
 		@info "Caught exception in Renderable :compileShaders!" e
+		@error "Source code:" src
 		rethrow(e)
 	end
 	return nothing
@@ -170,20 +182,23 @@ end
 
 function compileShaders!(gpuDevice, scene::Scene, quad::RenderableUI; binding=MAX_CAMERAS + MAX_LIGHTS+1)
 	isLight = false
-	isTexture =  isTextureDefined(quad) && quad.textureData !== nothing
+	isTexture = isTextureDefined(quad) && quad.textureData !== nothing
 
+	# For UI elements, we don't need camera access in most cases
 	src = quote end
+	
 	push!(src.args, getShaderCode(quad, scene.cameraId; binding = binding))
+	
 	try
 		cshader = createShaderObj(gpuDevice, src; savefile=false)
-		cshaders =  getfield(quad, :cshaders)
+		cshaders = getfield(quad, :cshaders)
 		cshaders[scene.cameraId] = cshader
-		# setfield!(object, :cshader, cshader)
 		if isdefined(WGPUCore, :logLevel) && Int(WGPUCore.logLevel) == 4
-			@info  cshader.src "RenderableUI"
+			@info cshader.src "RenderableUI"
 		end
 	catch(e)
 		@info "Caught exception in RenderableUI :compileShaders!" e
+		@error "Source code:" src
 		rethrow(e)
 	end
 	return nothing
@@ -215,18 +230,24 @@ function compileShaders!(gpuDevice, scene::Scene, object::WorldObject; binding=M
 
 			isLight = isNormalDefined(obj) && scene.light != nothing
 			isTexture = isTextureDefined(obj) && obj.textureData != nothing
-			src = getDefaultSrc(scene, isLight, isTexture)
+			
+			# Create shader source
+			src = quote end
+			
+			# Add camera and other code
+			append!(src.args, getDefaultSrc(scene, isLight, isTexture).args)
 			push!(src.args, getShaderCode(obj, scene.cameraId; binding = binding))
+			
 			try
 				cshader = createShaderObj(gpuDevice, src; savefile=false)
 				cshaders = getfield(obj, :cshaders)
 				cshaders[scene.cameraId] = cshader
-				# setfield!(obj, :cshader, cshader)
 				if isdefined(WGPUCore, :logLevel) && Int(WGPUCore.logLevel) == 4
-					@info  cshader.src "WorldObject"
+					@info cshader.src "WorldObject"
 				end
 			catch(e)
 				@info "Caught Exception in WorldObject :compileShaders!" e
+				@error "Source code:" src
 				rethrow(e)
 			end
 		# else
@@ -278,11 +299,15 @@ end
 function render(renderer::Renderer; dims=nothing)
     scene = renderer.scene
 	if dims !== nothing
-		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1)
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1.0)
 		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 	end
 	for object in scene.objects
-		WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, scene.cameraId)
+		try
+			WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, scene.cameraId)
+		catch e
+			@error "Error rendering object of type $(typeof(object)):" e
+		end
 	end
 end
 
@@ -296,7 +321,31 @@ function render(renderer::Renderer, viewportDims::Dict)
 				WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1.0)
 				# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 			end
-			WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, camera.id)
+			try
+				# Make sure cshader exists for this camera
+				if !haskey(object.cshaders, camera.id)
+					@debug "Object does not have shader for camera $(camera.id), recompiling"
+					# Store current camera id
+					oldCameraId = scene.cameraId
+					# Set current camera id to the target camera
+					scene.cameraId = camera.id
+					# Compile shaders for this camera
+					try
+						compileShaders!(scene.gpuDevice, scene, object)
+						# Prepare pipeline for this camera
+						preparePipeline(scene.gpuDevice, renderer, object, camera)
+					catch e
+						@error "Error compiling shaders for camera $(camera.id)" e
+					end
+					# Restore original camera id
+					scene.cameraId = oldCameraId
+				end
+				
+				# Now render with the correct camera
+				WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, camera.id)
+			catch e
+				@error "Error rendering object of type $(typeof(object)) with camera $(camera.id):" e
+			end
 		end
 	end
 end
@@ -324,9 +373,17 @@ end
 function render(renderer::Renderer, object::Renderable; dims=nothing)
 	scene = renderer.scene
 	if dims!==nothing
-		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1)
+		WGPUCore.setViewport(renderer.renderPass, dims..., 0.0, 1.0)
 		# WGPUCore.setScissorRect(renderer.renderPass[], dims...)
 	end
+	
+	# Make sure shader exists for this camera
+	if !haskey(object.cshaders, scene.cameraId)
+		@debug "Object does not have shader for current camera, recompiling"
+		compileShaders!(scene.gpuDevice, scene, object)
+		preparePipeline(scene.gpuDevice, renderer, object, scene.cameraSystem[scene.cameraId])
+	end
+	
 	WGPUgfx.render(renderer.renderPass, renderer.renderPassOptions, object, scene.cameraId)
 end
 

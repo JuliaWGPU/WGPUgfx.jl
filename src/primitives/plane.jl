@@ -30,16 +30,15 @@ end
 
 function defaultPlane(;width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 0.2, 0.5, 1.0], image="")
 
-	
-	# vertexData = cat([
-	# 	[-1, -1, 0, 1],
-	# 	[1, -1, 0, 1],
-	# 	[1, 1, 0, 1],
-	# 	[1, 1, 0, 1],
-	# 	[-1, 1, 0, 1],
-	# 	[-1, -1, 0, 1],
-	# ]..., dims=2) .|> Float32
-
+	vertexData = cat([
+		[-1, -1, 0, 1],
+		[1, -1, 0, 1],
+		[1, 1, 0, 1],
+		[1, 1, 0, 1],
+		[-1, 1, 0, 1],
+		[-1, -1, 0, 1],
+	]..., dims=2) .|> Float32
+"""
 	vertexData = cat([
 		[1, -1, 0, 1],
 		[1, 1, 0, 1],
@@ -48,6 +47,7 @@ function defaultPlane(;width=1, height=1, wSegments=2, hSegments=2, color=[0.6, 
 		[1, 1, 0, 1],
 		[-1, 1, 0, 1],
 	]..., dims=2) .|> Float32
+"""
 
 	unitColor = cat([
 		[0.6, 0.4, 0.5, 1],

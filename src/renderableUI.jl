@@ -194,18 +194,20 @@ function getUniformBuffer(quad::RenderableUI)
 end
 
 function getShaderCode(quad::RenderableUI, cameraId::Int; binding=0)
-	name = Symbol(typeof(quad), binding)
-	quadType = typeof(quad)
+	name = Symbol(typeof(quad).name.name, binding)
+	quadType = typeof(quad).name.name
 	quadUniform = Symbol(quadType, :Uniform)
 	isTexture = isTextureDefined(quad) && quad.textureData !== nothing
 	isLight = isNormalDefined(quad)
 	vertexInputName = Symbol(
+		quadType,
 		:VertexInput,
 		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),
 	)
 
 	vertexOutputName = Symbol(
+		quadType,
 		:VertexOutput,
 		isLight ? (:LL) : (:NL),
 		isTexture ? (:TT) : (:NT),

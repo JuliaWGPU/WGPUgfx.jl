@@ -3,11 +3,16 @@ module WGPUgfx
 using WGPUCanvas
 using LinearAlgebra
 using WGPUCore
+using MacroTools
 
 using Reexport
 
 @reexport using WGSLTypes
 
+include("types.jl")
+# Type registration is handled in shader generation
+
+include("utils.jl")
 include("shaders.jl")
 include("primitives.jl")
 include("primitivesUI.jl")
@@ -34,5 +39,6 @@ export @builtin, @location, wgslType, @var, @letvar,
 	composeShader, Scene, getShaderCode, defaultCamera, Camera, defaultCube, Cube,
 	setup, runApp, getBindingLayouts, getBindings, defaultPlane, Plane, defaultTriangle3D,
 	Triangle3D, defaultCircle, Circle, defaultLighting, Lighting, defaultWGPUMesh,
-	addObject!, addObjects!, attachEventSystem, RenderType, SURFACE, AXIS, VISIBLE, WIREFRAME, BBOX, SELECT, WorldObject, Renderable
+	addObject!, addObjects!, attachEventSystem, RenderType, SURFACE, AXIS, VISIBLE, WIREFRAME, BBOX, SELECT, WorldObject, Renderable,
+	CameraUniform, LightingUniform, convertToMatrix, ensureSMatrix, isValidMatrix, convertMatrixToSMatrix
 end

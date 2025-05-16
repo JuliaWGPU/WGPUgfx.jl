@@ -78,6 +78,18 @@ mainApp = () -> begin
 					pc.splatScale +=speed
 				elseif keyboardState.key == GLFW.KEY_DOWN
 					pc.splatScale +=speed
+				elseif keyboardState.key == GLFW.KEY_0
+					scene.camera.eye = [rand(0.1:3.0), rand(0.1:3.0), rand(0.1:3.0)]
+					splatDataCopy = WGPUCore.readBuffer(scene.gpuDevice, pc.splatBuffer, 0, pc.splatBuffer.size)
+					gsplatInCopy = reinterpret(WGSLTypes.GSplatIn, splatDataCopy)
+					sortIdxs = sortperm(gsplatInCopy, by=x->x.pos[3])
+					gsplatInSorted = gsplatInCopy[sortIdxs]
+					storageData = reinterpret(UInt8, gsplatInSorted)
+					WGPUCore.writeBuffer(
+						scene.gpuDevice.queue,
+						pc.splatBuffer,
+						storageData[:],
+					)
 				end
 				WGPUCore.writeBuffer(
 					scene.gpuDevice.queue,

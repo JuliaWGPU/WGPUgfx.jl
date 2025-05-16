@@ -57,8 +57,11 @@ end
 
 function preparePipeline(gpuDevice, scene, camera::Camera; binding=0)
 	uniformBuffer = getfield(camera, :uniformBuffer)
-	push!(scene.bindingLayouts, getBindingLayouts(camera; binding=binding)...)
-	push!(scene.bindings, getBindings(camera, uniformBuffer; binding=binding)...)
+	# Check if this camera's binding is already in the layout
+	if !any(layout -> layout isa Pair && get(layout[2], :binding, -1) == binding, scene.bindingLayouts)
+		push!(scene.bindingLayouts, getBindingLayouts(camera; binding=binding)...)
+		push!(scene.bindings, getBindings(camera, uniformBuffer; binding=binding)...)
+	end
 end
 
 
@@ -75,12 +78,15 @@ end
 
 
 function computeUniformData(camera::Camera)
-	UniformType = getproperty(WGSLTypes, :CameraUniform)
-	uniformData = cStruct(UniformType) # TODO only first is necessary
 	(viewMatrix, projMatrix) = computeTransform(camera)
-	uniformData.projMatrix = projMatrix
-	uniformData.viewMatrix = viewMatrix
-	return uniformData
+	return WGPUgfx.CameraUniform(
+		camera.eye,
+		camera.aspectRatio,
+		camera.lookAt,
+		camera.fov,
+		viewMatrix,
+		projMatrix
+	)
 end
 
 
@@ -117,28 +123,72 @@ end
 
 Base.setproperty!(camera::Camera, f::Symbol, v) = begin
 	setfield!(camera, f, v)
-	uniformData = camera.uniformData
-	if camera.uniformData != nothing
-		if f in propertynames(uniformData)
-			setproperty!(uniformData, f, v)
-		end
-		(viewMatrix, projMatrix) = computeTransform(camera)
-		uniformData.viewMatrix = viewMatrix
-		uniformData.projMatrix = projMatrix
+	if isdefined(camera, :gpuDevice) && camera.gpuDevice !== nothing && 
+	   isdefined(camera, :uniformBuffer) && camera.uniformBuffer !== nothing
+		# Recompute the entire uniform data
+		setfield!(camera, :uniformData, computeUniformData(camera))
 		updateUniformBuffer(camera)
 	end
 end
 
 function updateViewTransform!(camera::Camera, transform)
-	uniformData = camera.uniformData
-	uniformData.viewMatrix = transform
-	updateUniformBuffer(camera)
+	if !isdefined(camera, :uniformData) || camera.uniformData === nothing
+		return
+	end
+	
+	# Make sure transform is the right type
+	try
+		transform = ensureSMatrix(transform)
+	catch e
+		@error "Could not convert transform to SMatrix{4,4,Float32}: $(typeof(transform))" exception=e
+		return
+	end
+	
+	# Create a new uniform with the updated view matrix
+	uniformData = WGPUgfx.CameraUniform(
+		camera.eye,
+		camera.aspectRatio,
+		camera.lookAt,
+		camera.fov,
+		transform,
+		camera.uniformData.projMatrix
+	)
+	setfield!(camera, :uniformData, uniformData)
+	
+	if isdefined(camera, :gpuDevice) && camera.gpuDevice !== nothing && 
+	   isdefined(camera, :uniformBuffer) && camera.uniformBuffer !== nothing
+		updateUniformBuffer(camera)
+	end
 end
 
 function updateProjTransform!(camera::Camera, transform)
-	uniformData = camera.uniformData
-	uniformData.projMatrix = transform
-	updateUniformBuffer(camera)
+	if !isdefined(camera, :uniformData) || camera.uniformData === nothing
+		return
+	end
+	
+	# Make sure transform is the right type
+	try
+		transform = ensureSMatrix(transform)
+	catch e
+		@error "Could not convert transform to SMatrix{4,4,Float32}: $(typeof(transform))" exception=e
+		return
+	end
+	
+	# Create a new uniform with the updated projection matrix
+	uniformData = WGPUgfx.CameraUniform(
+		camera.eye,
+		camera.aspectRatio,
+		camera.lookAt,
+		camera.fov,
+		camera.uniformData.viewMatrix,
+		transform
+	)
+	setfield!(camera, :uniformData, uniformData)
+	
+	if isdefined(camera, :gpuDevice) && camera.gpuDevice !== nothing && 
+	   isdefined(camera, :uniformBuffer) && camera.uniformBuffer !== nothing
+		updateUniformBuffer(camera)
+	end
 end
 
 function getViewTransform(camera::Camera)
@@ -172,7 +222,19 @@ end
 
 
 function translate(loc)
-	(x, y, z) = loc
+	# Handle different input types
+	if length(loc) >= 3
+		x = Float32(loc[1])
+		y = Float32(loc[2])
+		z = Float32(loc[3])
+	elseif length(loc) == 2
+		x = Float32(loc[1])
+		y = Float32(loc[2])
+		z = 0.0f0
+	else
+		error("translate: location must have at least 2 components")
+	end
+	
 	mat = coordinateTransform*[
 		1 	0 	0 	x;
 		0 	1 	0 	y;
@@ -181,9 +243,7 @@ function translate(loc)
 	]
 
 	return LinearMap(
-		SMatrix{4, 4}(
-			mat
-		) .|> Float32
+		convertMatrixToSMatrix(mat)
 	)
 end
 
@@ -193,39 +253,35 @@ function rotateTransform(q::Quaternion)
 	mat = Matrix{Float32}(I, (4, 4))
 	mat[1:3, 1:3] .= rotMat
 	return LinearMap(
-		SMatrix{4, 4}(
-			mat
-		)
+		convertMatrixToSMatrix(mat)
 	)
 end
 
 
 function scaleTransform(loc)
 	(x, y, z) = coordinateTransform[1:3, 1:3]*loc
+	mat = [
+		x 	0 	0 	0;
+		0	y   0	0;
+		0	0	z 	0;
+		0	0	0	1;
+	]
 	return LinearMap(
-		@SMatrix(
-			[
-				x 	0 	0 	0;
-				0	y   0	0;
-				0	0	z 	0;
-				0	0	0	1;
-			]
-		) .|> Float32
+		convertMatrixToSMatrix(mat)
 	)
 end
 
 
 function translateCamera(camera::Camera)
 	(x, y, z) = coordinateTransform[1:3, 1:3]*camera.eye
+	mat = [
+		1 	0 	0 	x;
+		0 	1 	0 	y;
+		0 	0 	1 	z;
+		0 	0 	0 	1;
+	]
 	return LinearMap(
-		@SMatrix(
-			[
-				1 	0 	0 	x;
-				0 	1 	0 	y;
-				0 	0 	1 	z;
-				0 	0 	0 	1;
-			]
-		) .|> Float32
+		convertMatrixToSMatrix(mat)
 	) |> inv
 end
 
@@ -268,7 +324,7 @@ function lookAtLeftHanded(camera::Camera)
 	v = cross(w, u)
 	m = MMatrix{4, 4, Float32}(I)
 	m[1:3, 1:3] .= coordinateTransform[1:3, 1:3]*(cat([u, v, w]..., dims=2) |> adjoint .|> Float32 |> collect)
-	m = SMatrix(m)
+	m = convertMatrixToSMatrix(m)
 	return LinearMap(m) ∘ translateCamera(camera)
 end
 
@@ -283,6 +339,16 @@ function perspectiveMatrix(camera::Camera)
 	r = ar*t
 	l = -r
 	return perspectiveMatrix(((n, f, l, r, t, b) .|> Float32)...)
+end
+
+function orthographicMatrix(camera::Camera)
+	n = camera.nearPlane
+	f = camera.farPlane
+	t = n*tan(fov/2)
+	b = -t
+	r = ar*t
+	l = -r
+	return orthographicMatrix(t-b, r-l, n, f)
 end
 
 
@@ -303,9 +369,7 @@ function perspectiveMatrix(near::Float32, far::Float32, l::Float32, r::Float32, 
 	]
 
 	return LinearMap(
-		SMatrix{4, 4}(
-			pmat
-		) .|> Float32
+		convertMatrixToSMatrix(pmat)
 	)
 end
 
@@ -316,15 +380,14 @@ function orthographicMatrix(w::Int, h::Int, near, far)
 	zn = near
 	zf = far
 	s = 1/(zn - zf)
+	mat = [
+		2/w 	0      	0 		0;
+		0		2/h		0		0;
+		0	   	0		s		0;
+		0		0		zn*s	1;
+	]
 	return LinearMap(
-		@SMatrix(
-			[
-				2/w 	0      	0 		0;
-				0		2/h		0		0;
-				0	   	0		s		0;
-				0		0		zn*s	1;
-			]
-		) .|> Float32
+		convertMatrixToSMatrix(mat)
 	)
 end
 
@@ -335,24 +398,46 @@ end
 
 
 function updateUniformBuffer(camera::Camera)
-	data = getfield(camera, :uniformData) |> toByteArray
-	WGPUCore.writeBuffer(
-		camera.gpuDevice.queue,
-		getfield(camera, :uniformBuffer),
-		data,
-	)
+	if !isdefined(camera, :uniformData) || camera.uniformData === nothing ||
+	   !isdefined(camera, :gpuDevice) || camera.gpuDevice === nothing ||
+	   !isdefined(camera, :uniformBuffer) || camera.uniformBuffer === nothing
+		return
+	end
+	
+	try
+		uniformData = getfield(camera, :uniformData)
+		data = reinterpret(UInt8, [uniformData]) |> collect
+		WGPUCore.writeBuffer(
+			camera.gpuDevice.queue,
+			getfield(camera, :uniformBuffer),
+			data,
+		)
+	catch e
+		@error "Failed to update uniform buffer" exception=e
+	end
 end
 
 
 function readUniformBuffer(camera::Camera)
-	data = WGPUCore.readBuffer(
-		camera.gpuDevice,
-		getfield(camera, :uniformBuffer),
-		0,
-		getfield(camera, :uniformBuffer).size
-	)
-	datareinterpret = reinterpret(SMatrix{4, 4, Float32, 16}, data)[1]
-	# @info "Received Buffer" datareinterpret
+	if !isdefined(camera, :gpuDevice) || camera.gpuDevice === nothing ||
+	   !isdefined(camera, :uniformBuffer) || camera.uniformBuffer === nothing
+		@warn "Cannot read uniform buffer: device or buffer not initialized"
+		return nothing
+	end
+	
+	try
+		data = WGPUCore.readBuffer(
+			camera.gpuDevice,
+			getfield(camera, :uniformBuffer),
+			0,
+			getfield(camera, :uniformBuffer).size
+		)
+		datareinterpret = reinterpret(WGPUgfx.CameraUniform, data)[1]
+		return datareinterpret
+	catch e
+		@error "Failed to read uniform buffer" exception=e
+		return nothing
+	end
 end
 
 
@@ -362,17 +447,16 @@ end
 
 
 function getShaderCode(camera::Camera; binding=CAMERA_BINDING_START)
-	cameraUniform = :CameraUniform
 	shaderSource = quote
-		struct $cameraUniform
-			eye::Vec3{Float32}
-			aspectRatio::Float32
-			lookAt::Vec3{Float32}
-			fov::Float32
-			viewMatrix::Mat4{Float32}
-			projMatrix::Mat4{Float32}
+		struct CameraUniform
+		    eye::Vec3{Float32}
+		    aspectRatio::Float32
+		    lookAt::Vec3{Float32}
+		    fov::Float32
+		    viewMatrix::Mat4{Float32}
+		    projMatrix::Mat4{Float32}
 		end
-		@var Uniform 0 $(binding) camera::$cameraUniform
+		@var Uniform 0 $(binding) camera::CameraUniform
 	end
 	return shaderSource
 end

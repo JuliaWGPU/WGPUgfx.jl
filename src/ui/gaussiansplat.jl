@@ -52,7 +52,6 @@ function readPlyFile(path)
 	return splatData
 end
 
-
 function defaultGSplat(
 		path::String; 
 		color=[0.2, 0.9, 0.0, 1.0], 
@@ -210,7 +209,7 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 			@let ty = min(limy, max(-limy, tytz)) * t.z;
 			@let tz = t.z
 			
-			@let f::Float32 = 1200.0*(tan(camera.fov/2.0))
+			@let f::Float32 = 1100.0*(tan(camera.fov/2.0))
 			
 			@let J = """
 				mat2x4<f32>(
@@ -263,9 +262,9 @@ function getShaderCode(gsplat::GSplat, cameraId::Int; binding=0)
 				splatIn.sh[1][0], splatIn.sh[1][1], splatIn.sh[1][2], splatIn.sh[1][3],
 				splatIn.sh[2][0], splatIn.sh[2][1], splatIn.sh[2][2], splatIn.sh[2][3]
 			);
-			#@let eye = Vec3{Float32}(0.0, 0.0, 4.0)
-			@let dir = normalize(out.pos.xyz - (camera.lookAt.xyz - camera.eye.xyz))
 			
+			@let dir = normalize(out.pos.xyz - (camera.lookAt.xyz - camera.eye.xyz))
+
 			@let x = dir.x;
 			@let y = dir.y;
 			@let z = dir.z;
