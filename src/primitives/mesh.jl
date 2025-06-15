@@ -49,7 +49,7 @@ function readObj(path::String)
                     push!(faceidxs, (p, u, n))
                 end
                 push!(indices, [idx for idx in faceidxs])
-            else 
+            else
                 indexList = [(Meta.parse(i), -1, -1) for i in s[2:end]]
                 push!(indices, indexList)
             end
@@ -79,7 +79,14 @@ mutable struct WGPUMesh <: MeshSurface
 	cshaders
 end
 
-function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 1.0f0, color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0], image::String="", topology="TriangleList")
+function defaultWGPUMesh(
+        path::String;
+        scale::Union{Vector{Float32}, Float32} = 1.0f0,
+        color::Vector{Float64}=[0.5, 0.6, 0.7, 1.0],
+        image::String="",
+        topology="TriangleList",
+        swapMat = Matrix(I, 4, 4) .|> Float32
+    )
 	meshdata = readObj(path) # TODO hardcoding Obj format
 	vIndices = reduce(hcat, map((x)->broadcast(first, x), meshdata.indices)) .|> UInt32
 	nIndices = reduce(hcat, map((x)->getindex.(x, 3), meshdata.indices))
@@ -91,49 +98,46 @@ function defaultWGPUMesh(path::String; scale::Union{Vector{Float32}, Float32} = 
 	else
 		scale = scale |> diagm
 	end
-	# TODO blender conversion 
-	# swapMat = [1 0 0 0; 0 1 0 0; 0 0 1 0; 0 0 0 1] .|> Float32;
-	swapMat = [1 0 0 0; 0 0 -1 0; 0 1 0 0; 0 0 0 1] .|> Float32;
-	
+
 	vertexData = scale*swapMat*vertexData
 	uvData = nothing
 	textureData = nothing
 	texture = nothing
 	textureView = nothing
-	
+
 	if image != ""
 		uvData = reduce(hcat, meshdata.uvs[uIndices[:]]) .|> Float32
 		textureData = begin
 			img = load(image)
 			img = imresize(img, (256, 256)) # TODO hardcoded size
 			img = RGBA.(img)
-			imgview = channelview(img) |> collect 
+			imgview = channelview(img) |> collect
 		end
 	end
-	
+
 	indexData = 0:length(vIndices)-1 |> collect .|> UInt32
 	unitColor = cat([
 		color
 	]..., dims=2) .|> Float32
-	
+
 	colorData = repeat(unitColor, inner=(1, length(vIndices)))
-	
+
 	normalData = scale*swapMat*reduce(hcat, meshdata.normals[nIndices[:]]) .|> Float32
-	
+
 	mesh = WGPUMesh(
-		nothing, 
+		nothing,
 		topology,
 		vertexData,
-		colorData, 
-		indexData, 
-		normalData, 
-		uvData, 
-		nothing, 
+		colorData,
+		indexData,
+		normalData,
+		uvData,
+		nothing,
 		nothing,
 		nothing,
 		nothing,
 		textureData,
-		nothing, 
+		nothing,
 		nothing,
 		nothing,
 		Dict(),

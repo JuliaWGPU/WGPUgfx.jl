@@ -14,7 +14,10 @@ renderer = getRenderer(scene)
 canvas = scene.canvas
 gpuDevice = scene.gpuDevice
 
-mesh = WGPUgfx.defaultWGPUMesh(joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"))
+mesh = WGPUgfx.defaultWGPUMesh(
+    joinpath(pkgdir(WGPUgfx), "assets", "cube.obj"),
+    swapMat = [1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1] .|> Float32
+)
 
 addObject!(renderer, mesh)
 
